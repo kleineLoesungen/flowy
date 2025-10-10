@@ -4,16 +4,27 @@
       <h3>{{ isEditing ? 'Edit Flow' : 'Add Flow' }}</h3>
       <div class="header-controls">
         <button @click="addElement" class="btn btn-primary">
-          + Add Element
+          + Element
         </button>
         <button @click="reorganizeLayout" class="btn btn-info">
-          🔄 Auto Layout
+          Auto Layout
         </button>
-        <button @click="saveTemplate" class="btn btn-success">
-          {{ isEditing ? 'Update Flow' : 'Save Flow' }}
+        <button 
+          v-if="hasChanges" 
+          @click="saveTemplate" 
+          class="btn btn-success"
+        >
+          Save
+        </button>
+        <button 
+          v-if="hasChanges" 
+          @click="resetChanges" 
+          class="btn btn-warning"
+        >
+          Reset
         </button>
         <button @click="$emit('cancel')" class="btn btn-secondary">
-          Cancel
+          Close
         </button>
       </div>
     </div>
@@ -100,17 +111,6 @@
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-        <div class="form-group layout-info">
-          <label>Layout</label>
-          <div class="layout-status">
-            <span v-if="props.template?.layout" class="layout-mode custom">
-              📐 Custom
-            </span>
-            <span v-else class="layout-mode auto">
-              🔄 Auto
-            </span>
           </div>
         </div>
       </div>
@@ -295,6 +295,60 @@ const templateData = ref<{name: string, description: string, startingElementIds:
 const nodes = ref<Node[]>([])
 const edges = ref<Edge[]>([])
 const nodeCounter = ref(0)
+
+// Change tracking state
+const initialState = ref<{
+  templateData: {name: string, description: string, startingElementIds: string[]},
+  nodes: Node[],
+  edges: Edge[]
+} | null>(null)
+
+const hasChanges = computed(() => {
+  if (!initialState.value) return false
+  
+  // Check template data changes
+  const currentTemplateData = templateData.value
+  const initialTemplateData = initialState.value.templateData
+  
+  if (currentTemplateData.name !== initialTemplateData.name ||
+      currentTemplateData.description !== initialTemplateData.description ||
+      JSON.stringify(currentTemplateData.startingElementIds.sort()) !== JSON.stringify(initialTemplateData.startingElementIds.sort())) {
+    return true
+  }
+  
+  // Check nodes changes
+  if (nodes.value.length !== initialState.value.nodes.length) {
+    return true
+  }
+  
+  // Check if any node has changed
+  for (const currentNode of nodes.value) {
+    const initialNode = initialState.value.nodes.find(n => n.id === currentNode.id)
+    if (!initialNode) return true
+    
+    if (JSON.stringify(currentNode.data) !== JSON.stringify(initialNode.data) ||
+        JSON.stringify(currentNode.position) !== JSON.stringify(initialNode.position)) {
+      return true
+    }
+  }
+  
+  // Check edges changes
+  if (edges.value.length !== initialState.value.edges.length) {
+    return true
+  }
+  
+  // Check if any edge has changed
+  for (const currentEdge of edges.value) {
+    const initialEdge = initialState.value.edges.find(e => 
+      e.source === currentEdge.source && 
+      e.target === currentEdge.target &&
+      e.data?.relationType === currentEdge.data?.relationType
+    )
+    if (!initialEdge) return true
+  }
+  
+  return false
+})
 
 // Force reactivity for Vue Flow
 const reactiveNodes = computed(() => {
@@ -633,6 +687,11 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
     templateData.value.description = template.description
     templateData.value.startingElementIds = template.startingElementIds || []
     loadTemplateIntoEditor(template)
+    
+    // Save initial state after loading is complete
+    nextTick(() => {
+      saveInitialState()
+    })
   } else {
     templateData.value.name = ''
     templateData.value.description = ''
@@ -640,6 +699,11 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
     nodes.value = []
     edges.value = []
     nodeCounter.value = 0
+    
+    // Save initial state for new templates
+    nextTick(() => {
+      saveInitialState()
+    })
   }
 }, { immediate: true, deep: true })
 
@@ -986,6 +1050,49 @@ const onEdgeDoubleClick = (event: any) => {
   showEdgeModal.value = true
 }
 
+// Change tracking functions
+const saveInitialState = () => {
+  initialState.value = {
+    templateData: {
+      name: templateData.value.name,
+      description: templateData.value.description,
+      startingElementIds: [...templateData.value.startingElementIds]
+    },
+    nodes: nodes.value.map(node => ({
+      ...node,
+      data: { ...node.data },
+      position: { ...node.position }
+    })),
+    edges: edges.value.map(edge => ({
+      ...edge,
+      data: edge.data ? { ...edge.data } : undefined
+    }))
+  }
+}
+
+const resetChanges = () => {
+  if (!initialState.value) return
+  
+  // Reset template data
+  templateData.value.name = initialState.value.templateData.name
+  templateData.value.description = initialState.value.templateData.description
+  templateData.value.startingElementIds = [...initialState.value.templateData.startingElementIds]
+  
+  // Reset nodes and edges
+  nodes.value = initialState.value.nodes.map(node => ({
+    ...node,
+    data: { ...node.data },
+    position: { ...node.position }
+  }))
+  
+  edges.value = initialState.value.edges.map(edge => ({
+    ...edge,
+    data: edge.data ? { ...edge.data } : undefined
+  }))
+  
+  nodeCounter.value = initialState.value.nodes.length
+}
+
 // Cleanup event listeners
 onUnmounted(() => {
   document.removeEventListener('click', closeDropdownOnOutsideClick)
@@ -1062,6 +1169,11 @@ const saveTemplate = () => {
   try {
     const template = convertToTemplate()
     emit('save', template)
+    
+    // Update initial state to reflect saved state
+    nextTick(() => {
+      saveInitialState()
+    })
   } catch (error) {
     console.error('Error converting flow:', error)
     alert('Error creating flow. Please check the console for details.')
@@ -1109,6 +1221,8 @@ const saveTemplate = () => {
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+  z-index: 100;
 }
 
 .info-row {
@@ -1180,6 +1294,7 @@ const saveTemplate = () => {
 /* Multi-Select Dropdown */
 .multi-select-wrapper {
   position: relative;
+  z-index: 1000;
 }
 
 .multi-select-dropdown {
@@ -1207,6 +1322,8 @@ const saveTemplate = () => {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+  position: relative;
+  z-index: 1001;
 }
 
 .selected-display {
@@ -1279,16 +1396,16 @@ const saveTemplate = () => {
   top: 100%;
   left: 0;
   right: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(102, 126, 234, 0.2);
   border-top: none;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 10000;
 }
 
 .dropdown-item {
@@ -1700,6 +1817,18 @@ const saveTemplate = () => {
   background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.btn-warning:hover {
+  background: linear-gradient(135deg, #e59400 0%, #c2610c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
 }
 
 .btn-secondary {

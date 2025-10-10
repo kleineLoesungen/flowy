@@ -155,7 +155,7 @@ const handleSave = async (template: FlowTemplate) => {
         })
         
         await refresh()
-        closeModals()
+        // Don't close modal after saving - user can continue editing
     } catch (error) {
         console.error('Error updating flow:', error)
         alert(`Error saving flow: ${error}`)
