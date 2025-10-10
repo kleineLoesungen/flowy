@@ -6,6 +6,9 @@
         <button @click="addElement" class="btn btn-primary">
           + Element
         </button>
+        <button @click="fitToView" class="btn btn-info">
+          Fit View
+        </button>
         <button @click="reorganizeLayout" class="btn btn-info">
           Auto Layout
         </button>
@@ -45,16 +48,14 @@
         </div>
         <div class="form-group">
           <label for="flow-description">Description</label>
-          <input 
+          <textarea 
             id="flow-description"
             v-model="templateData.description"
-            type="text"
             placeholder="Enter flow description"
-            class="form-control"
-          />
+            class="form-control textarea-compact"
+            rows="2"
+          ></textarea>
         </div>
-      </div>
-      <div class="info-row-secondary">
         <div class="form-group">
           <label>Starting Elements</label>
           <div class="starting-elements-control">
@@ -264,7 +265,7 @@
 </template>
 
 <script setup lang="ts">
-import { VueFlow, Handle, Position } from '@vue-flow/core'
+import { VueFlow, Handle, Position, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import type { Node, Edge, Connection, NodeChange, EdgeChange, XYPosition } from '@vue-flow/core'
@@ -295,6 +296,9 @@ const templateData = ref<{name: string, description: string, startingElementIds:
 const nodes = ref<Node[]>([])
 const edges = ref<Edge[]>([])
 const nodeCounter = ref(0)
+
+// Vue Flow instance
+const { fitView } = useVueFlow()
 
 // Change tracking state
 const initialState = ref<{
@@ -618,9 +622,9 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   } else {
     // Use auto-layout algorithm
     levels.forEach((level, levelIndex) => {
-      const levelY = 100 + levelIndex * 180
-      const levelWidth = level.length * 280
-      const startX = Math.max(50, (800 - levelWidth) / 2) // Center horizontally
+      const levelY = 120 + levelIndex * 220  // Increased Y padding: 120 base + 220 spacing
+      const levelWidth = level.length * 320  // Increased X padding: 320 spacing
+      const startX = Math.max(80, (1000 - levelWidth) / 2) // Increased margins and canvas width
       
       level.forEach((elementId, nodeIndex) => {
         const element = nodeMap.get(elementId)
@@ -629,7 +633,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
             id: element.id,
             type: 'element',
             position: { 
-              x: startX + nodeIndex * 280, 
+              x: startX + nodeIndex * 320,  // Increased X spacing
               y: levelY 
             },
             data: { ...element }
@@ -667,6 +671,16 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
     nodes.value = elementNodes
     edges.value = relationEdges
     nodeCounter.value = template.elements.length
+    
+    // Fit view to show all elements after a short delay to ensure rendering is complete
+    setTimeout(() => {
+      fitView({ 
+        padding: 0.1, // 10% padding around elements
+        duration: 800, // smooth animation
+        maxZoom: 1.5,  // don't zoom in too much
+        minZoom: 0.2   // don't zoom out too much
+      })
+    }, 100)
   })
 }
 
@@ -758,7 +772,7 @@ const addElement = () => {
     // Find the rightmost X position at that Y level
     const nodesAtMaxY = nodes.value.filter(node => node.position.y === maxY)
     if (nodesAtMaxY.length > 0) {
-      maxXAtBottomY = Math.max(...nodesAtMaxY.map(node => node.position.x)) + 280
+      maxXAtBottomY = Math.max(...nodesAtMaxY.map(node => node.position.x)) + 320  // Increased spacing to match auto-layout
     }
   } else {
     // First node, center it
@@ -880,19 +894,39 @@ const reorganizeLayout = () => {
   
   // Update node positions
   levels.forEach((level, levelIndex) => {
-    const levelY = 100 + levelIndex * 180
-    const levelWidth = level.length * 280
-    const startX = Math.max(50, (800 - levelWidth) / 2) // Center horizontally
+    const levelY = 120 + levelIndex * 220  // Increased Y padding: 120 base + 220 spacing
+    const levelWidth = level.length * 320  // Increased X padding: 320 spacing
+    const startX = Math.max(80, (1000 - levelWidth) / 2) // Increased margins and canvas width
     
     level.forEach((elementId, nodeIndex) => {
       const node = nodes.value.find(n => n.id === elementId)
       if (node) {
         node.position = {
-          x: startX + nodeIndex * 280,
+          x: startX + nodeIndex * 320,  // Increased X spacing
           y: levelY
         }
       }
     })
+  })
+  
+  // Auto-fit view after reorganizing
+  setTimeout(() => {
+    fitView({ 
+      padding: 0.1,
+      duration: 800,
+      maxZoom: 1.5,
+      minZoom: 0.2
+    })
+  }, 100)
+}
+
+// Fit view to show all elements
+const fitToView = () => {
+  fitView({ 
+    padding: 0.1, // 10% padding around elements
+    duration: 800, // smooth animation
+    maxZoom: 1.5,  // don't zoom in too much
+    minZoom: 0.2   // don't zoom out too much
   })
 }
 
@@ -1202,6 +1236,9 @@ const saveTemplate = () => {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   color: white;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  z-index: 110;
+  min-height: 60px;
 }
 
 .editor-header h3 {
@@ -1217,7 +1254,7 @@ const saveTemplate = () => {
 }
 
 .template-info {
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1.5rem;
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.3);
@@ -1227,17 +1264,9 @@ const saveTemplate = () => {
 
 .info-row {
   display: grid;
-  grid-template-columns: 1fr 1.5fr;
+  grid-template-columns: 1fr 1.5fr 1fr;
   gap: 1rem;
-  align-items: end;
-  margin-bottom: 0.75rem;
-}
-
-.info-row-secondary {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1rem;
-  align-items: end;
+  align-items: start;
 }
 
 .form-group {
@@ -1267,6 +1296,13 @@ const saveTemplate = () => {
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   background: rgba(255, 255, 255, 1);
+}
+
+.textarea-compact {
+  resize: vertical;
+  min-height: 60px;
+  max-height: 80px;
+  line-height: 1.4;
 }
 
 .layout-info {
@@ -1909,9 +1945,9 @@ const saveTemplate = () => {
     justify-content: center;
   }
 
-  .info-row,
-  .info-row-secondary {
+  .info-row {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 
   .layout-info {

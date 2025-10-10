@@ -55,10 +55,10 @@
     </div>
   </div>
 
-  <!-- Flow Visualization Modal -->
-  <FlowVisualizationModal 
+  <!-- Flow Viewer Modal -->
+  <FlowViewer 
+    v-if="showVisualizationModal"
     :template="selectedTemplate"
-    :is-open="showVisualizationModal"
     @close="closeVisualizationModal"
   />
 </template>
