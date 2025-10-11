@@ -130,7 +130,8 @@ const handleAddFlow = async () => {
             name: newFlowData.value.name.trim(),
             description: newFlowData.value.description.trim(),
             elements: [],
-            relations: []
+            relations: [],
+            startingElementIds: []
         }
 
         await $fetch('/api/templates/flows', {

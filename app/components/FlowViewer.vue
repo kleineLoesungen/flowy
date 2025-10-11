@@ -56,6 +56,9 @@
                   <h4>{{ data.name || 'Unnamed Element' }}</h4>
                   <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
                   <div class="element-meta">
+                    <span v-if="data.type" class="type-tag" :class="'type-' + data.type">
+                      {{ data.type === 'action' ? '⚡' : data.type === 'state' ? '⭕' : '📄' }} {{ data.type }}
+                    </span>
                     <span v-if="data.ownerId" class="owner-tag">
                       👤 {{ getUserName(data.ownerId) }}
                     </span>
@@ -750,6 +753,33 @@ watch(() => props.template, (template) => {
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
   color: #667eea;
   border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.type-tag {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.type-action {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.1) 100%);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.type-state {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(185, 28, 28, 0.1) 100%);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.type-artefact {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(180, 83, 9, 0.1) 100%);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .readonly-indicator {

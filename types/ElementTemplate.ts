@@ -5,4 +5,5 @@ export interface ElementTemplate {
     ownerId: string | null;
     teamId: string | null;
     durationDays: number | null;
+    type: 'action' | 'state' | 'artefact';
 }

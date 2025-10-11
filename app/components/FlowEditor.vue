@@ -152,6 +152,9 @@
                 <h4>{{ data.name || 'Unnamed Element' }}</h4>
                 <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
                 <div class="element-meta">
+                  <span v-if="data.type" class="type-tag" :class="'type-' + data.type">
+                    {{ data.type === 'action' ? '⚡' : data.type === 'state' ? '⭕' : '📄' }} {{ data.type }}
+                  </span>
                   <span v-if="data.ownerId" class="owner-tag">
                     👤 {{ getUserName(data.ownerId) }}
                   </span>
@@ -203,6 +206,16 @@
                     {{ team.name || `Team ${team.id}` }}
                   </option>
                   <option v-if="teams.length === 0" disabled>Loading teams...</option>
+                </select>
+                <select 
+                  v-model="editingNodeData.type"
+                  class="edit-input"
+                  @keyup.enter="saveNodeEdit"
+                  @keyup.escape="cancelNodeEdit"
+                >
+                  <option value="action">Action</option>
+                  <option value="state">State</option>
+                  <option value="artefact">Artefact</option>
                 </select>
                 <input 
                   v-model.number="editingNodeData.durationDays"
@@ -370,7 +383,8 @@ const editingNodeData = ref<ElementTemplate>({
   description: '',
   ownerId: null,
   teamId: null,
-  durationDays: null
+  durationDays: null,
+  type: 'action'
 })
 
 // Edge configuration state
@@ -616,7 +630,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
         position: savedPosition ? 
           { x: savedPosition.x, y: savedPosition.y } :
           { x: 100, y: 100 }, // fallback position
-        data: { ...element }
+        data: { ...element, type: element.type || 'action' }
       })
     })
   } else {
@@ -793,7 +807,8 @@ const addElement = () => {
       description: '',
       ownerId: null,
       teamId: null,
-      durationDays: 1
+      durationDays: 1,
+      type: 'action'
     }
   }
   nodes.value.push(newNode)
@@ -1142,7 +1157,8 @@ const convertToTemplate = (): FlowTemplate => {
     description: node.data.description || '',
     ownerId: node.data.ownerId || null,
     teamId: node.data.teamId || null,
-    durationDays: node.data.durationDays || null
+    durationDays: node.data.durationDays || null,
+    type: node.data.type || 'action'
   }))
   
   // Group edges by source and type to create consolidated relations
@@ -1710,6 +1726,33 @@ const saveTemplate = () => {
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
   color: #667eea;
   border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.type-tag {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.type-action {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.1) 100%);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.type-state {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(185, 28, 28, 0.1) 100%);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.type-artefact {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(180, 83, 9, 0.1) 100%);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .element-edit {
