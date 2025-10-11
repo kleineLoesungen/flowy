@@ -42,7 +42,11 @@
           
           <!-- Empty State Message -->
           <div v-if="nodes.length === 0" class="empty-flow-message">
-            <div class="empty-icon">👁️</div>
+            <div class="empty-icon">
+              <svg width="48" height="48" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+              </svg>
+            </div>
             <h3>Empty Flow Template</h3>
             <p>This flow template doesn't have any elements yet.</p>
           </div>
@@ -51,31 +55,52 @@
           <template #node-element="{ data, id }">
             <div class="element-node readonly" :class="`element-${data.type || 'action'}`" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}`">
               <div class="node-header">
-                <div class="element-icon">{{ data.name?.charAt(0) || 'E' }}</div>
+                <div class="element-icon">
+                  <svg v-if="data.type === 'action'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13 10h5l-6 6-6-6h5V3h2v7z"/>
+                  </svg>
+                  <svg v-else-if="data.type === 'state'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                  </svg>
+                  <svg v-else width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                  </svg>
+                </div>
                 <div class="element-info">
                   <h4>{{ data.name || 'Unnamed Element' }}</h4>
                   <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
                   <div class="element-meta">
                     <span v-if="data.type" class="type-tag" :class="'type-' + data.type">
-                      {{ data.type === 'action' ? '⚡' : data.type === 'state' ? '⭕' : '📄' }} {{ data.type }}
+                      <svg v-if="data.type === 'action'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10h5l-6 6-6-6h5V3h2v7z"/></svg>
+                      <svg v-else-if="data.type === 'state'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+                      <svg v-else width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/></svg>
+                      {{ data.type }}
                     </span>
                     <span v-if="data.ownerId" class="owner-tag">
-                      👤 {{ getUserName(data.ownerId) }}
+                      <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                      {{ getUserName(data.ownerId) }}
                     </span>
                     <span v-if="data.teamId" class="team-tag">
-                      👥 {{ getTeamName(data.teamId) }}
+                      <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM4 18v-4h3v4h6v-4h3v4h4v-6H0v6h4zM12 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-6c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM6 8c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2z"/></svg>
+                      {{ getTeamName(data.teamId) }}
                     </span>
                     <span v-if="data.durationDays" class="duration">
-                      ⏱️ {{ data.durationDays }} day{{ data.durationDays === 1 ? '' : 's' }}
+                      <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                      {{ data.durationDays }} day{{ data.durationDays === 1 ? '' : 's' }}
                     </span>
                   </div>
                 </div>
               </div>
               <!-- Vue Flow handles (for visual consistency) -->
-              <Handle id="top" type="target" :position="Position.Top" />
-              <Handle id="bottom" type="source" :position="Position.Bottom" />
-              <Handle id="left" type="target" :position="Position.Left" />
-              <Handle id="right" type="source" :position="Position.Right" />
+              <!-- Vue Flow handles - duplicate each position as both source and target for maximum flexibility -->
+              <Handle id="top-source" type="source" :position="Position.Top" />
+              <Handle id="top-target" type="target" :position="Position.Top" />
+              <Handle id="bottom-source" type="source" :position="Position.Bottom" />
+              <Handle id="bottom-target" type="target" :position="Position.Bottom" />
+              <Handle id="left-source" type="source" :position="Position.Left" />
+              <Handle id="left-target" type="target" :position="Position.Left" />
+              <Handle id="right-source" type="source" :position="Position.Right" />
+              <Handle id="right-target" type="target" :position="Position.Right" />
             </div>
           </template>
         </VueFlow>
@@ -363,14 +388,19 @@ const loadTemplateIntoViewer = (template: FlowTemplate) => {
     relation.fromElementIds.forEach((fromId: string) => {
       relation.toElementIds.forEach((toId: string) => {
         if (elementIds.has(fromId) && elementIds.has(toId)) {
-          // Determine appropriate handles based on relation type
-          let sourceHandle = 'bottom'
-          let targetHandle = 'top'
+          // Use default handles
+          let sourceHandle = 'bottom-source'
+          let targetHandle = 'top-target'
           
-          // For 'in' and 'out' relations, use horizontal connections
-          if (relation.type === 'in' || relation.type === 'out') {
-            sourceHandle = 'right'
-            targetHandle = 'left'
+          // Check if we have saved handle information  
+          if (relation.connections) {
+            const connection = relation.connections.find(
+              conn => conn.fromElementId === fromId && conn.toElementId === toId
+            )
+            if (connection) {
+              sourceHandle = connection.sourceHandle || sourceHandle
+              targetHandle = connection.targetHandle || targetHandle
+            }
           }
 
           relationEdges.push({
@@ -660,9 +690,13 @@ watch(() => props.template, (template) => {
 }
 
 .empty-icon {
-  font-size: 4rem;
   margin-bottom: 1rem;
-  opacity: 0.6;
+  opacity: 0.8;
+  color: #667eea;
+}
+
+.empty-icon svg {
+  filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.3));
 }
 
 .empty-flow-message h3 {
@@ -790,7 +824,9 @@ watch(() => props.template, (template) => {
 .owner-tag,
 .team-tag,
 .duration {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
   font-size: 0.7rem;
@@ -817,12 +853,21 @@ watch(() => props.template, (template) => {
 }
 
 .type-tag {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
   font-size: 0.7rem;
   font-weight: 500;
   line-height: 1;
+}
+
+.owner-tag svg,
+.team-tag svg,
+.duration svg,
+.type-tag svg {
+  flex-shrink: 0;
 }
 
 .type-action {

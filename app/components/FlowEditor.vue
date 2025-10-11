@@ -98,7 +98,17 @@
                     :class="{ 'selected': templateData.startingElementIds.includes(node.id) }"
                     @click.stop="toggleStartingElement(node.id)"
                   >
-                    <div class="element-icon-small">{{ node.data.name?.charAt(0) || 'E' }}</div>
+                    <div class="element-icon-small" :class="`element-${node.data.type || 'action'}`">
+                      <svg v-if="node.data.type === 'action'" width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M13 10h5l-6 6-6-6h5V3h2v7z"/>
+                      </svg>
+                      <svg v-else-if="node.data.type === 'state'" width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                      </svg>
+                      <svg v-else width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/>
+                      </svg>
+                    </div>
                     <div class="element-info-dropdown">
                       <span class="element-name">{{ node.data.name || 'Unnamed Element' }}</span>
                       <span v-if="node.data.description" class="element-description">{{ node.data.description }}</span>
@@ -137,7 +147,11 @@
         
         <!-- Empty State Message -->
         <div v-if="nodes.length === 0" class="empty-flow-message">
-          <div class="empty-icon">🎯</div>
+          <div class="empty-icon">
+            <svg width="48" height="48" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
           <h3>Ready to build your flow!</h3>
           <p>Click the "+ Add Element" button above to start building your flow.</p>
           <p>You can add elements, connect them, and create your workflow visually.</p>
@@ -147,22 +161,38 @@
         <template #node-element="{ data, id }">
           <div class="element-node" :class="{ 'editing': editingNodeId === id, [`element-${data.type || 'action'}`]: true }" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}`" @click="handleNodeClick(id)">
             <div class="node-header">
-              <div class="element-icon">{{ data.name?.charAt(0) || 'E' }}</div>
+              <div class="element-icon">
+                <svg v-if="data.type === 'action'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M13 10h5l-6 6-6-6h5V3h2v7z"/>
+                </svg>
+                <svg v-else-if="data.type === 'state'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+                <svg v-else width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                </svg>
+              </div>
               <div class="element-info" v-if="editingNodeId !== id">
                 <h4>{{ data.name || 'Unnamed Element' }}</h4>
                 <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
                 <div class="element-meta">
                   <span v-if="data.type" class="type-tag" :class="'type-' + data.type">
-                    {{ data.type === 'action' ? '⚡' : data.type === 'state' ? '⭕' : '📄' }} {{ data.type }}
+                    <svg v-if="data.type === 'action'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10h5l-6 6-6-6h5V3h2v7z"/></svg>
+                    <svg v-else-if="data.type === 'state'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+                    <svg v-else width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/></svg>
+                    {{ data.type }}
                   </span>
                   <span v-if="data.ownerId" class="owner-tag">
-                    👤 {{ getUserName(data.ownerId) }}
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    {{ getUserName(data.ownerId) }}
                   </span>
                   <span v-if="data.teamId" class="team-tag">
-                    👥 {{ getTeamName(data.teamId) }}
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM4 18v-4h3v4h6v-4h3v4h4v-6H0v6h4zM12 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-6c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM6 8c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2z"/></svg>
+                    {{ getTeamName(data.teamId) }}
                   </span>
                   <span v-if="data.durationDays" class="duration">
-                    ⏱️ {{ data.durationDays }} day{{ data.durationDays === 1 ? '' : 's' }}
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                    {{ data.durationDays }} day{{ data.durationDays === 1 ? '' : 's' }}
                   </span>
                 </div>
               </div>
@@ -227,19 +257,35 @@
                 />
                 <div class="edit-actions">
                   <button @click="saveNodeEdit" class="btn-small btn-save">✓</button>
-                  <button @click="cancelNodeEdit" class="btn-small btn-cancel">✕</button>
+                  <button @click="cancelNodeEdit" class="btn-small btn-cancel">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
               <div class="node-actions" v-if="editingNodeId !== id">
-                <button @click="editNode(id)" class="btn-icon edit-btn">✏️</button>
-                <button @click="removeNode(id)" class="btn-icon delete-btn">🗑️</button>
+                <button @click="editNode(id)" class="btn-icon edit-btn">
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  </svg>
+                </button>
+                <button @click="removeNode(id)" class="btn-icon delete-btn">
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                </button>
               </div>
             </div>
-            <!-- Vue Flow handles -->
-            <Handle id="top" type="target" :position="Position.Top" />
-            <Handle id="bottom" type="source" :position="Position.Bottom" />
-            <Handle id="left" type="target" :position="Position.Left" />
-            <Handle id="right" type="source" :position="Position.Right" />
+            <!-- Vue Flow handles - duplicate each position as both source and target for maximum flexibility -->
+            <Handle id="top-source" type="source" :position="Position.Top" />
+            <Handle id="top-target" type="target" :position="Position.Top" />
+            <Handle id="bottom-source" type="source" :position="Position.Bottom" />
+            <Handle id="bottom-target" type="target" :position="Position.Bottom" />
+            <Handle id="left-source" type="source" :position="Position.Left" />
+            <Handle id="left-target" type="target" :position="Position.Left" />
+            <Handle id="right-source" type="source" :position="Position.Right" />
+            <Handle id="right-target" type="target" :position="Position.Right" />
           </div>
         </template>
       </VueFlow>
@@ -343,7 +389,7 @@ const hasChanges = computed(() => {
   
   if (currentTemplateData.name !== initialTemplateData.name ||
       currentTemplateData.description !== initialTemplateData.description ||
-      JSON.stringify(currentTemplateData.startingElementIds.sort()) !== JSON.stringify(initialTemplateData.startingElementIds.sort())) {
+      JSON.stringify([...currentTemplateData.startingElementIds].sort()) !== JSON.stringify([...initialTemplateData.startingElementIds].sort())) {
     return true
   }
   
@@ -709,16 +755,19 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
           const sourceType = sourceElement?.type || 'action'
           const targetType = targetElement?.type || 'action'
           
-          let sourceHandle = 'bottom'  // default
-          let targetHandle = 'top'     // default
+          // Use default handles
+          let sourceHandle = 'bottom-source'
+          let targetHandle = 'top-target'
           
-          // For artefact-specific relations, use horizontal connections
-          if (relation.type === 'in') {
-            sourceHandle = 'right'
-            targetHandle = 'left'
-          } else if (relation.type === 'out') {
-            sourceHandle = 'right'
-            targetHandle = 'left'
+          // Check if we have saved handle information
+          if (relation.connections) {
+            const connection = relation.connections.find(
+              conn => conn.fromElementId === fromId && conn.toElementId === toId
+            )
+            if (connection) {
+              sourceHandle = connection.sourceHandle || sourceHandle
+              targetHandle = connection.targetHandle || targetHandle
+            }
           }
           
           relationEdges.push({
@@ -792,7 +841,7 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
       saveInitialState()
     })
   }
-}, { immediate: true, deep: true })
+}, { immediate: true })
 
 // Multi-select dropdown functions
 const toggleDropdown = () => {
@@ -1273,8 +1322,18 @@ const convertToTemplate = (): FlowTemplate => {
     type: node.data.type || 'action'
   }))
   
-  // Group edges by source and type to create consolidated relations
-  const relationGroups = new Map<string, { fromElementIds: string[], toElementIds: string[], type: 'flow' | 'or' | 'and' | 'in' | 'out' }>()
+  // Group edges by source and type, but preserve handle information
+  const relationGroups = new Map<string, { 
+    fromElementIds: string[], 
+    toElementIds: string[], 
+    type: 'flow' | 'or' | 'and' | 'in' | 'out',
+    connections: Array<{
+      fromElementId: string;
+      toElementId: string;
+      sourceHandle?: string;
+      targetHandle?: string;
+    }>
+  }>()
   
   edges.value.forEach(edge => {
     const type = (edge.data?.relationType || 'flow') as 'flow' | 'or' | 'and' | 'in' | 'out'
@@ -1284,19 +1343,28 @@ const convertToTemplate = (): FlowTemplate => {
       relationGroups.set(groupKey, {
         fromElementIds: [edge.source],
         toElementIds: [],
-        type
+        type,
+        connections: []
       })
     }
     
-    relationGroups.get(groupKey)!.toElementIds.push(edge.target)
+    const group = relationGroups.get(groupKey)!
+    group.toElementIds.push(edge.target)
+    group.connections.push({
+      fromElementId: edge.source,
+      toElementId: edge.target,
+      sourceHandle: edge.sourceHandle || undefined,
+      targetHandle: edge.targetHandle || undefined
+    })
   })
   
-  // Convert grouped relations to final format
+  // Convert grouped relations to final format with preserved handle info
   const relations: Relation[] = Array.from(relationGroups.values()).map(group => ({
     id: generateId(),
     fromElementIds: group.fromElementIds,
     toElementIds: group.toElementIds,
-    type: group.type
+    type: group.type,
+    connections: group.connections
   }))
   
   // Create layout object from current node positions
@@ -1608,6 +1676,18 @@ const saveTemplate = () => {
   flex-shrink: 0;
 }
 
+.element-icon-small.element-action {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.element-icon-small.element-state {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+}
+
+.element-icon-small.element-artefact {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
 .element-info-dropdown {
   display: flex;
   flex-direction: column;
@@ -1719,9 +1799,13 @@ const saveTemplate = () => {
 }
 
 .empty-icon {
-  font-size: 3rem;
   margin-bottom: 1rem;
   opacity: 0.8;
+  color: #667eea;
+}
+
+.empty-icon svg {
+  filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.3));
 }
 
 .empty-flow-message h3 {
@@ -1849,7 +1933,9 @@ const saveTemplate = () => {
 .owner-tag,
 .team-tag,
 .duration {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
   font-size: 0.7rem;
@@ -1876,12 +1962,21 @@ const saveTemplate = () => {
 }
 
 .type-tag {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
   font-size: 0.7rem;
   font-weight: 500;
   line-height: 1;
+}
+
+.owner-tag svg,
+.team-tag svg,
+.duration svg,
+.type-tag svg {
+  flex-shrink: 0;
 }
 
 .type-action {
@@ -1979,20 +2074,36 @@ const saveTemplate = () => {
   justify-content: center;
 }
 
+.btn-icon svg {
+  transition: all 0.2s ease;
+}
+
 .edit-btn {
   background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
 }
 
 .edit-btn:hover {
   background: rgba(102, 126, 234, 0.2);
+  transform: scale(1.05);
+}
+
+.edit-btn:hover svg {
+  transform: rotate(5deg);
 }
 
 .delete-btn {
   background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .delete-btn:hover {
   background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.05);
+}
+
+.delete-btn:hover svg {
+  transform: scale(1.1);
 }
 
 /* Button Styles */

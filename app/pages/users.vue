@@ -23,7 +23,11 @@
     <!-- Users List -->
     <div v-else class="users-container">
       <div v-if="users.length === 0" class="empty-state">
-        <div class="empty-icon">👤</div>
+        <div class="empty-icon">
+          <svg width="48" height="48" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+        </div>
         <h3>No users found</h3>
         <p>Get started by adding your first user.</p>
         <button @click="showAddModal = true" class="btn btn-primary">Add User</button>
@@ -40,10 +44,14 @@
           </div>
           <div class="user-actions">
             <button @click="editUser(user)" class="btn-icon edit-btn" title="Edit User">
-              ✏️
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+              </svg>
             </button>
             <button @click="confirmDelete(user)" class="btn-icon delete-btn" title="Delete User">
-              🗑️
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+              </svg>
             </button>
           </div>
         </div>
@@ -271,9 +279,13 @@ const deleteUser = async () => {
 }
 
 .empty-icon {
-  font-size: 4rem;
   margin-bottom: 1rem;
-  opacity: 0.6;
+  opacity: 0.8;
+  color: #667eea;
+}
+
+.empty-icon svg {
+  filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.3));
 }
 
 .users-grid {
@@ -351,20 +363,36 @@ const deleteUser = async () => {
   justify-content: center;
 }
 
+.btn-icon svg {
+  transition: all 0.2s ease;
+}
+
 .edit-btn {
   background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
 }
 
 .edit-btn:hover {
   background: rgba(102, 126, 234, 0.2);
+  transform: scale(1.05);
+}
+
+.edit-btn:hover svg {
+  transform: rotate(5deg);
 }
 
 .delete-btn {
   background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .delete-btn:hover {
   background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.05);
+}
+
+.delete-btn:hover svg {
+  transform: scale(1.1);
 }
 
 /* Modal Styles */

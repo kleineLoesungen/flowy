@@ -23,7 +23,11 @@
     <!-- Teams List -->
     <div v-else class="teams-container">
       <div v-if="teams.length === 0" class="empty-state">
-        <div class="empty-icon">👥</div>
+        <div class="empty-icon">
+          <svg width="48" height="48" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM4 18v-4h3v4h6v-4h3v4h4v-6H0v6h4zM12 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-6c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM6 8c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2z"/>
+          </svg>
+        </div>
         <h3>No teams found</h3>
         <p>Get started by creating your first team.</p>
         <button @click="showAddModal = true" class="btn btn-primary">Add Team</button>
@@ -41,10 +45,14 @@
             </div>
             <div class="team-actions">
               <button @click="editTeam(team)" class="btn-icon edit-btn" title="Edit Team">
-                ✏️
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
               </button>
               <button @click="confirmDelete(team)" class="btn-icon delete-btn" title="Delete Team">
-                🗑️
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
               </button>
             </div>
           </div>
@@ -310,9 +318,13 @@ const deleteTeam = async () => {
 }
 
 .empty-icon {
-  font-size: 4rem;
   margin-bottom: 1rem;
-  opacity: 0.6;
+  opacity: 0.8;
+  color: #667eea;
+}
+
+.empty-icon svg {
+  filter: drop-shadow(0 4px 8px rgba(102, 126, 234, 0.3));
 }
 
 .teams-grid {
@@ -454,20 +466,36 @@ const deleteTeam = async () => {
   justify-content: center;
 }
 
+.btn-icon svg {
+  transition: all 0.2s ease;
+}
+
 .edit-btn {
   background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
 }
 
 .edit-btn:hover {
   background: rgba(102, 126, 234, 0.2);
+  transform: scale(1.05);
+}
+
+.edit-btn:hover svg {
+  transform: rotate(5deg);
 }
 
 .delete-btn {
   background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .delete-btn:hover {
   background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.05);
+}
+
+.delete-btn:hover svg {
+  transform: scale(1.1);
 }
 
 /* Modal Styles */
