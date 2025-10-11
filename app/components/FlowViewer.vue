@@ -1,7 +1,8 @@
 <template>
-  <div class="modal-overlay" @click="$emit('close')">
-    <div class="modal-container" @click.stop>
-      <!-- Header directly in container -->
+  <Teleport to="body">
+    <div class="modal-overlay" @click="$emit('close')">
+      <div class="modal-container" @click.stop>
+      <!-- Header spans full width -->
       <header class="modal-header">
         <h3>{{ template?.name || 'Flow Template' }}</h3>
         <div class="header-actions">
@@ -17,54 +18,12 @@
         </div>
       </header>
 
-      
-      <!-- Template Info Section -->
-      <section class="template-info">
-        <div class="info-grid">
-          <div class="info-item">
-            <label>Flow Name</label>
-            <div class="info-value">{{ template?.name || 'Unnamed Flow' }}</div>
-          </div>
-          <div class="info-item">
-            <label>Description</label>
-            <div class="info-value">{{ template?.description || 'No description' }}</div>
-          </div>
-          <div class="info-item">
-            <label>Starting Elements</label>
-            <div class="info-value">
-              <div v-if="!template?.startingElementIds?.length" class="no-elements">
-                No starting elements defined
-              </div>
-              <div v-else class="element-tags">
-                <span 
-                  v-for="elementId in template.startingElementIds" 
-                  :key="elementId"
-                  class="element-tag"
-                >
-                  {{ getElementName(elementId) }}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div class="info-item">
-            <label>Elements</label>
-            <div class="info-value element-count">
-              <span class="count">{{ template?.elements?.length || 0 }}</span>
-              <span class="label">elements</span>
-            </div>
-          </div>
-          <div class="info-item">
-            <label>Duration</label>
-            <div class="info-value duration-range">
-              <span class="duration-number">{{ formatDurationRange(durationRange) }}</span>
-              <span class="duration-label">{{ getDurationLabel(durationRange) }}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Vue Flow Viewer -->
-      <main class="flow-viewer-main">
+      <!-- Content area with flow and sidebar -->
+      <div class="modal-content">
+        <!-- Main Flow Area -->
+        <div class="flow-content">
+          <!-- Vue Flow Viewer -->
+          <main class="flow-viewer-main">
         <VueFlow
           :nodes="reactiveNodes"
           :edges="edges"
@@ -115,9 +74,57 @@
             </div>
           </template>
         </VueFlow>
-      </main>
+          </main>
+        </div>
+        
+        <!-- Right Sidebar with Template Info -->
+        <aside class="template-sidebar">
+          <div class="sidebar-content">
+            <div class="info-item">
+              <label>Flow Name</label>
+              <div class="info-value">{{ template?.name || 'Unnamed Flow' }}</div>
+            </div>
+            <div class="info-item">
+              <label>Description</label>
+              <div class="info-value description-text">{{ template?.description || 'No description' }}</div>
+            </div>
+            <div class="info-item">
+              <label>Starting Elements</label>
+              <div class="info-value">
+                <div v-if="!template?.startingElementIds?.length" class="no-elements">
+                  No starting elements defined
+                </div>
+                <div v-else class="element-tags">
+                  <span 
+                    v-for="elementId in template.startingElementIds" 
+                    :key="elementId"
+                    class="element-tag"
+                  >
+                    {{ getElementName(elementId) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="info-item">
+              <label>Elements</label>
+              <div class="info-value element-count">
+                <span class="count">{{ template?.elements?.length || 0 }}</span>
+                <span class="label">elements</span>
+              </div>
+            </div>
+            <div class="info-item">
+              <label>Duration</label>
+              <div class="info-value duration-range">
+                <span class="duration-number">{{ formatDurationRange(durationRange) }}</span>
+                <span class="duration-label">{{ getDurationLabel(durationRange) }}</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
-  </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -425,31 +432,35 @@ watch(() => props.template, (template) => {
 
 <style scoped>
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: 2rem;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10000 !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .modal-container {
   width: 90vw;
-  max-width: 1200px;
-  margin-top: 6rem;
-  height: 85vh;
+  height: 90vh;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 2rem);
   background: white;
   border-radius: 20px;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .modal-header {
@@ -467,6 +478,20 @@ watch(() => props.template, (template) => {
   width: 100%;
 }
 
+.modal-content {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+}
+
+.flow-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .modal-header h3 {
   margin: 0;
   font-size: 1.5rem;
@@ -479,24 +504,34 @@ watch(() => props.template, (template) => {
   gap: 0.75rem;
 }
 
-.template-info {
-  padding: 1.5rem 2rem;
+.template-sidebar {
+  width: 300px;
   background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  border-left: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
 }
 
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 0.5fr 0.7fr;
-  gap: 2rem;
-  align-items: start;
+.sidebar-content {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .info-item {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.description-text {
+  min-height: 80px !important;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .info-item label {
@@ -778,6 +813,30 @@ watch(() => props.template, (template) => {
     height: 95vh;
   }
   
+  .modal-content {
+    flex-direction: column;
+  }
+  
+  .template-sidebar {
+    width: 100%;
+    height: 200px;
+    border-left: none;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0;
+  }
+  
+  .sidebar-content {
+    padding: 1rem;
+    gap: 1rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .info-item {
+    flex: 1;
+    min-width: 150px;
+  }
+  
   .modal-header {
     flex-direction: column;
     gap: 1rem;
@@ -787,15 +846,6 @@ watch(() => props.template, (template) => {
 
   .header-actions {
     justify-content: center;
-  }
-
-  .info-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .template-info {
-    padding: 1rem;
   }
 }
 </style>

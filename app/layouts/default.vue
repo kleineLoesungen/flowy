@@ -46,7 +46,7 @@
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  padding: 1rem 2rem;
+  padding: 0.5rem 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -72,14 +72,14 @@
 
 .nav-links {
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .nav-link {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1rem;
   text-decoration: none;
   color: #64748b;
   font-weight: 500;
@@ -119,11 +119,11 @@
   .nav-links {
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
   
   .nav-link {
-    padding: 0.5rem 1rem;
+    padding: 0.25rem 1rem;
     font-size: 0.875rem;
   }
 }
