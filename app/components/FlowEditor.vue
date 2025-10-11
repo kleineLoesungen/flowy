@@ -145,7 +145,7 @@
         
         <!-- Custom Element Node -->
         <template #node-element="{ data, id }">
-          <div class="element-node" :class="{ 'editing': editingNodeId === id }" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}`" @click="handleNodeClick(id)">
+          <div class="element-node" :class="{ 'editing': editingNodeId === id, [`element-${data.type || 'action'}`]: true }" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}`" @click="handleNodeClick(id)">
             <div class="node-header">
               <div class="element-icon">{{ data.name?.charAt(0) || 'E' }}</div>
               <div class="element-info" v-if="editingNodeId !== id">
@@ -236,8 +236,10 @@
               </div>
             </div>
             <!-- Vue Flow handles -->
-            <Handle type="target" :position="Position.Top" />
-            <Handle type="source" :position="Position.Bottom" />
+            <Handle id="top" type="target" :position="Position.Top" />
+            <Handle id="bottom" type="source" :position="Position.Bottom" />
+            <Handle id="left" type="target" :position="Position.Left" />
+            <Handle id="right" type="source" :position="Position.Right" />
           </div>
         </template>
       </VueFlow>
@@ -251,9 +253,15 @@
           <div class="form-group">
             <label>Connection Type</label>
             <select v-model="currentEdgeType" class="form-control">
-              <option value="flow">Flow (Sequential)</option>
-              <option value="or">OR (Alternative)</option>
-              <option value="and">AND (Parallel)</option>
+              <template v-if="isArtefactConnection">
+                <option value="in">In (Data flows into Artefact)</option>
+                <option value="out">Out (Data flows from Artefact)</option>
+              </template>
+              <template v-else>
+                <option value="flow">Flow (Sequential)</option>
+                <option value="or">OR (Alternative)</option>
+                <option value="and">AND (Parallel)</option>
+              </template>
             </select>
           </div>
           <div class="edge-type-info">
@@ -265,6 +273,12 @@
             </p>
             <p v-if="currentEdgeType === 'and'">
               <strong>AND:</strong> Parallel execution - all connected elements must be completed
+            </p>
+            <p v-if="currentEdgeType === 'in'">
+              <strong>In:</strong> Input connection to an artefact - represents data or resources flowing into the artefact
+            </p>
+            <p v-if="currentEdgeType === 'out'">
+              <strong>Out:</strong> Output connection from an artefact - represents data or resources produced by the artefact
             </p>
           </div>
         </div>
@@ -375,6 +389,21 @@ const reactiveNodes = computed(() => {
   }))
 })
 
+// Check if the pending connection involves an artefact
+const isArtefactConnection = computed(() => {
+  if (!pendingConnection.value) return false
+  
+  const sourceNode = nodes.value.find(n => n.id === pendingConnection.value!.source)
+  const targetNode = nodes.value.find(n => n.id === pendingConnection.value!.target)
+  
+  if (!sourceNode || !targetNode) return false
+  
+  const sourceType = sourceNode.data.type || 'action'
+  const targetType = targetNode.data.type || 'action'
+  
+  return sourceType === 'artefact' || targetType === 'artefact'
+})
+
 // Editing state
 const editingNodeId = ref<string | null>(null)
 const editingNodeData = ref<ElementTemplate>({
@@ -389,7 +418,7 @@ const editingNodeData = ref<ElementTemplate>({
 
 // Edge configuration state
 const showEdgeModal = ref(false)
-const currentEdgeType = ref<'flow' | 'or' | 'and'>('flow')
+const currentEdgeType = ref<'flow' | 'or' | 'and' | 'in' | 'out'>('flow')
 const pendingConnection = ref<Connection | null>(null)
 
 // Multi-select dropdown state
@@ -406,7 +435,6 @@ const teams = ref<Team[]>([])
 const fetchUsers = async () => {
   try {
     const response = await $fetch<{success: boolean, data: User[]}>('/api/users')
-    console.log('Fetched users response:', response)
     users.value = response?.data || []
   } catch (error) {
     console.error('Failed to fetch users:', error)
@@ -417,7 +445,6 @@ const fetchUsers = async () => {
 const fetchTeams = async () => {
   try {
     const response = await $fetch<{success: boolean, data: Team[]}>('/api/teams')
-    console.log('Fetched teams response:', response)
     teams.value = response?.data || []
   } catch (error) {
     console.error('Failed to fetch teams:', error)
@@ -575,19 +602,29 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   })
   
   // Calculate distance from end for each node (convergence-aware layout)
-  const calculateDistanceFromEnd = (nodeId: string, memo: Map<string, number> = new Map()): number => {
+  const calculateDistanceFromEnd = (nodeId: string, memo: Map<string, number> = new Map(), visiting: Set<string> = new Set()): number => {
     if (memo.has(nodeId)) return memo.get(nodeId)!
+    
+    // Cycle detection - if we're already visiting this node, there's a cycle
+    if (visiting.has(nodeId)) {
+      memo.set(nodeId, 0)
+      return 0
+    }
+    
+    visiting.add(nodeId)
     
     const outgoing = outgoingEdges.get(nodeId) || []
     if (outgoing.length === 0) {
       // This is a leaf node (end node) - distance 0 from end
       memo.set(nodeId, 0)
+      visiting.delete(nodeId)
       return 0
     }
     
     // Distance is 1 + maximum distance of all children
-    const maxDistanceToEnd = Math.max(...outgoing.map(targetId => calculateDistanceFromEnd(targetId, memo))) + 1
+    const maxDistanceToEnd = Math.max(...outgoing.map(targetId => calculateDistanceFromEnd(targetId, memo, visiting))) + 1
     memo.set(nodeId, maxDistanceToEnd)
+    visiting.delete(nodeId)
     return maxDistanceToEnd
   }
   
@@ -666,10 +703,30 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
       relation.toElementIds.forEach((toId: string) => {
         // Only create edges for elements that actually exist
         if (elementIds.has(fromId) && elementIds.has(toId)) {
+          // Determine appropriate handles based on relation type and node types
+          const sourceElement = nodeMap.get(fromId)
+          const targetElement = nodeMap.get(toId)
+          const sourceType = sourceElement?.type || 'action'
+          const targetType = targetElement?.type || 'action'
+          
+          let sourceHandle = 'bottom'  // default
+          let targetHandle = 'top'     // default
+          
+          // For artefact-specific relations, use horizontal connections
+          if (relation.type === 'in') {
+            sourceHandle = 'right'
+            targetHandle = 'left'
+          } else if (relation.type === 'out') {
+            sourceHandle = 'right'
+            targetHandle = 'left'
+          }
+          
           relationEdges.push({
             id: generateId(),
             source: fromId,
             target: toId,
+            sourceHandle,
+            targetHandle,
             type: 'default',
             data: { relationType: relation.type },
             label: relation.type.toUpperCase(),
@@ -703,7 +760,9 @@ const getEdgeStyle = (type: string) => {
   const styles = {
     flow: { stroke: '#3498db', strokeWidth: 2 },
     or: { stroke: '#e67e22', strokeWidth: 2, strokeDasharray: '5,5' },
-    and: { stroke: '#27ae60', strokeWidth: 3 }
+    and: { stroke: '#27ae60', strokeWidth: 3 },
+    in: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '10,3' },
+    out: { stroke: '#d97706', strokeWidth: 2, strokeDasharray: '3,10' }
   }
   return styles[type as keyof typeof styles] || styles.flow
 }
@@ -868,19 +927,29 @@ const reorganizeLayout = () => {
   })
   
   // Calculate distance from end for each node (convergence-aware layout)
-  const calculateDistanceFromEnd = (nodeId: string, memo: Map<string, number> = new Map()): number => {
+  const calculateDistanceFromEnd = (nodeId: string, memo: Map<string, number> = new Map(), visiting: Set<string> = new Set()): number => {
     if (memo.has(nodeId)) return memo.get(nodeId)!
+    
+    // Cycle detection - if we're already visiting this node, there's a cycle
+    if (visiting.has(nodeId)) {
+      memo.set(nodeId, 0)
+      return 0
+    }
+    
+    visiting.add(nodeId)
     
     const outgoing = outgoingEdges.get(nodeId) || []
     if (outgoing.length === 0) {
       // This is a leaf node (end node) - distance 0 from end
       memo.set(nodeId, 0)
+      visiting.delete(nodeId)
       return 0
     }
     
     // Distance is 1 + maximum distance of all children
-    const maxDistanceToEnd = Math.max(...outgoing.map(targetId => calculateDistanceFromEnd(targetId, memo))) + 1
+    const maxDistanceToEnd = Math.max(...outgoing.map(targetId => calculateDistanceFromEnd(targetId, memo, visiting))) + 1
     memo.set(nodeId, maxDistanceToEnd)
+    visiting.delete(nodeId)
     return maxDistanceToEnd
   }
   
@@ -1058,16 +1127,59 @@ const onEdgesChange = (changes: EdgeChange[]) => {
 
 // Handle new connections
 const onConnect = (connection: Connection) => {
+  // Get source and target node types
+  const sourceNode = nodes.value.find(n => n.id === connection.source)
+  const targetNode = nodes.value.find(n => n.id === connection.target)
+  
+  if (!sourceNode || !targetNode) return
+  
+  const sourceType = sourceNode.data.type || 'action'
+  const targetType = targetNode.data.type || 'action'
+  
+  // Set default edge type based on element types
+  if (sourceType === 'artefact' || targetType === 'artefact') {
+    // If source is artefact, default to 'out'
+    // If target is artefact, default to 'in'
+    currentEdgeType.value = sourceType === 'artefact' ? 'out' : 'in'
+  } else {
+    // Non-artefact elements default to 'flow'
+    currentEdgeType.value = 'flow'
+  }
+  
   pendingConnection.value = connection
   showEdgeModal.value = true
 }
 
 const saveEdgeType = () => {
   if (pendingConnection.value) {
+    // Validate relation type rules
+    const sourceNode = nodes.value.find(n => n.id === pendingConnection.value!.source)
+    const targetNode = nodes.value.find(n => n.id === pendingConnection.value!.target)
+    
+    if (sourceNode && targetNode) {
+      const sourceType = sourceNode.data.type || 'action'
+      const targetType = targetNode.data.type || 'action'
+      const isArtefactInvolved = sourceType === 'artefact' || targetType === 'artefact'
+      const isArtefactRelationType = currentEdgeType.value === 'in' || currentEdgeType.value === 'out'
+      
+      // Validation: artefacts can only use 'in'/'out', others cannot use 'in'/'out'
+      if (isArtefactInvolved && !isArtefactRelationType) {
+        alert('Artefact elements can only use "In" or "Out" relation types.')
+        return
+      }
+      
+      if (!isArtefactInvolved && isArtefactRelationType) {
+        alert('Only artefact elements can use "In" and "Out" relation types.')
+        return
+      }
+    }
+    
     const newEdge: Edge = {
       id: generateId(),
       source: pendingConnection.value.source!,
       target: pendingConnection.value.target!,
+      sourceHandle: pendingConnection.value.sourceHandle,
+      targetHandle: pendingConnection.value.targetHandle,
       type: 'default',
       data: { relationType: currentEdgeType.value },
       label: currentEdgeType.value.toUpperCase(),
@@ -1162,10 +1274,10 @@ const convertToTemplate = (): FlowTemplate => {
   }))
   
   // Group edges by source and type to create consolidated relations
-  const relationGroups = new Map<string, { fromElementIds: string[], toElementIds: string[], type: 'flow' | 'or' | 'and' }>()
+  const relationGroups = new Map<string, { fromElementIds: string[], toElementIds: string[], type: 'flow' | 'or' | 'and' | 'in' | 'out' }>()
   
   edges.value.forEach(edge => {
-    const type = (edge.data?.relationType || 'flow') as 'flow' | 'or' | 'and'
+    const type = (edge.data?.relationType || 'flow') as 'flow' | 'or' | 'and' | 'in' | 'out'
     const groupKey = `${edge.source}-${type}`
     
     if (!relationGroups.has(groupKey)) {
@@ -1639,6 +1751,25 @@ const saveTemplate = () => {
   position: relative;
 }
 
+/* Element type-specific styling */
+.element-node.element-action {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(21, 128, 61, 0.05) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  box-shadow: 0 8px 32px rgba(34, 197, 94, 0.15);
+}
+
+.element-node.element-state {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(2, 132, 199, 0.05) 100%);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  box-shadow: 0 8px 32px rgba(14, 165, 233, 0.15);
+}
+
+.element-node.element-artefact {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(180, 83, 9, 0.05) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  box-shadow: 0 8px 32px rgba(245, 158, 11, 0.15);
+}
+
 .element-node:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 40px rgba(102, 126, 234, 0.15);
@@ -1669,6 +1800,22 @@ const saveTemplate = () => {
   font-size: 1.1rem;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   flex-shrink: 0;
+}
+
+/* Element type-specific icon colors */
+.element-action .element-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.element-state .element-icon {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+.element-artefact .element-icon {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
 .element-info {
@@ -1744,9 +1891,9 @@ const saveTemplate = () => {
 }
 
 .type-state {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(185, 28, 28, 0.1) 100%);
-  color: #dc2626;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(2, 132, 199, 0.1) 100%);
+  color: #0284c7;
+  border: 1px solid rgba(14, 165, 233, 0.2);
 }
 
 .type-artefact {

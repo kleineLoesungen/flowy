@@ -49,7 +49,7 @@
           
           <!-- Custom Element Node (readonly) -->
           <template #node-element="{ data, id }">
-            <div class="element-node readonly" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}`">
+            <div class="element-node readonly" :class="`element-${data.type || 'action'}`" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}`">
               <div class="node-header">
                 <div class="element-icon">{{ data.name?.charAt(0) || 'E' }}</div>
                 <div class="element-info">
@@ -72,8 +72,10 @@
                 </div>
               </div>
               <!-- Vue Flow handles (for visual consistency) -->
-              <Handle type="target" :position="Position.Top" />
-              <Handle type="source" :position="Position.Bottom" />
+              <Handle id="top" type="target" :position="Position.Top" />
+              <Handle id="bottom" type="source" :position="Position.Bottom" />
+              <Handle id="left" type="target" :position="Position.Left" />
+              <Handle id="right" type="source" :position="Position.Right" />
             </div>
           </template>
         </VueFlow>
@@ -261,17 +263,27 @@ const loadTemplateIntoViewer = (template: FlowTemplate) => {
   })
   
   // Calculate distance from end for each node (convergence-aware layout)
-  const calculateDistanceFromEnd = (nodeId: string, memo: Map<string, number> = new Map()): number => {
+  const calculateDistanceFromEnd = (nodeId: string, memo: Map<string, number> = new Map(), visiting: Set<string> = new Set()): number => {
     if (memo.has(nodeId)) return memo.get(nodeId)!
     
-    const outgoing = outgoingEdges.get(nodeId) || []
-    if (outgoing.length === 0) {
+    // Cycle detection - if we're already visiting this node, there's a cycle
+    if (visiting.has(nodeId)) {
       memo.set(nodeId, 0)
       return 0
     }
     
-    const maxDistanceToEnd = Math.max(...outgoing.map(targetId => calculateDistanceFromEnd(targetId, memo))) + 1
+    visiting.add(nodeId)
+    
+    const outgoing = outgoingEdges.get(nodeId) || []
+    if (outgoing.length === 0) {
+      memo.set(nodeId, 0)
+      visiting.delete(nodeId)
+      return 0
+    }
+    
+    const maxDistanceToEnd = Math.max(...outgoing.map(targetId => calculateDistanceFromEnd(targetId, memo, visiting))) + 1
     memo.set(nodeId, maxDistanceToEnd)
+    visiting.delete(nodeId)
     return maxDistanceToEnd
   }
   
@@ -351,10 +363,22 @@ const loadTemplateIntoViewer = (template: FlowTemplate) => {
     relation.fromElementIds.forEach((fromId: string) => {
       relation.toElementIds.forEach((toId: string) => {
         if (elementIds.has(fromId) && elementIds.has(toId)) {
+          // Determine appropriate handles based on relation type
+          let sourceHandle = 'bottom'
+          let targetHandle = 'top'
+          
+          // For 'in' and 'out' relations, use horizontal connections
+          if (relation.type === 'in' || relation.type === 'out') {
+            sourceHandle = 'right'
+            targetHandle = 'left'
+          }
+
           relationEdges.push({
             id: generateId(),
             source: fromId,
             target: toId,
+            sourceHandle: sourceHandle,
+            targetHandle: targetHandle,
             type: 'default',
             data: { relationType: relation.type },
             label: relation.type.toUpperCase(),
@@ -388,7 +412,9 @@ const getEdgeStyle = (type: string) => {
   const styles = {
     flow: { stroke: '#3498db', strokeWidth: 2 },
     or: { stroke: '#e67e22', strokeWidth: 2, strokeDasharray: '5,5' },
-    and: { stroke: '#27ae60', strokeWidth: 3 }
+    and: { stroke: '#27ae60', strokeWidth: 3 },
+    in: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '10,3' },
+    out: { stroke: '#d97706', strokeWidth: 2, strokeDasharray: '3,10' }
   }
   return styles[type as keyof typeof styles] || styles.flow
 }
@@ -667,6 +693,25 @@ watch(() => props.template, (template) => {
   cursor: move;
 }
 
+/* Element type-specific styling */
+.element-node.element-action {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(21, 128, 61, 0.05) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  box-shadow: 0 8px 32px rgba(34, 197, 94, 0.15);
+}
+
+.element-node.element-state {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(2, 132, 199, 0.05) 100%);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  box-shadow: 0 8px 32px rgba(14, 165, 233, 0.15);
+}
+
+.element-node.element-artefact {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(180, 83, 9, 0.05) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  box-shadow: 0 8px 32px rgba(245, 158, 11, 0.15);
+}
+
 .element-node.readonly {
   border: 2px solid rgba(102, 126, 234, 0.2);
 }
@@ -696,6 +741,22 @@ watch(() => props.template, (template) => {
   font-size: 1.1rem;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   flex-shrink: 0;
+}
+
+/* Element type-specific icon colors */
+.element-action .element-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.element-state .element-icon {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+.element-artefact .element-icon {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
 .element-info {
@@ -771,9 +832,9 @@ watch(() => props.template, (template) => {
 }
 
 .type-state {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(185, 28, 28, 0.1) 100%);
-  color: #dc2626;
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(2, 132, 199, 0.1) 100%);
+  color: #0284c7;
+  border: 1px solid rgba(14, 165, 233, 0.2);
 }
 
 .type-artefact {

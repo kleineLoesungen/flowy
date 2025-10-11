@@ -71,6 +71,7 @@ import {
   formatDurationRange, 
   getDurationLabel 
 } from '../../utils/flowDurationCalculator'
+import FlowViewer from '~/components/FlowViewer.vue'
 
 // Props
 defineProps<{

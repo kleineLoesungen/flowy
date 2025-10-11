@@ -9,6 +9,7 @@
 
 <script setup lang="ts">
 import type { FlowTemplate } from '../../types/FlowTemplate'
+import FlowEditor from '~/components/FlowEditor.vue'
 
 defineProps<{
   template?: FlowTemplate | null
