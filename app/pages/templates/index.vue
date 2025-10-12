@@ -1,7 +1,7 @@
 <template>
-    <div class="templates-page" :class="{ 'editing': showEditModal }">
-        <!-- Page Header (only show when not editing) -->
-        <div v-if="!showEditModal" class="page-header">
+    <div class="templates-page">
+        <!-- Page Header -->
+        <div class="page-header">
             <h2>Templates</h2>
             <button @click="showAddModal = true" class="btn btn-primary">
                 <span class="icon">+</span>
@@ -9,24 +9,20 @@
             </button>
         </div>
 
-        <!-- Templates List (only show when not editing) -->
-        <div v-if="!showEditModal && pending" class="loading">
+        <!-- Templates List -->
+        <div v-if="pending" class="loading">
             Loading templates...
         </div>
 
-        <div v-else-if="!showEditModal && error" class="error">
+        <div v-else-if="error" class="error">
             Error loading templates: {{ error }}
         </div>
 
-        <div v-else-if="!showEditModal" class="templates-container">
-            <FlowTemplatesOverview :templates="templates" @edit="editTemplate" @delete="confirmDelete" />
+        <div v-else class="templates-container">
+            <FlowTemplatesOverview :templates="templates" @delete="confirmDelete" />
         </div>
 
-        <!-- Full-Screen Editor -->
-        <div v-if="showEditModal" class="fullscreen-editor">
-            <TemplateForm :template="selectedTemplate" :is-editing="showEditModal" @save="handleSave"
-                @cancel="closeModals" />
-        </div>
+
 
         <!-- Add Flow Modal (Simple) -->
         <div v-if="showAddModal" class="modal-overlay" @click="closeModals">
@@ -68,11 +64,10 @@
 </template>
 
 <script setup lang="ts">
-import type { FlowTemplate } from '../../types/FlowTemplate'
+import type { FlowTemplate } from '../../../types/FlowTemplate'
 
 // Explicitly import components to ensure they're available
 import FlowTemplatesOverview from '~/components/FlowTemplatesOverview.vue'
-import TemplateForm from '~/components/TemplateForm.vue'
 
 // Page metadata
 useHead({
@@ -81,9 +76,7 @@ useHead({
 
 // Reactive data
 const showAddModal = ref(false)
-const showEditModal = ref(false)
 const showDeleteModal = ref(false)
-const selectedTemplate = ref<FlowTemplate | null>(null)
 const templateToDelete = ref<FlowTemplate | null>(null)
 
 // New flow form data
@@ -98,11 +91,6 @@ const { data: templatesData, pending, error, refresh } = await useFetch<{ data: 
 const templates = computed(() => templatesData.value?.data || [])
 
 // Methods
-const editTemplate = (template: FlowTemplate) => {
-    selectedTemplate.value = template
-    showEditModal.value = true
-}
-
 const confirmDelete = (template: FlowTemplate) => {
     templateToDelete.value = template
     showDeleteModal.value = true
@@ -110,9 +98,7 @@ const confirmDelete = (template: FlowTemplate) => {
 
 const closeModals = () => {
     showAddModal.value = false
-    showEditModal.value = false
     showDeleteModal.value = false
-    selectedTemplate.value = null
     templateToDelete.value = null
     // Reset form data
     newFlowData.value = {
@@ -151,22 +137,6 @@ const handleAddFlow = async () => {
     }
 }
 
-const handleSave = async (template: FlowTemplate) => {
-    try {
-        // This function is now only used for editing existing flows
-        await $fetch(`/api/templates/flows/${template.id}`, {
-            method: 'PUT',
-            body: template
-        })
-        
-        await refresh()
-        // Don't close modal after saving - user can continue editing
-    } catch (error) {
-        console.error('Error updating flow:', error)
-        alert(`Error saving flow: ${error}`)
-    }
-}
-
 const deleteTemplate = async () => {
     if (!templateToDelete.value) return
 
@@ -191,15 +161,6 @@ const deleteTemplate = async () => {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     min-height: 100vh;
     position: relative;
-}
-
-.templates-page.editing {
-    padding: 0;
-    max-width: none;
-    margin: 0;
-    min-height: 100vh;
-    height: 100vh;
-    overflow: hidden;
 }
 
 .page-header {
@@ -410,14 +371,5 @@ const deleteTemplate = async () => {
     gap: 1rem;
     justify-content: center;
     margin-top: 2rem;
-}
-
-.fullscreen-editor {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 50;
 }
 </style>

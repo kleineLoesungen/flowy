@@ -13,22 +13,18 @@
         <div class="col-duration"></div>
         <div class="col-actions"></div>
       </div>
-      
-      <div 
-        v-for="template in templates" 
-        :key="template.id" 
-        class="template-row"
-      >
+
+      <div v-for="template in templates" :key="template.id" class="template-row">
         <div class="col-title">
           <h3>{{ template.name }}</h3>
           <p class="description">{{ template.description }}</p>
         </div>
-        
+
         <div class="col-elements">
           <span class="count">{{ template.elements.length }}</span>
           <span class="label">{{ template.elements.length === 1 ? 'element' : 'elements' }}</span>
         </div>
-        
+
         <div class="col-duration">
           <div class="duration-info">
             <span class="duration-main">
@@ -39,14 +35,14 @@
             </span>
           </div>
         </div>
-        
+
         <div class="col-actions">
-          <button @click="viewTemplate(template)" class="btn btn-primary">
+          <NuxtLink :to="`/templates/${template.id}`" class="btn btn-primary">
             View
-          </button>
-          <button @click="$emit('edit', template)" class="btn btn-secondary">
+          </NuxtLink>
+          <NuxtLink :to="`/templates/${template.id}/edit`" class="btn btn-secondary">
             Edit
-          </button>
+          </NuxtLink>
           <button @click="$emit('delete', template)" class="btn btn-danger">
             Delete
           </button>
@@ -55,23 +51,16 @@
     </div>
   </div>
 
-  <!-- Flow Viewer Modal -->
-  <FlowViewer 
-    v-if="showVisualizationModal"
-    :template="selectedTemplate"
-    @close="closeVisualizationModal"
-  />
 </template>
 
 <script setup lang="ts">
 import type { FlowTemplate } from '../../types/FlowTemplate'
-import { 
-  calculateTotalDuration, 
-  calculateFlowDuration, 
-  formatDurationRange, 
-  getDurationLabel 
+import {
+  calculateTotalDuration,
+  calculateFlowDuration,
+  formatDurationRange,
+  getDurationLabel
 } from '../../utils/flowDurationCalculator'
-import FlowViewer from '~/components/FlowViewer.vue'
 
 // Props
 defineProps<{
@@ -80,25 +69,8 @@ defineProps<{
 
 // Emits
 defineEmits<{
-  edit: [template: FlowTemplate]
   delete: [template: FlowTemplate]
 }>()
-
-// Reactive state for modal
-const showVisualizationModal = ref(false)
-const selectedTemplate = ref<FlowTemplate | null>(null)
-
-// View template in modal
-const viewTemplate = (template: FlowTemplate) => {
-  selectedTemplate.value = template
-  showVisualizationModal.value = true
-}
-
-// Close visualization modal
-const closeVisualizationModal = () => {
-  showVisualizationModal.value = false
-  selectedTemplate.value = null
-}
 </script>
 
 <style scoped>
@@ -296,20 +268,22 @@ const closeVisualizationModal = () => {
 
 /* Responsive design */
 @media (max-width: 768px) {
+
   .list-header,
   .template-row {
     grid-template-columns: 1fr;
     gap: 0.5rem;
   }
-  
+
   .list-header {
-    display: none; /* Hide header on mobile */
+    display: none;
+    /* Hide header on mobile */
   }
-  
+
   .template-row {
     padding: 1rem;
   }
-  
+
   .col-title,
   .col-elements,
   .col-duration,
@@ -318,19 +292,19 @@ const closeVisualizationModal = () => {
     justify-content: space-between;
     align-items: center;
   }
-  
+
   .col-elements::before {
     content: 'Elements:';
     font-weight: 600;
     color: #34495e;
   }
-  
+
   .col-duration::before {
     content: 'Duration:';
     font-weight: 600;
     color: #34495e;
   }
-  
+
   .col-actions {
     justify-content: flex-start;
     margin-top: 1rem;
