@@ -6,4 +6,5 @@ export interface ElementTemplate {
     teamId: string | null;
     durationDays: number | null;
     type: 'action' | 'state' | 'artefact';
+    consultedUserIds: string[];
 }

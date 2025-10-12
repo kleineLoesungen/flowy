@@ -159,7 +159,7 @@
         
         <!-- Custom Element Node -->
         <template #node-element="{ data, id }">
-          <div class="element-node" :class="{ 'editing': editingNodeId === id, [`element-${data.type || 'action'}`]: true }" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}`" @click="handleNodeClick(id)">
+          <div class="element-node" :class="{ 'editing': editingNodeId === id, [`element-${data.type || 'action'}`]: true }" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}-${(data.consultedUserIds || []).length}`" @click="handleNodeClick(id)">
             <div class="node-header">
               <div class="element-icon">
                 <svg v-if="data.type === 'action'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
@@ -193,6 +193,10 @@
                   <span v-if="data.durationDays" class="duration">
                     <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
                     {{ data.durationDays }} day{{ data.durationDays === 1 ? '' : 's' }}
+                  </span>
+                  <span v-if="data.consultedUserIds && data.consultedUserIds.length > 0" class="consulted-users">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM4 18v-4h3v4h6v-4h3v4h4v-6H0v6h4zM12 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-6c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM6 8c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2z"/></svg>
+                    {{ data.consultedUserIds.length }} consulted
                   </span>
                 </div>
               </div>
@@ -256,6 +260,22 @@
                   @keyup.enter="saveNodeEdit"
                   @keyup.escape="cancelNodeEdit"
                 />
+                <label class="edit-label">Consulted Users:</label>
+                <div class="consulted-users-checkboxes">
+                  <label 
+                    v-for="user in users" 
+                    :key="user.id"
+                    class="checkbox-label"
+                  >
+                    <input 
+                      type="checkbox" 
+                      :value="user.id"
+                      :checked="editingNodeData.consultedUserIds.includes(user.id)"
+                      @change="toggleConsultedUser(user.id)"
+                    />
+                    {{ user.name || user.email }}
+                  </label>
+                </div>
                 <div class="edit-actions">
                   <button @click="saveNodeEdit" class="btn-small btn-save">✓</button>
                   <button @click="cancelNodeEdit" class="btn-small btn-cancel">
@@ -460,7 +480,8 @@ const editingNodeData = ref<ElementTemplate>({
   ownerId: null,
   teamId: null,
   durationDays: null,
-  type: 'action'
+  type: 'action',
+  consultedUserIds: []
 })
 
 // Watch for element type changes and automatically set durationDays to null for state/artefact types
@@ -469,6 +490,8 @@ watch(() => editingNodeData.value.type, (newType) => {
     editingNodeData.value.durationDays = null
   }
 })
+
+// Note: Removed recursive watchers that were causing infinite loops
 
 // Edge configuration state
 const showEdgeModal = ref(false)
@@ -724,7 +747,8 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
         data: { 
           ...element, 
           type: element.type || 'action',
-          durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays
+          durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays,
+          consultedUserIds: element.consultedUserIds || []
         }
       })
     })
@@ -747,7 +771,8 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
             },
             data: { 
               ...element,
-              durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays
+              durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays,
+              consultedUserIds: element.consultedUserIds || []
             }
           })
         }
@@ -858,6 +883,39 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
   }
 }, { immediate: true })
 
+// Handle consulted users multi-select updates
+const updateConsultedUsers = (event: Event) => {
+  console.log('updateConsultedUsers called!')
+  const select = event.target as HTMLSelectElement
+  const selectedOptions = Array.from(select.selectedOptions)
+  const newIds = selectedOptions.map(option => option.value)
+  console.log('Selected options:', selectedOptions)
+  console.log('New IDs:', newIds)
+  
+  // Force reactivity by creating a new array
+  editingNodeData.value.consultedUserIds = [...newIds]
+  console.log('Updated consulted users:', editingNodeData.value.consultedUserIds)
+}
+
+// Handle individual checkbox toggle for consulted users
+const toggleConsultedUser = (userId: string) => {
+  console.log('toggleConsultedUser called with:', userId)
+  const currentIds = [...editingNodeData.value.consultedUserIds]
+  const index = currentIds.indexOf(userId)
+  
+  if (index > -1) {
+    // Remove user
+    currentIds.splice(index, 1)
+  } else {
+    // Add user
+    currentIds.push(userId)
+  }
+  
+  // Update with new array to trigger reactivity
+  editingNodeData.value.consultedUserIds = currentIds
+  console.log('Updated consulted users:', editingNodeData.value.consultedUserIds)
+}
+
 // Multi-select dropdown functions
 const toggleDropdown = () => {
   dropdownOpen.value = !dropdownOpen.value
@@ -931,7 +989,8 @@ const addElement = () => {
       ownerId: null,
       teamId: null,
       durationDays: 1,
-      type: 'action'
+      type: 'action',
+      consultedUserIds: []
     }
   }
   nodes.value.push(newNode)
@@ -1083,7 +1142,10 @@ const editNode = (nodeId: string) => {
   const node = nodes.value.find(n => n.id === nodeId)
   if (node) {
     editingNodeId.value = nodeId
-    editingNodeData.value = { ...node.data }
+    editingNodeData.value = { 
+      ...node.data,
+      consultedUserIds: [...(node.data.consultedUserIds || [])]
+    }
     nextTick(() => {
       nodeEditInput.value?.focus()
     })
@@ -1095,7 +1157,10 @@ const saveNodeEdit = () => {
     const nodeIndex = nodes.value.findIndex(n => n.id === editingNodeId.value)
     if (nodeIndex !== -1 && nodes.value[nodeIndex]) {
       // Update the node data with the edited values
-      const updatedData = { ...editingNodeData.value }
+      const updatedData = { 
+        ...editingNodeData.value,
+        consultedUserIds: [...(editingNodeData.value.consultedUserIds || [])]
+      }
       
       // Create a completely new node object to trigger reactivity
       const updatedNode = {
@@ -1103,7 +1168,7 @@ const saveNodeEdit = () => {
         data: updatedData
       }
       
-      // Replace the node in the array
+      // Replace the node in the array to trigger reactivity
       nodes.value.splice(nodeIndex, 1, updatedNode)
     }
     editingNodeId.value = null
@@ -1336,7 +1401,8 @@ const convertToTemplate = (): FlowTemplate => {
       ownerId: node.data.ownerId || null,
       teamId: node.data.teamId || null,
       durationDays: (elementType === 'state' || elementType === 'artefact') ? null : (node.data.durationDays || null),
-      type: elementType
+      type: elementType,
+      consultedUserIds: node.data.consultedUserIds || []
     }
   })
   
@@ -1979,6 +2045,12 @@ const saveTemplate = () => {
   border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
+.consulted-users {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
 .type-tag {
   display: inline-flex;
   align-items: center;
@@ -2030,8 +2102,32 @@ const saveTemplate = () => {
   background: rgba(255, 255, 255, 0.9);
 }
 
+.edit-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 0.2rem;
+  margin-top: 0.3rem;
+}
+
 .duration-input {
   width: 80px;
+}
+
+.consulted-users-select {
+  min-height: 60px;
+  max-height: 80px;
+  overflow-y: auto;
+  font-size: 0.75rem;
+}
+
+.consulted-users-select option {
+  padding: 2px 4px;
+}
+
+.consulted-users-select option:checked {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
 .edit-actions {
@@ -2276,5 +2372,46 @@ const saveTemplate = () => {
   .layout-status {
     justify-content: flex-start;
   }
+}
+
+/* Consulted Users Styles */
+.consulted-users-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #e3f2fd;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #1565c0;
+}
+
+.consulted-users-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.user-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.user-checkbox:hover {
+  background-color: #f5f5f5;
+}
+
+.user-checkbox input[type="checkbox"] {
+  cursor: pointer;
 }
 </style>
