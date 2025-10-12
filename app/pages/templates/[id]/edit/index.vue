@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import type { FlowTemplate } from '../../../../types/FlowTemplate'
+import type { FlowTemplate } from '../../../../../types/FlowTemplate'
 import TemplateForm from '~/components/TemplateForm.vue'
 
 // Get the template ID from the route

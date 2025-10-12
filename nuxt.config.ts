@@ -21,5 +21,6 @@ export default defineNuxtConfig({
         base: './.data/db'
       }
     }
-  }
+  },
+  ssr: false
 })

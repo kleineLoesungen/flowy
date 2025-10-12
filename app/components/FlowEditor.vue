@@ -159,7 +159,7 @@
         
         <!-- Custom Element Node -->
         <template #node-element="{ data, id }">
-          <div class="element-node" :class="{ 'editing': editingNodeId === id, [`element-${data.type || 'action'}`]: true }" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}-${(data.consultedUserIds || []).length}`" @click="handleNodeClick(id)">
+          <div class="element-node" :class="`element-${data.type || 'action'}`" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}-${(data.consultedUserIds || []).length}`">
             <div class="node-header">
               <div class="element-icon">
                 <svg v-if="data.type === 'action'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
@@ -172,7 +172,7 @@
                   <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
                 </svg>
               </div>
-              <div class="element-info" v-if="editingNodeId !== id">
+              <div class="element-info">
                 <h4>{{ data.name || 'Unnamed Element' }}</h4>
                 <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
                 <div class="element-meta">
@@ -200,92 +200,7 @@
                   </span>
                 </div>
               </div>
-              <!-- Inline editing form -->
-              <div class="element-edit" v-else @click.stop>
-                <input 
-                  v-model="editingNodeData.name"
-                  placeholder="Element name"
-                  class="edit-input"
-                  @keyup.enter="saveNodeEdit"
-                  @keyup.escape="cancelNodeEdit"
-                  ref="nodeEditInput"
-                />
-                <input 
-                  v-model="editingNodeData.description"
-                  placeholder="Description"
-                  class="edit-input"
-                  @keyup.enter="saveNodeEdit"
-                  @keyup.escape="cancelNodeEdit"
-                />
-                <select 
-                  v-model="editingNodeData.ownerId"
-                  class="edit-input"
-                  @keyup.enter="saveNodeEdit"
-                  @keyup.escape="cancelNodeEdit"
-                >
-                  <option :value="null">No Owner</option>
-                  <option v-for="user in users" :key="user.id" :value="user.id">
-                    {{ user.name || user.email || `User ${user.id}` }}
-                  </option>
-                  <option v-if="users.length === 0" disabled>Loading users...</option>
-                </select>
-                <select 
-                  v-model="editingNodeData.teamId"
-                  class="edit-input"
-                  @keyup.enter="saveNodeEdit"
-                  @keyup.escape="cancelNodeEdit"
-                >
-                  <option :value="null">No Team</option>
-                  <option v-for="team in teams" :key="team.id" :value="team.id">
-                    {{ team.name || `Team ${team.id}` }}
-                  </option>
-                  <option v-if="teams.length === 0" disabled>Loading teams...</option>
-                </select>
-                <select 
-                  v-model="editingNodeData.type"
-                  class="edit-input"
-                  @keyup.enter="saveNodeEdit"
-                  @keyup.escape="cancelNodeEdit"
-                >
-                  <option value="action">Action</option>
-                  <option value="state">State</option>
-                  <option value="artefact">Artefact</option>
-                </select>
-                <input 
-                  v-model.number="editingNodeData.durationDays"
-                  type="number"
-                  placeholder="Days"
-                  class="edit-input duration-input"
-                  :disabled="editingNodeData.type === 'state' || editingNodeData.type === 'artefact'"
-                  @keyup.enter="saveNodeEdit"
-                  @keyup.escape="cancelNodeEdit"
-                />
-                <label class="edit-label">Consulted Users:</label>
-                <div class="consulted-users-checkboxes">
-                  <label 
-                    v-for="user in users" 
-                    :key="user.id"
-                    class="checkbox-label"
-                  >
-                    <input 
-                      type="checkbox" 
-                      :value="user.id"
-                      :checked="editingNodeData.consultedUserIds.includes(user.id)"
-                      @change="toggleConsultedUser(user.id)"
-                    />
-                    {{ user.name || user.email }}
-                  </label>
-                </div>
-                <div class="edit-actions">
-                  <button @click="saveNodeEdit" class="btn-small btn-save">✓</button>
-                  <button @click="cancelNodeEdit" class="btn-small btn-cancel">
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div class="node-actions" v-if="editingNodeId !== id">
+              <div class="node-actions">
                 <button @click="editNode(id)" class="btn-icon edit-btn">
                   <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
@@ -392,7 +307,13 @@ const edges = ref<Edge[]>([])
 const nodeCounter = ref(0)
 
 // Vue Flow instance
-const { fitView } = useVueFlow()
+const { fitView, getViewport, setViewport } = useVueFlow()
+
+// Track if viewport should be restored from URL
+const route = useRoute()
+const shouldRestoreViewport = computed(() => {
+  return !!(route.query.x && route.query.y && route.query.zoom)
+})
 
 // Change tracking state
 const initialState = ref<{
@@ -471,27 +392,7 @@ const isArtefactConnection = computed(() => {
   return sourceType === 'artefact' || targetType === 'artefact'
 })
 
-// Editing state
-const editingNodeId = ref<string | null>(null)
-const editingNodeData = ref<ElementTemplate>({
-  id: '',
-  name: '',
-  description: '',
-  ownerId: null,
-  teamId: null,
-  durationDays: null,
-  type: 'action',
-  consultedUserIds: []
-})
-
-// Watch for element type changes and automatically set durationDays to null for state/artefact types
-watch(() => editingNodeData.value.type, (newType) => {
-  if (newType === 'state' || newType === 'artefact') {
-    editingNodeData.value.durationDays = null
-  }
-})
-
-// Note: Removed recursive watchers that were causing infinite loops
+// Note: Removed inline editing functionality - now uses modal routes
 
 // Edge configuration state
 const showEdgeModal = ref(false)
@@ -502,7 +403,7 @@ const pendingConnection = ref<Connection | null>(null)
 const dropdownOpen = ref(false)
 
 // Refs
-const nodeEditInput = ref<HTMLInputElement>()
+// Removed nodeEditInput ref - no longer needed
 
 // Users and teams data
 const users = ref<User[]>([])
@@ -832,15 +733,18 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
     edges.value = relationEdges
     nodeCounter.value = template.elements.length
     
-    // Fit view to show all elements after a short delay to ensure rendering is complete
-    setTimeout(() => {
-      fitView({ 
-        padding: 0.1, // 10% padding around elements
-        duration: 800, // smooth animation
-        maxZoom: 1.5,  // don't zoom in too much
-        minZoom: 0.2   // don't zoom out too much
-      })
-    }, 100)
+    // Only fit view if viewport parameters are not in the URL (will be restored later)
+    if (!shouldRestoreViewport.value) {
+      // Fit view to show all elements after a short delay to ensure rendering is complete
+      setTimeout(() => {
+        fitView({ 
+          padding: 0.1, // 10% padding around elements
+          duration: 800, // smooth animation
+          maxZoom: 1.5,  // don't zoom in too much
+          minZoom: 0.2   // don't zoom out too much
+        })
+      }, 100)
+    }
   })
 }
 
@@ -867,6 +771,30 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
     // Save initial state after loading is complete
     nextTick(() => {
       saveInitialState()
+      
+      // Restore viewport from URL parameters if present (after template is loaded)
+      if (shouldRestoreViewport.value) {
+        const x = route.query.x as string
+        const y = route.query.y as string  
+        const zoom = route.query.zoom as string
+        
+        // Restore viewport to the saved position and zoom
+        setTimeout(() => {
+          setViewport({ 
+            x: parseFloat(x), 
+            y: parseFloat(y), 
+            zoom: parseFloat(zoom) 
+          })
+          
+          // Clean up the URL by removing viewport parameters
+          const router = useRouter()
+          const newQuery = { ...route.query }
+          delete newQuery.x
+          delete newQuery.y  
+          delete newQuery.zoom
+          router.replace({ query: newQuery })
+        }, 50) // Small delay to ensure template is rendered
+      }
     })
   } else {
     templateData.value.name = ''
@@ -882,39 +810,6 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
     })
   }
 }, { immediate: true })
-
-// Handle consulted users multi-select updates
-const updateConsultedUsers = (event: Event) => {
-  console.log('updateConsultedUsers called!')
-  const select = event.target as HTMLSelectElement
-  const selectedOptions = Array.from(select.selectedOptions)
-  const newIds = selectedOptions.map(option => option.value)
-  console.log('Selected options:', selectedOptions)
-  console.log('New IDs:', newIds)
-  
-  // Force reactivity by creating a new array
-  editingNodeData.value.consultedUserIds = [...newIds]
-  console.log('Updated consulted users:', editingNodeData.value.consultedUserIds)
-}
-
-// Handle individual checkbox toggle for consulted users
-const toggleConsultedUser = (userId: string) => {
-  console.log('toggleConsultedUser called with:', userId)
-  const currentIds = [...editingNodeData.value.consultedUserIds]
-  const index = currentIds.indexOf(userId)
-  
-  if (index > -1) {
-    // Remove user
-    currentIds.splice(index, 1)
-  } else {
-    // Add user
-    currentIds.push(userId)
-  }
-  
-  // Update with new array to trigger reactivity
-  editingNodeData.value.consultedUserIds = currentIds
-  console.log('Updated consulted users:', editingNodeData.value.consultedUserIds)
-}
 
 // Multi-select dropdown functions
 const toggleDropdown = () => {
@@ -953,47 +848,26 @@ const closeDropdownOnOutsideClick = (event: MouseEvent) => {
 }
 
 // Add new element node
-const addElement = () => {
-  nodeCounter.value++
-  
-  // Find the rightmost position on the bottom level to avoid overlaps
-  let maxY = 100
-  let maxXAtBottomY = 100
-  
-  if (nodes.value.length > 0) {
-    // Find the bottom-most Y position
-    maxY = Math.max(...nodes.value.map(node => node.position.y))
+const addElement = async () => {
+  if (props.template?.id) {
+    const router = useRouter()
+    const route = useRoute()
     
-    // Find the rightmost X position at that Y level
-    const nodesAtMaxY = nodes.value.filter(node => node.position.y === maxY)
-    if (nodesAtMaxY.length > 0) {
-      maxXAtBottomY = Math.max(...nodesAtMaxY.map(node => node.position.x)) + 320  // Increased spacing to match auto-layout
+    // Capture current viewport state and update the current edit URL  
+    const viewport = getViewport()
+    const viewportQuery = {
+      ...route.query,
+      x: viewport.x.toString(),
+      y: viewport.y.toString(),
+      zoom: viewport.zoom.toString()
     }
-  } else {
-    // First node, center it
-    maxXAtBottomY = 400
+    
+    // Replace current URL with viewport state (this saves the position)
+    await router.replace({ query: viewportQuery })
+    
+    // Navigate to new element creation (clean URL)
+    navigateTo(`/templates/${props.template.id}/edit/elements/new`)
   }
-  
-  const elementId = generateId()
-  const newNode: Node = {
-    id: elementId, // Use same ID for both node and data
-    type: 'element',
-    position: { 
-      x: maxXAtBottomY, 
-      y: maxY
-    },
-    data: {
-      id: elementId, // Same ID as node.id for consistency
-      name: `Element ${nodeCounter.value}`,
-      description: '',
-      ownerId: null,
-      teamId: null,
-      durationDays: 1,
-      type: 'action',
-      consultedUserIds: []
-    }
-  }
-  nodes.value.push(newNode)
 }
 
 // Reorganize layout using the same algorithm as loadTemplateIntoEditor
@@ -1138,54 +1012,29 @@ const fitToView = () => {
 }
 
 // Node editing functions
-const editNode = (nodeId: string) => {
-  const node = nodes.value.find(n => n.id === nodeId)
-  if (node) {
-    editingNodeId.value = nodeId
-    editingNodeData.value = { 
-      ...node.data,
-      consultedUserIds: [...(node.data.consultedUserIds || [])]
+const editNode = async (nodeId: string) => {
+  if (props.template?.id) {
+    const router = useRouter()
+    const route = useRoute()
+    
+    // Capture current viewport state and update the current edit URL
+    const viewport = getViewport()
+    const viewportQuery = {
+      ...route.query,
+      x: viewport.x.toString(),
+      y: viewport.y.toString(),
+      zoom: viewport.zoom.toString()
     }
-    nextTick(() => {
-      nodeEditInput.value?.focus()
-    })
+    
+    // Replace current URL with viewport state (this saves the position)
+    await router.replace({ query: viewportQuery })
+
+    // Navigate to element edit modal (clean URL)
+    await navigateTo(`/templates/${props.template.id}/edit/elements/${nodeId}`)
   }
 }
 
-const saveNodeEdit = () => {
-  if (editingNodeId.value) {
-    const nodeIndex = nodes.value.findIndex(n => n.id === editingNodeId.value)
-    if (nodeIndex !== -1 && nodes.value[nodeIndex]) {
-      // Update the node data with the edited values
-      const updatedData = { 
-        ...editingNodeData.value,
-        consultedUserIds: [...(editingNodeData.value.consultedUserIds || [])]
-      }
-      
-      // Create a completely new node object to trigger reactivity
-      const updatedNode = {
-        ...nodes.value[nodeIndex],
-        data: updatedData
-      }
-      
-      // Replace the node in the array to trigger reactivity
-      nodes.value.splice(nodeIndex, 1, updatedNode)
-    }
-    editingNodeId.value = null
-  }
-}
-
-const cancelNodeEdit = () => {
-  editingNodeId.value = null
-}
-
-// Handle node click - save edit if clicking outside editing area
-const handleNodeClick = (nodeId: string) => {
-  // If we're editing a different node, save the current edit first
-  if (editingNodeId.value && editingNodeId.value !== nodeId) {
-    saveNodeEdit()
-  }
-}
+// Removed inline editing functions - now using modal routes
 
 // Remove node and associated edges
 const removeNode = (nodeId: string) => {
