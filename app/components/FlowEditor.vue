@@ -252,6 +252,7 @@
                   type="number"
                   placeholder="Days"
                   class="edit-input duration-input"
+                  :disabled="editingNodeData.type === 'state' || editingNodeData.type === 'artefact'"
                   @keyup.enter="saveNodeEdit"
                   @keyup.escape="cancelNodeEdit"
                 />
@@ -460,6 +461,13 @@ const editingNodeData = ref<ElementTemplate>({
   teamId: null,
   durationDays: null,
   type: 'action'
+})
+
+// Watch for element type changes and automatically set durationDays to null for state/artefact types
+watch(() => editingNodeData.value.type, (newType) => {
+  if (newType === 'state' || newType === 'artefact') {
+    editingNodeData.value.durationDays = null
+  }
 })
 
 // Edge configuration state
@@ -713,7 +721,11 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
         position: savedPosition ? 
           { x: savedPosition.x, y: savedPosition.y } :
           { x: 100, y: 100 }, // fallback position
-        data: { ...element, type: element.type || 'action' }
+        data: { 
+          ...element, 
+          type: element.type || 'action',
+          durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays
+        }
       })
     })
   } else {
@@ -733,7 +745,10 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
               x: startX + nodeIndex * 320,  // Increased X spacing
               y: levelY 
             },
-            data: { ...element }
+            data: { 
+              ...element,
+              durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays
+            }
           })
         }
       })
@@ -1312,15 +1327,18 @@ onUnmounted(() => {
 const convertToTemplate = (): FlowTemplate => {
   // Convert nodes back to elements
   // IMPORTANT: Use node.id consistently since that's what edges reference
-  const elements: ElementTemplate[] = reactiveNodes.value.map(node => ({
-    id: node.id, // Always use node.id to match edge references
-    name: node.data.name || '',
-    description: node.data.description || '',
-    ownerId: node.data.ownerId || null,
-    teamId: node.data.teamId || null,
-    durationDays: node.data.durationDays || null,
-    type: node.data.type || 'action'
-  }))
+  const elements: ElementTemplate[] = reactiveNodes.value.map(node => {
+    const elementType = node.data.type || 'action'
+    return {
+      id: node.id, // Always use node.id to match edge references
+      name: node.data.name || '',
+      description: node.data.description || '',
+      ownerId: node.data.ownerId || null,
+      teamId: node.data.teamId || null,
+      durationDays: (elementType === 'state' || elementType === 'artefact') ? null : (node.data.durationDays || null),
+      type: elementType
+    }
+  })
   
   // Group edges by source and type, but preserve handle information
   const relationGroups = new Map<string, { 
