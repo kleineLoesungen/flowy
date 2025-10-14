@@ -62,7 +62,7 @@
 import type { FlowTemplate } from '../../../types/FlowTemplate'
 
 // Explicitly import components to ensure they're available
-import FlowTemplatesOverview from '~/components/FlowTemplatesOverview.vue'
+import FlowTemplatesOverview from '~/components/Flow/TemplatesOverview.vue'
 
 // Page metadata
 useHead({

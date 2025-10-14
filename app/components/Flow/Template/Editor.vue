@@ -222,10 +222,10 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { StraightEdge } from '@vue-flow/core'
 import type { Node, Edge, Connection, NodeChange, EdgeChange, XYPosition } from '@vue-flow/core'
-import type { FlowTemplate } from '../../types/FlowTemplate'
-import type { ElementTemplate } from '../../types/ElementTemplate'
-import type { Relation } from '../../types/Relation'
-import type { User } from '../../types/User'
+import type { FlowTemplate } from '../../../../types/FlowTemplate'
+import type { ElementTemplate } from '../../../../types/ElementTemplate'
+import type { Relation } from '../../../../types/Relation'
+import type { User } from '../../../../types/User'
 
 // Props and emits
 const props = defineProps<{

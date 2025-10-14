@@ -8,8 +8,8 @@
 </template>
 
 <script setup lang="ts">
-import type { FlowTemplate } from '../../types/FlowTemplate'
-import FlowEditor from '~/components/FlowEditor.vue'
+import type { FlowTemplate } from '../../../../types/FlowTemplate'
+import FlowEditor from '~/components/Flow/Template/Editor.vue'
 
 defineProps<{
   template?: FlowTemplate | null

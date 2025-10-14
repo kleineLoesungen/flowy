@@ -18,7 +18,7 @@
 
     <!-- Template Content -->
     <div v-else-if="template" class="template-content">
-      <FlowViewer :template="template" @close="handleClose" />
+      <FlowTemplateViewer :template="template" @close="handleClose" />
     </div>
   </div>
 </template>
@@ -108,8 +108,8 @@ import {
   formatDurationRange, 
   getDurationLabel 
 } from '../../../../utils/flowDurationCalculator'
-import FlowViewer from '~/components/FlowViewer.vue'
-import TemplateForm from '~/components/TemplateForm.vue'
+import FlowTemplateViewer from '~/components/Flow/Template/Viewer.vue'
+import FlowTemplateForm from '~/components/Flow/Template/Form.vue'
 
 // Get the template ID from the route
 const route = useRoute()

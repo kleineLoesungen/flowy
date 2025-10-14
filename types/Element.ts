@@ -3,9 +3,10 @@ export interface Element {
     name: string;
     description: string;
     ownerId: string | null;
-    startedAt: number | null;
-    endedAt: number | null;
-    completedAt: number | null;
+    consultedUserIds: string[];
+    completedAt: number | null; // real completion
+    expectedEndedAt: number | null; // generated based on duration
+    type: 'action' | 'state' | 'artefact';
     status: 'pending' | 'in-progress' | 'completed' | 'aborted';
     comments: ElementComment[];
 }

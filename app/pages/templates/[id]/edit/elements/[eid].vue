@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import ElementEditorModal from '~/components/ElementEditorModal.vue'
+import ElementEditorModal from '~/components/Flow/Template/ElementEditorModal.vue'
 
 // Get route parameters
 const route = useRoute()

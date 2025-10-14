@@ -360,15 +360,15 @@
 </template>
 
 <script setup lang="ts">
-import type { FlowTemplate } from '../../types/FlowTemplate'
-import type { User } from '../../types/User'
-import type { Team } from '../../types/Team'
+import type { FlowTemplate } from '../../../types/FlowTemplate'
+import type { User } from '../../../types/User'
+import type { Team } from '../../../types/Team'
 import {
   calculateTotalDuration,
   calculateFlowDuration,
   formatDurationRange,
   getDurationLabel
-} from '../../utils/flowDurationCalculator'
+} from '../../../utils/flowDurationCalculator'
 
 // Props
 const props = defineProps<{

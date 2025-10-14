@@ -7,6 +7,7 @@
 // General
 - TODO: add icon & page title
 - TODO: add footer with thanks to Copilot / nuxt / vue flow
+- FIXME: remove unused parts
 
 // Flow Templates
 - FIXME: template editor: auto layout

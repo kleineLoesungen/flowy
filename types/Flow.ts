@@ -5,13 +5,13 @@ export interface Flow {
     id: string;
     name: string;
     description: string | null;
-    templateId: string;
+    templateId: string;  // initial flow template
     elements: Element[];
     relations: Relation[];
     startingElementId: string;
-    startedAt: string | null;
-    expectedEndDate: string | null;
-    completedAt: string | null;
+    startedAt: string | null; // user input
+    expectedEndDate: string | null; // generated based on durations
+    completedAt: string | null; // real end date
     layout?: {
         [elementId: string]: {
             x: number;
