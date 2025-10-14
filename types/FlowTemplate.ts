@@ -7,7 +7,7 @@ export interface FlowTemplate {
     description: string;
     elements: ElementTemplate[];
     relations: Relation[];
-    startingElementIds: string[];
+    startingElementId: string;
     layout?: {
         [elementId: string]: {
             x: number;

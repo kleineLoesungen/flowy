@@ -195,9 +195,11 @@ const calculateTemplateDuration = (template: FlowTemplate): number => {
     }
     
     // Find starting elements
-    let startingElementIds = template.startingElementIds || []
+    let startingElementIds: string[] = []
     
-    if (startingElementIds.length === 0) {
+    if (template.startingElementId) {
+        startingElementIds = [template.startingElementId]
+    } else {
         startingElementIds = template.elements
             .filter(el => (incomingEdges.get(el.id) || []).length === 0)
             .map(el => el.id)
@@ -310,9 +312,11 @@ const createFlow = async () => {
             }
             
             // Find starting elements (no incoming edges or explicit starting elements)
-            let startingElementIds = template.startingElementIds || []
+            let startingElementIds: string[] = []
             
-            if (startingElementIds.length === 0) {
+            if (template.startingElementId) {
+                startingElementIds = [template.startingElementId]
+            } else {
                 startingElementIds = template.elements
                     .filter(el => (incomingEdges.get(el.id) || []).length === 0)
                     .map(el => el.id)
@@ -364,9 +368,11 @@ const createFlow = async () => {
             })
             
             // Find starting elements
-            let startingElementIds = template.startingElementIds || []
+            let startingElementIds: string[] = []
             
-            if (startingElementIds.length === 0) {
+            if (template.startingElementId) {
+                startingElementIds = [template.startingElementId]
+            } else {
                 startingElementIds = elements
                     .filter(el => (incomingRelations.get(el.id) || []).length === 0)
                     .map(el => el.id)
@@ -495,7 +501,7 @@ const createFlow = async () => {
                 }
             }),
             relations: selectedTemplate.value.relations,
-            startingElementIds: selectedTemplate.value.startingElementIds || [], // Copy starting elements from template
+            startingElementId: selectedTemplate.value.startingElementId || '', // Copy starting element from template
             startedAt: flowData.value.startDate,
             expectedEndDate: overallEndDate.toISOString().split('T')[0] || null, // Expected end date based on calculated schedule
             completedAt: null,

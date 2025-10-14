@@ -1,14 +1,5 @@
 <template>
     <div class="templates-page">
-        <!-- Page Header -->
-        <div class="page-header">
-            <h2>Templates</h2>
-            <button @click="showAddModal = true" class="btn btn-primary">
-                <span class="icon">+</span>
-                Template
-            </button>
-        </div>
-
         <!-- Templates List -->
         <div v-if="pending" class="loading">
             Loading templates...
@@ -20,9 +11,13 @@
 
         <div v-else class="templates-container">
             <FlowTemplatesOverview :templates="templates" @delete="confirmDelete" />
+            <div class="template-actions">
+                <button @click="showAddModal = true" class="btn btn-primary">
+                    <span class="icon">+</span>
+                    Template
+                </button>
+            </div>
         </div>
-
-
 
         <!-- Add Flow Modal (Simple) -->
         <div v-if="showAddModal" class="modal-overlay" @click="closeModals">
@@ -115,13 +110,12 @@ const handleAddFlow = async () => {
 
     try {
         // Create new flow with just name and description
-        const newFlow: FlowTemplate = {
-            id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+        const newFlow = {
             name: newFlowData.value.name.trim(),
             description: newFlowData.value.description.trim(),
             elements: [],
             relations: [],
-            startingElementIds: []
+            startingElementId: ''
         }
 
         await $fetch('/api/templates/flows', {
@@ -266,6 +260,13 @@ const deleteTemplate = async () => {
     padding: 1.5rem;
     box-shadow: 0 8px 32px rgba(102, 126, 234, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.template-actions {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 0.5rem;
 }
 
 .modal-overlay {

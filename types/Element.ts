@@ -3,7 +3,6 @@ export interface Element {
     name: string;
     description: string;
     ownerId: string | null;
-    teamId: string | null;
     startedAt: number | null;
     endedAt: number | null;
     completedAt: number | null;

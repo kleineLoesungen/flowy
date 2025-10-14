@@ -1,9 +1,14 @@
 # flowy
 
-- TODO: consultedUserIds
-- TODO: direct links to template /templates/[id] & /templates/[id]/edit
-- TODO: filtering: userId, teamId, artefact
-- TODO: toggle artefacts visible/hidden
+// Flows
 - TODO: +flows (instances) 
   - element end dates only workdays
-- TODO: style between pages
+
+// General
+- TODO: add icon & page title
+- TODO: add footer with thanks to Copilot / nuxt / vue flow
+
+// Flow Templates
+- FIXME: template editor: auto layout
+- TODO: FlowViewer: hover effect for element and list consulted users?
+- TODO: element type: 'key-value' on click -> overview of all key-values (copyable)

@@ -137,12 +137,9 @@
 
                                 <!-- Collapsible Content -->
                                 <div v-show="expandedElements.has(element.id)" class="element-details">
-                                    <div class="element-meta" v-if="element.ownerId || element.teamId">
+                                    <div class="element-meta" v-if="element.ownerId">
                                         <span v-if="element.ownerId" class="owner-tag">
                                             👤 {{ getUserName(element.ownerId) }}
-                                        </span>
-                                        <span v-if="element.teamId" class="team-tag">
-                                            👥 {{ getTeamName(element.teamId) }}
                                         </span>
                                     </div>
 
@@ -207,7 +204,6 @@
 import type { Flow } from '../../types/Flow'
 import type { Element } from '../../types/Element'
 import type { User } from '../../types/User'
-import type { Team } from '../../types/Team'
 
 interface Props {
     flow: Flow | null
@@ -224,7 +220,6 @@ defineEmits<{
 const localFlow = ref<Flow | null>(null)
 const hasUnsavedChanges = ref(false)
 const users = ref<User[]>([])
-const teams = ref<Team[]>([])
 const newComments = ref<Record<string, string>>({})
 const expandedElements = ref<Set<string>>(new Set())
 const hiddenStreams = ref<Set<number>>(new Set())
@@ -238,10 +233,12 @@ const currentUserId = computed(() => {
 
 // Methods - Define early so they can be used in watchers
 const initializeFlowProgress = (flow: Flow) => {
-    // Use explicit starting elements if defined, otherwise fall back to flow analysis
-    let startingElementIds = flow.startingElementIds || []
+    // Use explicit starting element if defined, otherwise fall back to flow analysis
+    let startingElementIds: string[] = []
     
-    if (startingElementIds.length === 0) {
+    if (flow.startingElementId) {
+        startingElementIds = [flow.startingElementId]
+    } else {
         // Build incoming edges map to find starting elements
         const incomingEdges = new Map<string, string[]>()
         
@@ -376,9 +373,11 @@ const sortedElements = computed(() => {
     })
     
     // Get starting elements (explicit or inferred)
-    let startingElementIds = localFlow.value.startingElementIds || []
+    let startingElementIds: string[] = []
     
-    if (startingElementIds.length === 0) {
+    if (localFlow.value.startingElementId) {
+        startingElementIds = [localFlow.value.startingElementId]
+    } else {
         // Infer starting elements: elements with no incoming edges
         startingElementIds = elements
             .filter(el => (incomingEdges.get(el.id) || []).length === 0)
@@ -499,8 +498,10 @@ const executionStreams = computed(() => {
     })
 
     // Find starting elements (no incoming relations)
-    let startingElementIds = localFlow.value.startingElementIds || []
-    if (startingElementIds.length === 0) {
+    let startingElementIds: string[] = []
+    if (localFlow.value.startingElementId) {
+        startingElementIds = [localFlow.value.startingElementId]
+    } else {
         startingElementIds = elements
             .filter(el => (incomingRelations.get(el.id) || []).length === 0)
             .map(el => el.id)
@@ -763,10 +764,7 @@ const getUserName = (userId: string): string => {
     return user?.name || 'Unknown User'
 }
 
-const getTeamName = (teamId: string): string => {
-    const team = teams.value.find(t => t.id === teamId)
-    return team?.name || 'Unknown Team'
-}
+
 
 // Stream visualization helper methods
 const getStreamTitle = (stream: any): string => {
@@ -788,19 +786,11 @@ const getStreamTypeBadge = (type: string): string => {
 // Load users and teams on mount
 onMounted(async () => {
     try {
-        const [usersResponse, teamsResponse] = await Promise.all([
-            fetch('/api/users'),
-            fetch('/api/teams')
-        ])
+        const usersResponse = await fetch('/api/users')
         
         if (usersResponse.ok) {
             const usersData = await usersResponse.json()
             users.value = usersData.data || []
-        }
-        
-        if (teamsResponse.ok) {
-            const teamsData = await teamsResponse.json()
-            teams.value = teamsData.data || []
         }
     } catch (error) {
         console.error('Error loading users/teams:', error)

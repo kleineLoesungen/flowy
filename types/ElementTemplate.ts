@@ -3,7 +3,6 @@ export interface ElementTemplate {
     name: string;
     description: string;
     ownerId: string | null;
-    teamId: string | null;
     durationDays: number | null;
     type: 'action' | 'state' | 'artefact';
     consultedUserIds: string[];

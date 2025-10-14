@@ -61,9 +61,6 @@
                                         <span v-if="data.ownerId" class="owner-tag">
                                             👤 {{ getUserName(data.ownerId) }}
                                         </span>
-                                        <span v-if="data.teamId" class="team-tag">
-                                            👥 {{ getTeamName(data.teamId) }}
-                                        </span>
                                         <span v-if="data.durationDays" class="duration-badge">
                                             ⏱️ {{ data.durationDays }} {{ data.durationDays === 1 ? 'day' : 'days' }}
                                         </span>
@@ -104,8 +101,7 @@ import { Controls } from '@vue-flow/controls'
 import type { Node, Edge, NodeChange } from '@vue-flow/core'
 import type { FlowTemplate } from '../../types/FlowTemplate'
 import type { User } from '../../types/User'
-import type { Team } from '../../types/Team'
-import { calculateFlowDuration } from '../../utils/flowDurationCalculator'
+import { calculateFlowDuration, formatDurationRange } from '../../utils/flowDurationCalculator'
 
 interface Props {
     isOpen: boolean
@@ -125,11 +121,10 @@ const closeModal = () => {
 // Reactive nodes that can be modified by user interactions
 const nodes = ref<Node[]>([])
 
-// Users and teams data
+// Users data
 const users = ref<User[]>([])
-const teams = ref<Team[]>([])
 
-// Fetch users and teams
+// Fetch users
 const fetchUsers = async () => {
     try {
         const response = await $fetch<{ success: boolean, data: User[] }>('/api/users')
@@ -140,16 +135,6 @@ const fetchUsers = async () => {
     }
 }
 
-const fetchTeams = async () => {
-    try {
-        const response = await $fetch<{ success: boolean, data: Team[] }>('/api/teams')
-        teams.value = response?.data || []
-    } catch (error) {
-        console.error('Failed to fetch teams:', error)
-        teams.value = []
-    }
-}
-
 // Helper functions to get display names
 const getUserName = (userId: string | null): string => {
     if (!userId) return ''
@@ -157,16 +142,9 @@ const getUserName = (userId: string | null): string => {
     return user?.name || user?.email || `User ${userId}`
 }
 
-const getTeamName = (teamId: string | null): string => {
-    if (!teamId) return ''
-    const team = teams.value.find(t => t.id === teamId)
-    return team?.name || `Team ${teamId}`
-}
-
 // Fetch data on component mount
 onMounted(() => {
     fetchUsers()
-    fetchTeams()
 })
 
 // Handle node changes (like dragging)
@@ -348,9 +326,9 @@ const getEdgeColor = (type?: string) => {
 
 
 const totalDuration = computed(() => {
-    if (!props.template) return 0
+    if (!props.template) return '0'
     const duration = calculateFlowDuration(props.template)
-    return `${duration.min} - ${duration.max}`
+    return `${formatDurationRange(duration)} days`
 })
 </script>
 

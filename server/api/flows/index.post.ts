@@ -12,10 +12,11 @@ export default defineEventHandler(async (event) => {
     description: body.description || null,
     templateId: body.templateId,
     startedAt: body.startedAt || new Date().toISOString(),
+    expectedEndDate: body.expectedEndDate || null,
     completedAt: body.completedAt || null,
     elements: body.elements || [],
     relations: body.relations || [],
-    startingElementIds: body.startingElementIds || [],
+    startingElementId: body.startingElementId || '',
     layout: body.layout || undefined
   }
 

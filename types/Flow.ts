@@ -8,7 +8,7 @@ export interface Flow {
     templateId: string;
     elements: Element[];
     relations: Relation[];
-    startingElementIds: string[];
+    startingElementId: string;
     startedAt: string | null;
     expectedEndDate: string | null;
     completedAt: string | null;

@@ -12,18 +12,10 @@
         <button @click="reorganizeLayout" class="btn btn-info">
           Auto Layout
         </button>
-        <button 
-          v-if="hasChanges" 
-          @click="saveTemplate" 
-          class="btn btn-success"
-        >
+        <button v-if="hasChanges" @click="saveTemplate" class="btn btn-success">
           Save
         </button>
-        <button 
-          v-if="hasChanges" 
-          @click="resetChanges" 
-          class="btn btn-warning"
-        >
+        <button v-if="hasChanges" @click="resetChanges" class="btn btn-warning">
           Reset
         </button>
         <button @click="$emit('cancel')" class="btn btn-secondary">
@@ -37,90 +29,27 @@
       <div class="info-row">
         <div class="form-group">
           <label for="flow-name">Flow Name</label>
-          <input 
-            id="flow-name"
-            v-model="templateData.name"
-            type="text" 
-            required
-            placeholder="Enter flow name"
-            class="form-control"
-          />
+          <input id="flow-name" v-model="templateData.name" type="text" required placeholder="Enter flow name"
+            class="form-control" />
         </div>
         <div class="form-group">
           <label for="flow-description">Description</label>
-          <textarea 
-            id="flow-description"
-            v-model="templateData.description"
-            placeholder="Enter flow description"
-            class="form-control textarea-compact"
-            rows="2"
-          ></textarea>
+          <textarea id="flow-description" v-model="templateData.description" placeholder="Enter flow description"
+            class="form-control textarea-compact" rows="2"></textarea>
         </div>
         <div class="form-group">
-          <label>Starting Elements</label>
-          <div class="starting-elements-control">
+          <label>Starting Element</label>
+          <div class="starting-element-control">
             <div v-if="nodes.length === 0" class="no-elements-message">
-              Add elements first, then select starting ones.
+              Add elements first, then select starting element.
             </div>
-            <div v-else class="multi-select-wrapper">
-              <div 
-                class="multi-select-dropdown compact" 
-                :class="{ 'open': dropdownOpen }"
-                @click="toggleDropdown"
-              >
-                <div class="selected-display">
-                  <div v-if="templateData.startingElementIds.length === 0" class="placeholder">
-                    Select starting elements...
-                  </div>
-                  <div v-else class="selected-items">
-                    <span 
-                      v-for="elementId in templateData.startingElementIds" 
-                      :key="elementId"
-                      class="selected-tag"
-                    >
-                      {{ getElementName(elementId) }}
-                      <button 
-                        @click.stop="removeStartingElement(elementId)"
-                        class="remove-tag-btn"
-                      >×</button>
-                    </span>
-                  </div>
-                  <svg class="dropdown-arrow" :class="{ 'rotated': dropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                  </svg>
-                </div>
-                
-                <div v-show="dropdownOpen" class="dropdown-menu">
-                  <div 
-                    v-for="node in nodes" 
-                    :key="node.id"
-                    class="dropdown-item"
-                    :class="{ 'selected': templateData.startingElementIds.includes(node.id) }"
-                    @click.stop="toggleStartingElement(node.id)"
-                  >
-                    <div class="element-icon-small" :class="`element-${node.data.type || 'action'}`">
-                      <svg v-if="node.data.type === 'action'" width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M13 10h5l-6 6-6-6h5V3h2v7z"/>
-                      </svg>
-                      <svg v-else-if="node.data.type === 'state'" width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-                      </svg>
-                      <svg v-else width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/>
-                      </svg>
-                    </div>
-                    <div class="element-info-dropdown">
-                      <span class="element-name">{{ node.data.name || 'Unnamed Element' }}</span>
-                      <span v-if="node.data.description" class="element-description">{{ node.data.description }}</span>
-                    </div>
-                    <div class="checkbox-indicator">
-                      <svg v-if="templateData.startingElementIds.includes(node.id)" class="check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div v-else class="single-select-wrapper">
+              <select v-model="templateData.startingElementId" class="form-control">
+                <option value="">Select starting element...</option>
+                <option v-for="node in nodes" :key="node.id" :value="node.id">
+                  {{ node.data.name || 'Unnamed Element' }}
+                </option>
+              </select>
             </div>
           </div>
         </div>
@@ -129,47 +58,44 @@
 
     <!-- Vue Flow Editor -->
     <div class="flow-canvas">
-      <VueFlow
-        :nodes="reactiveNodes"
-        :edges="edges"
-        @nodes-change="onNodesChange"
-        @edges-change="onEdgesChange"
-        @connect="onConnect"
-        @node-double-click="onNodeDoubleClick"
-        @edge-double-click="onEdgeDoubleClick"
-        :default-viewport="{ zoom: 1 }"
-        :min-zoom="0.2"
-        :max-zoom="4"
-        class="vue-flow-container"
-      >
+      <VueFlow :nodes="reactiveNodes" :edges="edges" @nodes-change="onNodesChange" @edges-change="onEdgesChange"
+        @connect="onConnect" @node-double-click="onNodeDoubleClick" @edge-double-click="onEdgeDoubleClick"
+        :default-viewport="{ zoom: 1 }" :min-zoom="0.2" :max-zoom="4" class="vue-flow-container">
+        <template #edge-straight="edgeProps">
+          <StraightEdge v-bind="edgeProps" />
+        </template>
         <Background pattern-color="#aaa" :gap="16" />
         <Controls />
-        
+
         <!-- Empty State Message -->
         <div v-if="nodes.length === 0" class="empty-flow-message">
           <div class="empty-icon">
             <svg width="48" height="48" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
             </svg>
           </div>
           <h3>Ready to build your flow!</h3>
           <p>Click the "+ Add Element" button above to start building your flow.</p>
           <p>You can add elements, connect them, and create your workflow visually.</p>
         </div>
-        
+
         <!-- Custom Element Node -->
         <template #node-element="{ data, id }">
-          <div class="element-node" :class="`element-${data.type || 'action'}`" :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}-${(data.consultedUserIds || []).length}`">
+          <div class="element-node" :class="`element-${data.type || 'action'}`"
+            :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}-${(data.consultedUserIds || []).length}`">
             <div class="node-header">
               <div class="element-icon">
                 <svg v-if="data.type === 'action'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M13 10h5l-6 6-6-6h5V3h2v7z"/>
+                  <path d="M13 10h5l-6 6-6-6h5V3h2v7z" />
                 </svg>
                 <svg v-else-if="data.type === 'state'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
                 </svg>
                 <svg v-else width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                  <path
+                    d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
                 </svg>
               </div>
               <div class="element-info">
@@ -177,25 +103,39 @@
                 <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
                 <div class="element-meta">
                   <span v-if="data.type" class="type-tag" :class="'type-' + data.type">
-                    <svg v-if="data.type === 'action'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10h5l-6 6-6-6h5V3h2v7z"/></svg>
-                    <svg v-else-if="data.type === 'state'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
-                    <svg v-else width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/></svg>
+                    <svg v-if="data.type === 'action'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M13 10h5l-6 6-6-6h5V3h2v7z" />
+                    </svg>
+                    <svg v-else-if="data.type === 'state'" width="12" height="12" fill="currentColor"
+                      viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                    </svg>
+                    <svg v-else width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" />
+                    </svg>
                     {{ data.type }}
                   </span>
                   <span v-if="data.ownerId" class="owner-tag">
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor"
+                      viewBox="0 0 16 16">
+                      <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
+                    </svg>
                     {{ getUserName(data.ownerId) }}
                   </span>
-                  <span v-if="data.teamId" class="team-tag">
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM4 18v-4h3v4h6v-4h3v4h4v-6H0v6h4zM12 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-6c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM6 8c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2z"/></svg>
-                    {{ getTeamName(data.teamId) }}
-                  </span>
                   <span v-if="data.durationDays" class="duration">
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/><path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path
+                        d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
+                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                    </svg>
                     {{ data.durationDays }} day{{ data.durationDays === 1 ? '' : 's' }}
                   </span>
                   <span v-if="data.consultedUserIds && data.consultedUserIds.length > 0" class="consulted-users">
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM4 18v-4h3v4h6v-4h3v4h4v-6H0v6h4zM12 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-6c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM6 8c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor"
+                      viewBox="0 0 16 16">
+                      <path
+                        d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
+                    </svg>
                     {{ data.consultedUserIds.length }} consulted
                   </span>
                 </div>
@@ -203,12 +143,13 @@
               <div class="node-actions">
                 <button @click="editNode(id)" class="btn-icon edit-btn">
                   <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    <path
+                      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
                   </svg>
                 </button>
                 <button @click="removeNode(id)" class="btn-icon delete-btn">
                   <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
                   </svg>
                 </button>
               </div>
@@ -257,10 +198,12 @@
               <strong>AND:</strong> Parallel execution - all connected elements must be completed
             </p>
             <p v-if="currentEdgeType === 'in'">
-              <strong>In:</strong> Input connection to an artefact - represents data or resources flowing into the artefact
+              <strong>In:</strong> Input connection to an artefact - represents data or resources flowing into the
+              artefact
             </p>
             <p v-if="currentEdgeType === 'out'">
-              <strong>Out:</strong> Output connection from an artefact - represents data or resources produced by the artefact
+              <strong>Out:</strong> Output connection from an artefact - represents data or resources produced by the
+              artefact
             </p>
           </div>
         </div>
@@ -277,12 +220,12 @@
 import { VueFlow, Handle, Position, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
+import { StraightEdge } from '@vue-flow/core'
 import type { Node, Edge, Connection, NodeChange, EdgeChange, XYPosition } from '@vue-flow/core'
 import type { FlowTemplate } from '../../types/FlowTemplate'
 import type { ElementTemplate } from '../../types/ElementTemplate'
 import type { Relation } from '../../types/Relation'
 import type { User } from '../../types/User'
-import type { Team } from '../../types/Team'
 
 // Props and emits
 const props = defineProps<{
@@ -296,10 +239,10 @@ const emit = defineEmits<{
 }>()
 
 // Reactive state
-const templateData = ref<{name: string, description: string, startingElementIds: string[]}>({
+const templateData = ref<{ name: string, description: string, startingElementId: string }>({
   name: '',
   description: '',
-  startingElementIds: []
+  startingElementId: ''
 })
 
 const nodes = ref<Node[]>([])
@@ -317,55 +260,55 @@ const shouldRestoreViewport = computed(() => {
 
 // Change tracking state
 const initialState = ref<{
-  templateData: {name: string, description: string, startingElementIds: string[]},
+  templateData: { name: string, description: string, startingElementId: string },
   nodes: Node[],
   edges: Edge[]
 } | null>(null)
 
 const hasChanges = computed(() => {
   if (!initialState.value) return false
-  
+
   // Check template data changes
   const currentTemplateData = templateData.value
   const initialTemplateData = initialState.value.templateData
-  
+
   if (currentTemplateData.name !== initialTemplateData.name ||
-      currentTemplateData.description !== initialTemplateData.description ||
-      JSON.stringify([...currentTemplateData.startingElementIds].sort()) !== JSON.stringify([...initialTemplateData.startingElementIds].sort())) {
+    currentTemplateData.description !== initialTemplateData.description ||
+    currentTemplateData.startingElementId !== initialTemplateData.startingElementId) {
     return true
   }
-  
+
   // Check nodes changes
   if (nodes.value.length !== initialState.value.nodes.length) {
     return true
   }
-  
+
   // Check if any node has changed
   for (const currentNode of nodes.value) {
     const initialNode = initialState.value.nodes.find(n => n.id === currentNode.id)
     if (!initialNode) return true
-    
+
     if (JSON.stringify(currentNode.data) !== JSON.stringify(initialNode.data) ||
-        JSON.stringify(currentNode.position) !== JSON.stringify(initialNode.position)) {
+      JSON.stringify(currentNode.position) !== JSON.stringify(initialNode.position)) {
       return true
     }
   }
-  
+
   // Check edges changes
   if (edges.value.length !== initialState.value.edges.length) {
     return true
   }
-  
+
   // Check if any edge has changed
   for (const currentEdge of edges.value) {
-    const initialEdge = initialState.value.edges.find(e => 
-      e.source === currentEdge.source && 
+    const initialEdge = initialState.value.edges.find(e =>
+      e.source === currentEdge.source &&
       e.target === currentEdge.target &&
       e.data?.relationType === currentEdge.data?.relationType
     )
     if (!initialEdge) return true
   }
-  
+
   return false
 })
 
@@ -380,15 +323,15 @@ const reactiveNodes = computed(() => {
 // Check if the pending connection involves an artefact
 const isArtefactConnection = computed(() => {
   if (!pendingConnection.value) return false
-  
+
   const sourceNode = nodes.value.find(n => n.id === pendingConnection.value!.source)
   const targetNode = nodes.value.find(n => n.id === pendingConnection.value!.target)
-  
+
   if (!sourceNode || !targetNode) return false
-  
+
   const sourceType = sourceNode.data.type || 'action'
   const targetType = targetNode.data.type || 'action'
-  
+
   return sourceType === 'artefact' || targetType === 'artefact'
 })
 
@@ -399,20 +342,18 @@ const showEdgeModal = ref(false)
 const currentEdgeType = ref<'flow' | 'or' | 'and' | 'in' | 'out'>('flow')
 const pendingConnection = ref<Connection | null>(null)
 
-// Multi-select dropdown state
-const dropdownOpen = ref(false)
+// No longer needed - using simple select
 
 // Refs
 // Removed nodeEditInput ref - no longer needed
 
-// Users and teams data
+// Users data
 const users = ref<User[]>([])
-const teams = ref<Team[]>([])
 
-// Fetch users and teams
+// Fetch users
 const fetchUsers = async () => {
   try {
-    const response = await $fetch<{success: boolean, data: User[]}>('/api/users')
+    const response = await $fetch<{ success: boolean, data: User[] }>('/api/users')
     users.value = response?.data || []
   } catch (error) {
     console.error('Failed to fetch users:', error)
@@ -420,21 +361,9 @@ const fetchUsers = async () => {
   }
 }
 
-const fetchTeams = async () => {
-  try {
-    const response = await $fetch<{success: boolean, data: Team[]}>('/api/teams')
-    teams.value = response?.data || []
-  } catch (error) {
-    console.error('Failed to fetch teams:', error)
-    teams.value = []
-  }
-}
-
 // Fetch data on component mount
 onMounted(() => {
   fetchUsers()
-  fetchTeams()
-  document.addEventListener('click', closeDropdownOnOutsideClick)
 })
 
 // Helper functions to get display names
@@ -444,18 +373,11 @@ const getUserName = (userId: string | null): string => {
   return user?.name || user?.email || `User ${userId}`
 }
 
-const getTeamName = (teamId: string | null): string => {
-  if (!teamId) return ''
-  const team = teams.value.find(t => t.id === teamId)
-  return team?.name || `Team ${teamId}`
-}
-
-
 
 // Helper lines logic - using fixed node dimensions
 const getHelperLines = (change: NodeChange, nodes: Node[]): { horizontal?: number; vertical?: number } => {
   const defaultResult = { horizontal: undefined, vertical: undefined }
-  
+
   if (change.type !== 'position' || !change.position || !change.id) {
     return defaultResult
   }
@@ -552,21 +474,21 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   // Clear existing data first
   nodes.value = []
   edges.value = []
-  
+
   // Convert elements to nodes using smart layout algorithm (same as FlowVisualizationModal)
   const elements = template.elements
   const relations = template.relations || []
-  
+
   // Create a map for quick element lookup
   const nodeMap = new Map(elements.map(el => [el.id, el]))
   const levels: string[][] = []
-  
+
   // Build outgoing edges map for proper level calculation
   const outgoingEdges = new Map<string, string[]>()
   elements.forEach(el => {
     outgoingEdges.set(el.id, [])
   })
-  
+
   relations.forEach(rel => {
     rel.fromElementIds.forEach((fromId: string) => {
       rel.toElementIds.forEach((toId: string) => {
@@ -578,19 +500,19 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
       })
     })
   })
-  
+
   // Calculate distance from end for each node (convergence-aware layout)
   const calculateDistanceFromEnd = (nodeId: string, memo: Map<string, number> = new Map(), visiting: Set<string> = new Set()): number => {
     if (memo.has(nodeId)) return memo.get(nodeId)!
-    
+
     // Cycle detection - if we're already visiting this node, there's a cycle
     if (visiting.has(nodeId)) {
       memo.set(nodeId, 0)
       return 0
     }
-    
+
     visiting.add(nodeId)
-    
+
     const outgoing = outgoingEdges.get(nodeId) || []
     if (outgoing.length === 0) {
       // This is a leaf node (end node) - distance 0 from end
@@ -598,43 +520,43 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
       visiting.delete(nodeId)
       return 0
     }
-    
+
     // Distance is 1 + maximum distance of all children
     const maxDistanceToEnd = Math.max(...outgoing.map(targetId => calculateDistanceFromEnd(targetId, memo, visiting))) + 1
     memo.set(nodeId, maxDistanceToEnd)
     visiting.delete(nodeId)
     return maxDistanceToEnd
   }
-  
+
   // Calculate final positions based on distance from end
   const nodeDepths = new Map<string, number>()
   elements.forEach(el => {
     nodeDepths.set(el.id, calculateDistanceFromEnd(el.id))
   })
-  
+
   // Group nodes by their distance from end (reverse so final nodes are at the end)
   const maxDistance = Math.max(...Array.from(nodeDepths.values()), 0)
   const levelGroups = new Map<number, string[]>()
-  
+
   nodeDepths.forEach((distance, nodeId) => {
     const level = maxDistance - distance // Reverse so end nodes are at the highest level
     if (!levelGroups.has(level)) levelGroups.set(level, [])
     levelGroups.get(level)!.push(nodeId)
   })
-  
+
   // Convert to levels array
   for (let i = 0; i <= maxDistance; i++) {
     if (levelGroups.has(i)) {
       levels.push(levelGroups.get(i)!)
     }
   }
-  
+
   // Convert to nodes with positions
   const elementNodes: Node[] = []
-  
+
   // Check if we have saved layout positions
   const savedLayout = template.layout
-  
+
   if (savedLayout) {
     // Use saved positions
     elements.forEach(element => {
@@ -642,11 +564,11 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
       elementNodes.push({
         id: element.id,
         type: 'element',
-        position: savedPosition ? 
+        position: savedPosition ?
           { x: savedPosition.x, y: savedPosition.y } :
           { x: 100, y: 100 }, // fallback position
-        data: { 
-          ...element, 
+        data: {
+          ...element,
           type: element.type || 'action',
           durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays,
           consultedUserIds: element.consultedUserIds || []
@@ -659,18 +581,18 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
       const levelY = 120 + levelIndex * 220  // Increased Y padding: 120 base + 220 spacing
       const levelWidth = level.length * 320  // Increased X padding: 320 spacing
       const startX = Math.max(80, (1000 - levelWidth) / 2) // Increased margins and canvas width
-      
+
       level.forEach((elementId, nodeIndex) => {
         const element = nodeMap.get(elementId)
         if (element) {
           elementNodes.push({
             id: element.id,
             type: 'element',
-            position: { 
+            position: {
               x: startX + nodeIndex * 320,  // Increased X spacing
-              y: levelY 
+              y: levelY
             },
-            data: { 
+            data: {
               ...element,
               durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays,
               consultedUserIds: element.consultedUserIds || []
@@ -684,7 +606,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   // Convert relations to edges
   const relationEdges: Edge[] = []
   const elementIds = new Set(elements.map(el => el.id))
-  
+
   template.relations.forEach(relation => {
     relation.fromElementIds.forEach((fromId: string) => {
       relation.toElementIds.forEach((toId: string) => {
@@ -695,11 +617,11 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
           const targetElement = nodeMap.get(toId)
           const sourceType = sourceElement?.type || 'action'
           const targetType = targetElement?.type || 'action'
-          
+
           // Use default handles
           let sourceHandle = 'bottom-source'
           let targetHandle = 'top-target'
-          
+
           // Check if we have saved handle information
           if (relation.connections) {
             const connection = relation.connections.find(
@@ -710,17 +632,31 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
               targetHandle = connection.targetHandle || targetHandle
             }
           }
-          
+
           relationEdges.push({
             id: generateId(),
             source: fromId,
             target: toId,
             sourceHandle,
             targetHandle,
-            type: 'default',
+            type: 'straight',
             data: { relationType: relation.type },
             label: relation.type.toUpperCase(),
-            style: getEdgeStyle(relation.type)
+            labelStyle: {
+              fontSize: '11px',
+              fontWeight: '600',
+              color: '#64748b',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              letterSpacing: '0.5px',
+            },
+            labelBgStyle: {
+              fill: '#ffffff',
+              stroke: '#cbd5e1',
+              strokeWidth: 1,
+              fillOpacity: 0.9,
+            } as any,
+            style: getEdgeStyle(relation.type),
+            updatable: false
           })
         }
       })
@@ -732,12 +668,12 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
     nodes.value = elementNodes
     edges.value = relationEdges
     nodeCounter.value = template.elements.length
-    
+
     // Only fit view if viewport parameters are not in the URL (will be restored later)
     if (!shouldRestoreViewport.value) {
       // Fit view to show all elements after a short delay to ensure rendering is complete
       setTimeout(() => {
-        fitView({ 
+        fitView({
           padding: 0.1, // 10% padding around elements
           duration: 800, // smooth animation
           maxZoom: 1.5,  // don't zoom in too much
@@ -765,32 +701,32 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
   if (template && isEditing) {
     templateData.value.name = template.name
     templateData.value.description = template.description
-    templateData.value.startingElementIds = template.startingElementIds || []
+    templateData.value.startingElementId = template.startingElementId || ''
     loadTemplateIntoEditor(template)
-    
+
     // Save initial state after loading is complete
     nextTick(() => {
       saveInitialState()
-      
+
       // Restore viewport from URL parameters if present (after template is loaded)
       if (shouldRestoreViewport.value) {
         const x = route.query.x as string
-        const y = route.query.y as string  
+        const y = route.query.y as string
         const zoom = route.query.zoom as string
-        
+
         // Restore viewport to the saved position and zoom
         setTimeout(() => {
-          setViewport({ 
-            x: parseFloat(x), 
-            y: parseFloat(y), 
-            zoom: parseFloat(zoom) 
+          setViewport({
+            x: parseFloat(x),
+            y: parseFloat(y),
+            zoom: parseFloat(zoom)
           })
-          
+
           // Clean up the URL by removing viewport parameters
           const router = useRouter()
           const newQuery = { ...route.query }
           delete newQuery.x
-          delete newQuery.y  
+          delete newQuery.y
           delete newQuery.zoom
           router.replace({ query: newQuery })
         }, 50) // Small delay to ensure template is rendered
@@ -799,11 +735,11 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
   } else {
     templateData.value.name = ''
     templateData.value.description = ''
-    templateData.value.startingElementIds = []
+    templateData.value.startingElementId = ''
     nodes.value = []
     edges.value = []
     nodeCounter.value = 0
-    
+
     // Save initial state for new templates
     nextTick(() => {
       saveInitialState()
@@ -811,40 +747,10 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
   }
 }, { immediate: true })
 
-// Multi-select dropdown functions
-const toggleDropdown = () => {
-  dropdownOpen.value = !dropdownOpen.value
-}
-
-const toggleStartingElement = (elementId: string) => {
-  const index = templateData.value.startingElementIds.indexOf(elementId)
-  if (index > -1) {
-    templateData.value.startingElementIds.splice(index, 1)
-  } else {
-    templateData.value.startingElementIds.push(elementId)
-  }
-}
-
-const removeStartingElement = (elementId: string) => {
-  const index = templateData.value.startingElementIds.indexOf(elementId)
-  if (index > -1) {
-    templateData.value.startingElementIds.splice(index, 1)
-  }
-}
-
+// Helper function for element names
 const getElementName = (elementId: string): string => {
   const node = nodes.value.find(n => n.id === elementId)
   return node?.data.name || 'Unnamed Element'
-}
-
-// Close dropdown when clicking outside
-const closeDropdownOnOutsideClick = (event: MouseEvent) => {
-  if (dropdownOpen.value) {
-    const target = event.target as HTMLElement
-    if (!target.closest('.multi-select-dropdown')) {
-      dropdownOpen.value = false
-    }
-  }
 }
 
 // Add new element node
@@ -852,7 +758,7 @@ const addElement = async () => {
   if (props.template?.id) {
     const router = useRouter()
     const route = useRoute()
-    
+
     // Capture current viewport state and update the current edit URL  
     const viewport = getViewport()
     const viewportQuery = {
@@ -861,10 +767,10 @@ const addElement = async () => {
       y: viewport.y.toString(),
       zoom: viewport.zoom.toString()
     }
-    
+
     // Replace current URL with viewport state (this saves the position)
     await router.replace({ query: viewportQuery })
-    
+
     // Navigate to new element creation (clean URL)
     navigateTo(`/templates/${props.template.id}/edit/elements/new`)
   }
@@ -873,126 +779,387 @@ const addElement = async () => {
 // Reorganize layout using the same algorithm as loadTemplateIntoEditor
 const reorganizeLayout = () => {
   if (nodes.value.length === 0) return
-  
+
   // Convert current nodes to a pseudo-template format for layout algorithm
   const elements = nodes.value.map(node => ({
     id: node.id,
     ...node.data
   }))
-  
-  // Use current edges to determine relations
+
+  // Use current edges to determine relations and flow direction
   const relations: any[] = []
-  const edgeGroups: Record<string, { from: string[], to: string[] }> = {}
-  
+  const connectionInfo = new Map<string, { sourceHandle: string, targetHandle: string }>()
+
+  // Group edges by relation type and analyze connection points
+  const edgeGroups: Record<string, { from: string[], to: string[], connections: any[] }> = {}
+
   edges.value.forEach(edge => {
     const relationType = edge.data?.relationType || 'flow'
-    const key = `${relationType}-${edge.source}-${edge.target}`
-    
-    if (!edgeGroups[key]) {
-      edgeGroups[key] = { from: [edge.source], to: [edge.target] }
+    const connectionKey = `${edge.source}-${edge.target}`
+
+    // Store connection handle information
+    connectionInfo.set(connectionKey, {
+      sourceHandle: edge.sourceHandle || 'bottom-source',
+      targetHandle: edge.targetHandle || 'top-target'
+    })
+
+    // Group edges by relation type
+    const groupKey = relationType
+    if (!edgeGroups[groupKey]) {
+      edgeGroups[groupKey] = { from: [], to: [], connections: [] }
+    }
+
+    // For OR/AND relations, group all edges of the same type together
+    if (relationType === 'or' || relationType === 'and') {
+      if (!edgeGroups[groupKey].from.includes(edge.source)) {
+        edgeGroups[groupKey].from.push(edge.source)
+      }
+      if (!edgeGroups[groupKey].to.includes(edge.target)) {
+        edgeGroups[groupKey].to.push(edge.target)
+      }
+    } else {
+      // For flow relations, create individual relations
+      const flowKey = `${relationType}-${Date.now()}-${Math.random()}`
+      edgeGroups[flowKey] = {
+        from: [edge.source],
+        to: [edge.target],
+        connections: [{
+          fromElementId: edge.source,
+          toElementId: edge.target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle
+        }]
+      }
     }
   })
-  
+
+  // Convert edge groups to relations
   Object.entries(edgeGroups).forEach(([key, group]) => {
+    const relationType = key.startsWith('flow-') ? 'flow' : key
     relations.push({
       fromElementIds: group.from,
       toElementIds: group.to,
-      type: key.split('-')[0]
+      type: relationType,
+      connections: group.connections
     })
   })
-  
-  // Apply the same improved layout algorithm
+
+  // Apply improved layout algorithm that respects starting elements and connection points
   const nodeMap = new Map(elements.map(el => [el.id, el]))
-  const levels: string[][] = []
-  
-  // Build outgoing edges map for proper level calculation
-  const outgoingEdges = new Map<string, string[]>()
+  const levels: Array<{ nodes: string[], isHorizontalGroup: boolean, relationType?: string }> = []
+
+  // Build flow direction maps based on connection handles
+  const verticalFlow = new Map<string, string[]>() // top-bottom connections (flow direction)
+  const horizontalGroups = new Map<string, { nodes: string[], type: string }>() // OR/AND groups
+
   elements.forEach(el => {
-    outgoingEdges.set(el.id, [])
+    verticalFlow.set(el.id, [])
   })
-  
+
   relations.forEach(rel => {
-    rel.fromElementIds.forEach((fromId: string) => {
-      rel.toElementIds.forEach((toId: string) => {
-        if (nodeMap.has(fromId) && nodeMap.has(toId)) {
-          const outgoing = outgoingEdges.get(fromId) || []
-          outgoing.push(toId)
-          outgoingEdges.set(fromId, outgoing)
+    if (rel.type === 'or' || rel.type === 'and') {
+      // OR/AND relations create horizontal groups
+      const groupKey = `${rel.type}-${rel.fromElementIds.join('-')}-${rel.toElementIds.join('-')}`
+      horizontalGroups.set(groupKey, {
+        nodes: [...rel.fromElementIds, ...rel.toElementIds],
+        type: rel.type
+      })
+    } else {
+      // Flow relations create vertical connections (top to bottom)
+      rel.fromElementIds.forEach((fromId: string) => {
+        rel.toElementIds.forEach((toId: string) => {
+          if (nodeMap.has(fromId) && nodeMap.has(toId)) {
+            // Check connection handles to determine direction
+            const connectionKey = `${fromId}-${toId}`
+            const connection = connectionInfo.get(connectionKey)
+
+            // If source uses bottom handle or target uses top handle, it's vertical flow
+            if (connection &&
+              (connection.sourceHandle.includes('bottom') ||
+                connection.targetHandle.includes('top'))) {
+              const outgoing = verticalFlow.get(fromId) || []
+              outgoing.push(toId)
+              verticalFlow.set(fromId, outgoing)
+            }
+          }
+        })
+      })
+    }
+  })
+
+  // Simple sequential flow algorithm - create straight top-to-bottom flow
+  const createSequentialFlow = (): Map<string, number> => {
+    const levels = new Map<string, number>()
+    const processed = new Set<string>()
+
+    // Start with designated starting elements
+    const queue: Array<{ nodeId: string, level: number }> = []
+
+    // Add starting element at level 0
+    if (templateData.value.startingElementId && nodeMap.has(templateData.value.startingElementId)) {
+      levels.set(templateData.value.startingElementId, 0)
+      processed.add(templateData.value.startingElementId)
+      queue.push({ nodeId: templateData.value.startingElementId, level: 0 })
+    }
+
+    // If no starting elements defined, find elements with no incoming flow relations
+    if (queue.length === 0) {
+      const noIncoming = elements.filter(el => {
+        return !relations.some(rel =>
+          rel.type === 'flow' && rel.toElementIds.includes(el.id)
+        )
+      })
+
+      noIncoming.forEach(el => {
+        levels.set(el.id, 0)
+        processed.add(el.id)
+        queue.push({ nodeId: el.id, level: 0 })
+      })
+    }
+
+    // Process queue to build sequential levels
+    while (queue.length > 0) {
+      const { nodeId, level } = queue.shift()!
+
+      // Find all direct flow targets from this node, considering connection handles
+      relations.forEach(rel => {
+        if (rel.type === 'flow' && rel.fromElementIds.includes(nodeId)) {
+          rel.toElementIds.forEach((targetId: string) => {
+            if (nodeMap.has(targetId) && !processed.has(targetId)) {
+              // Check connection handles to determine actual flow direction
+              const connection = rel.connections?.find(conn =>
+                conn.fromElementId === nodeId && conn.toElementId === targetId
+              )
+
+              // Only follow forward flow connections (bottom->top, left->right)
+              // Skip reverse connections (top->bottom, right->left)
+              if (connection) {
+                const isForwardFlow =
+                  (connection.sourceHandle?.includes('bottom') && connection.targetHandle?.includes('top')) ||
+                  (connection.sourceHandle?.includes('right') && connection.targetHandle?.includes('left')) ||
+                  (!connection.sourceHandle || !connection.targetHandle) // Default case
+
+                if (isForwardFlow) {
+                  const nextLevel = level + 1
+                  levels.set(targetId, nextLevel)
+                  processed.add(targetId)
+                  queue.push({ nodeId: targetId, level: nextLevel })
+                }
+              } else {
+                // No connection handle info - assume forward flow
+                const nextLevel = level + 1
+                levels.set(targetId, nextLevel)
+                processed.add(targetId)
+                queue.push({ nodeId: targetId, level: nextLevel })
+              }
+            }
+          })
         }
       })
+
+      // Also check for reverse flow connections where this node is the target
+      relations.forEach(rel => {
+        if (rel.type === 'flow' && rel.toElementIds.includes(nodeId)) {
+          rel.fromElementIds.forEach((sourceId: string) => {
+            if (nodeMap.has(sourceId) && !processed.has(sourceId)) {
+              const connection = rel.connections?.find(conn =>
+                conn.fromElementId === sourceId && conn.toElementId === nodeId
+              )
+
+              // Check for reverse flow connections (top->bottom means source comes after target)
+              if (connection) {
+                const isReverseFlow =
+                  (connection.sourceHandle?.includes('top') && connection.targetHandle?.includes('bottom'))
+
+                if (isReverseFlow) {
+                  const nextLevel = level + 1
+                  levels.set(sourceId, nextLevel)
+                  processed.add(sourceId)
+                  queue.push({ nodeId: sourceId, level: nextLevel })
+                }
+              }
+            }
+          })
+        }
+      })
+    }
+
+    // Handle any remaining unprocessed nodes (orphans)
+    elements.forEach(el => {
+      if (!processed.has(el.id) && el.type !== 'artefact') {
+        levels.set(el.id, 0)
+      }
     })
-  })
-  
-  // Calculate distance from end for each node (convergence-aware layout)
-  const calculateDistanceFromEnd = (nodeId: string, memo: Map<string, number> = new Map(), visiting: Set<string> = new Set()): number => {
-    if (memo.has(nodeId)) return memo.get(nodeId)!
-    
-    // Cycle detection - if we're already visiting this node, there's a cycle
-    if (visiting.has(nodeId)) {
-      memo.set(nodeId, 0)
-      return 0
-    }
-    
-    visiting.add(nodeId)
-    
-    const outgoing = outgoingEdges.get(nodeId) || []
-    if (outgoing.length === 0) {
-      // This is a leaf node (end node) - distance 0 from end
-      memo.set(nodeId, 0)
-      visiting.delete(nodeId)
-      return 0
-    }
-    
-    // Distance is 1 + maximum distance of all children
-    const maxDistanceToEnd = Math.max(...outgoing.map(targetId => calculateDistanceFromEnd(targetId, memo, visiting))) + 1
-    memo.set(nodeId, maxDistanceToEnd)
-    visiting.delete(nodeId)
-    return maxDistanceToEnd
+
+    return levels
   }
-  
-  // Calculate final positions based on distance from end
-  const nodeDepths = new Map<string, number>()
-  elements.forEach(el => {
-    nodeDepths.set(el.id, calculateDistanceFromEnd(el.id))
-  })
-  
-  // Group nodes by their distance from end (reverse so final nodes are at the end)
-  const maxDistance = Math.max(...Array.from(nodeDepths.values()), 0)
-  const levelGroups = new Map<number, string[]>()
-  
-  nodeDepths.forEach((distance, nodeId) => {
-    const level = maxDistance - distance // Reverse so end nodes are at the highest level
-    if (!levelGroups.has(level)) levelGroups.set(level, [])
-    levelGroups.get(level)!.push(nodeId)
-  })
-  
-  // Convert to levels array
-  for (let i = 0; i <= maxDistance; i++) {
-    if (levelGroups.has(i)) {
-      levels.push(levelGroups.get(i)!)
+
+  // Calculate levels for all nodes using sequential flow algorithm
+  const nodeLevels = createSequentialFlow()
+
+  // Detect OR/AND groups and create proper branching layout
+  const maxLevel = Math.max(...Array.from(nodeLevels.values()), 0)
+
+  // Identify OR/AND groups - elements that should be arranged horizontally
+  const orAndGroups = new Map<string, { nodes: Set<string>, type: string, level: number }>()
+
+  relations.forEach(rel => {
+    if (rel.type === 'or' || rel.type === 'and') {
+      // Group all elements involved in OR/AND relations by their level
+      const allElements = [...rel.fromElementIds, ...rel.toElementIds]
+
+      allElements.forEach(elementId => {
+        const elementLevel = nodeLevels.get(elementId) || 0
+        const groupKey = `${rel.type}-level-${elementLevel}`
+
+        if (!orAndGroups.has(groupKey)) {
+          orAndGroups.set(groupKey, {
+            nodes: new Set([elementId]),
+            type: rel.type,
+            level: elementLevel
+          })
+        } else {
+          orAndGroups.get(groupKey)!.nodes.add(elementId)
+        }
+      })
     }
-  }
-  
-  // Update node positions
-  levels.forEach((level, levelIndex) => {
-    const levelY = 120 + levelIndex * 220  // Increased Y padding: 120 base + 220 spacing
-    const levelWidth = level.length * 320  // Increased X padding: 320 spacing
-    const startX = Math.max(80, (1000 - levelWidth) / 2) // Increased margins and canvas width
-    
-    level.forEach((elementId, nodeIndex) => {
-      const node = nodes.value.find(n => n.id === elementId)
-      if (node) {
-        node.position = {
-          x: startX + nodeIndex * 320,  // Increased X spacing
-          y: levelY
+  })
+
+  // Build levels considering OR/AND groups
+  for (let level = 0; level <= maxLevel; level++) {
+    const levelNodes = Array.from(nodeLevels.entries())
+      .filter(([nodeId, nodeLevel]) => nodeLevel === level)
+      .map(([nodeId]) => nodeId)
+
+    if (levelNodes.length === 0) continue
+
+    // Check if any of these nodes are part of an OR/AND group
+    let processedNodes = new Set<string>()
+
+    // Process OR/AND groups first
+    orAndGroups.forEach((group, groupKey) => {
+      if (group.level === level) {
+        const groupNodes = Array.from(group.nodes).filter(nodeId =>
+          levelNodes.includes(nodeId) && !processedNodes.has(nodeId)
+        )
+
+        if (groupNodes.length >= 1) {
+          levels.push({
+            nodes: groupNodes,
+            isHorizontalGroup: true,
+            relationType: group.type
+          })
+
+          groupNodes.forEach(nodeId => processedNodes.add(nodeId))
         }
       }
     })
+
+    // Add remaining individual nodes
+    const remainingNodes = levelNodes.filter(nodeId => !processedNodes.has(nodeId))
+    if (remainingNodes.length > 0) {
+      levels.push({
+        nodes: remainingNodes,
+        isHorizontalGroup: false
+      })
+    }
+  }
+
+  // Handle artefacts and side elements (IN/OUT relations)
+  const sideElements: string[] = []
+  relations.forEach(rel => {
+    if (rel.type === 'in' || rel.type === 'out') {
+      rel.fromElementIds.forEach((fromId: string) => {
+        const element = nodeMap.get(fromId)
+        if (element && element.type === 'artefact' && !sideElements.includes(fromId)) {
+          sideElements.push(fromId)
+        }
+      })
+    }
   })
-  
+
+  // Position main flow elements in vertical sequence
+  const mainFlowX = 400 // Center X position for main flow
+  let currentY = 120 // Start Y position
+  const verticalSpacing = 220
+
+  levels.forEach((levelGroup, levelIndex) => {
+    if (levelGroup.isHorizontalGroup) {
+      // Horizontal arrangement for OR/AND groups
+      const nonArtefactNodes = levelGroup.nodes.filter(nodeId => {
+        const element = nodeMap.get(nodeId)
+        return element && element.type !== 'artefact'
+      })
+
+      if (nonArtefactNodes.length > 0) {
+        const groupWidth = nonArtefactNodes.length * 300
+        const startX = mainFlowX - (groupWidth / 2) + 150
+
+        nonArtefactNodes.forEach((nodeId, nodeIndex) => {
+          const node = nodes.value.find(n => n.id === nodeId)
+          if (node) {
+            node.position = {
+              x: startX + nodeIndex * 300,
+              y: currentY
+            }
+          }
+        })
+      }
+    } else {
+      // Handle single or multiple nodes at the same level
+      const nonArtefactNodes = levelGroup.nodes.filter(nodeId => {
+        const element = nodeMap.get(nodeId)
+        return element && element.type !== 'artefact'
+      })
+
+      // For sequential flow, arrange all nodes in a single vertical column
+      nonArtefactNodes.forEach((nodeId, nodeIndex) => {
+        const node = nodes.value.find(n => n.id === nodeId)
+        if (node) {
+          node.position = {
+            x: mainFlowX, // All nodes in same X column
+            y: currentY + (nodeIndex * verticalSpacing) // Separate Y levels for multiple nodes at same level
+          }
+        }
+      })
+
+      // If there are multiple nodes at this level, adjust the next Y position
+      if (nonArtefactNodes.length > 1) {
+        currentY += (nonArtefactNodes.length - 1) * verticalSpacing
+      }
+    }
+
+    currentY += verticalSpacing
+  })
+
+  // Position side elements (artefacts) to the right of main flow
+  sideElements.forEach((elementId, index) => {
+    const node = nodes.value.find(n => n.id === elementId)
+    if (node) {
+      // Find connected element to position artefact next to it
+      let connectedY = currentY / 2 // Default middle position
+
+      relations.forEach(rel => {
+        if ((rel.type === 'in' || rel.type === 'out') && rel.fromElementIds.includes(elementId)) {
+          rel.toElementIds.forEach((targetId: string) => {
+            const targetNode = nodes.value.find(n => n.id === targetId)
+            if (targetNode) {
+              connectedY = targetNode.position.y
+            }
+          })
+        }
+      })
+
+      node.position = {
+        x: mainFlowX + 400, // Position to the right of main flow
+        y: connectedY + (index * 30) // Small offset for multiple artefacts
+      }
+    }
+  })
+
   // Auto-fit view after reorganizing
   setTimeout(() => {
-    fitView({ 
+    fitView({
       padding: 0.1,
       duration: 800,
       maxZoom: 1.5,
@@ -1003,7 +1170,7 @@ const reorganizeLayout = () => {
 
 // Fit view to show all elements
 const fitToView = () => {
-  fitView({ 
+  fitView({
     padding: 0.1, // 10% padding around elements
     duration: 800, // smooth animation
     maxZoom: 1.5,  // don't zoom in too much
@@ -1016,7 +1183,7 @@ const editNode = async (nodeId: string) => {
   if (props.template?.id) {
     const router = useRouter()
     const route = useRoute()
-    
+
     // Capture current viewport state and update the current edit URL
     const viewport = getViewport()
     const viewportQuery = {
@@ -1025,7 +1192,7 @@ const editNode = async (nodeId: string) => {
       y: viewport.y.toString(),
       zoom: viewport.zoom.toString()
     }
-    
+
     // Replace current URL with viewport state (this saves the position)
     await router.replace({ query: viewportQuery })
 
@@ -1055,7 +1222,7 @@ const onNodesChange = (changes: NodeChange[]) => {
         // Snap to helper lines if close enough
         const NODE_WIDTH = 250
         const NODE_HEIGHT = 120
-        
+
         if (helperLines.horizontal !== undefined) {
           // Determine if we're snapping to top, center, or bottom
           const nodeTop = change.position.y
@@ -1070,7 +1237,7 @@ const onNodesChange = (changes: NodeChange[]) => {
             change.position.y = helperLines.horizontal - NODE_HEIGHT
           }
         }
-        
+
         if (helperLines.vertical !== undefined) {
           // Determine if we're snapping to left, center, or right
           const nodeLeft = change.position.x
@@ -1108,12 +1275,12 @@ const onConnect = (connection: Connection) => {
   // Get source and target node types
   const sourceNode = nodes.value.find(n => n.id === connection.source)
   const targetNode = nodes.value.find(n => n.id === connection.target)
-  
+
   if (!sourceNode || !targetNode) return
-  
+
   const sourceType = sourceNode.data.type || 'action'
   const targetType = targetNode.data.type || 'action'
-  
+
   // Set default edge type based on element types
   if (sourceType === 'artefact' || targetType === 'artefact') {
     // If source is artefact, default to 'out'
@@ -1123,7 +1290,7 @@ const onConnect = (connection: Connection) => {
     // Non-artefact elements default to 'flow'
     currentEdgeType.value = 'flow'
   }
-  
+
   pendingConnection.value = connection
   showEdgeModal.value = true
 }
@@ -1133,35 +1300,49 @@ const saveEdgeType = () => {
     // Validate relation type rules
     const sourceNode = nodes.value.find(n => n.id === pendingConnection.value!.source)
     const targetNode = nodes.value.find(n => n.id === pendingConnection.value!.target)
-    
+
     if (sourceNode && targetNode) {
       const sourceType = sourceNode.data.type || 'action'
       const targetType = targetNode.data.type || 'action'
       const isArtefactInvolved = sourceType === 'artefact' || targetType === 'artefact'
       const isArtefactRelationType = currentEdgeType.value === 'in' || currentEdgeType.value === 'out'
-      
+
       // Validation: artefacts can only use 'in'/'out', others cannot use 'in'/'out'
       if (isArtefactInvolved && !isArtefactRelationType) {
         alert('Artefact elements can only use "In" or "Out" relation types.')
         return
       }
-      
+
       if (!isArtefactInvolved && isArtefactRelationType) {
         alert('Only artefact elements can use "In" and "Out" relation types.')
         return
       }
     }
-    
+
     const newEdge: Edge = {
       id: generateId(),
       source: pendingConnection.value.source!,
       target: pendingConnection.value.target!,
       sourceHandle: pendingConnection.value.sourceHandle,
       targetHandle: pendingConnection.value.targetHandle,
-      type: 'default',
+      type: 'straight',
       data: { relationType: currentEdgeType.value },
       label: currentEdgeType.value.toUpperCase(),
-      style: getEdgeStyle(currentEdgeType.value)
+      labelStyle: {
+        fontSize: '11px',
+        fontWeight: '600',
+        color: '#64748b',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        letterSpacing: '0.5px',
+      },
+      labelBgStyle: {
+        fill: '#ffffff',
+        stroke: '#cbd5e1',
+        strokeWidth: 1,
+        fillOpacity: 0.9,
+      } as any,
+      style: getEdgeStyle(currentEdgeType.value),
+      updatable: false
     }
     edges.value.push(newEdge)
   }
@@ -1183,7 +1364,7 @@ const onEdgeDoubleClick = (event: any) => {
   const edge = event.edge
   currentEdgeType.value = edge.data?.relationType || 'flow'
   pendingConnection.value = { source: edge.source, target: edge.target }
-  
+
   // Remove existing edge and show modal for re-configuration
   edges.value = edges.value.filter(e => e.id !== edge.id)
   showEdgeModal.value = true
@@ -1195,7 +1376,7 @@ const saveInitialState = () => {
     templateData: {
       name: templateData.value.name,
       description: templateData.value.description,
-      startingElementIds: [...templateData.value.startingElementIds]
+      startingElementId: templateData.value.startingElementId
     },
     nodes: nodes.value.map(node => ({
       ...node,
@@ -1211,31 +1392,28 @@ const saveInitialState = () => {
 
 const resetChanges = () => {
   if (!initialState.value) return
-  
+
   // Reset template data
   templateData.value.name = initialState.value.templateData.name
   templateData.value.description = initialState.value.templateData.description
-  templateData.value.startingElementIds = [...initialState.value.templateData.startingElementIds]
-  
+  templateData.value.startingElementId = initialState.value.templateData.startingElementId
+
   // Reset nodes and edges
   nodes.value = initialState.value.nodes.map(node => ({
     ...node,
     data: { ...node.data },
     position: { ...node.position }
   }))
-  
+
   edges.value = initialState.value.edges.map(edge => ({
     ...edge,
     data: edge.data ? { ...edge.data } : undefined
   }))
-  
+
   nodeCounter.value = initialState.value.nodes.length
 }
 
-// Cleanup event listeners
-onUnmounted(() => {
-  document.removeEventListener('click', closeDropdownOnOutsideClick)
-})
+// No cleanup needed for simple select dropdown
 
 // Convert visual editor data back to template format
 const convertToTemplate = (): FlowTemplate => {
@@ -1248,17 +1426,16 @@ const convertToTemplate = (): FlowTemplate => {
       name: node.data.name || '',
       description: node.data.description || '',
       ownerId: node.data.ownerId || null,
-      teamId: node.data.teamId || null,
       durationDays: (elementType === 'state' || elementType === 'artefact') ? null : (node.data.durationDays || null),
       type: elementType,
       consultedUserIds: node.data.consultedUserIds || []
     }
   })
-  
+
   // Group edges by source and type, but preserve handle information
-  const relationGroups = new Map<string, { 
-    fromElementIds: string[], 
-    toElementIds: string[], 
+  const relationGroups = new Map<string, {
+    fromElementIds: string[],
+    toElementIds: string[],
     type: 'flow' | 'or' | 'and' | 'in' | 'out',
     connections: Array<{
       fromElementId: string;
@@ -1267,11 +1444,11 @@ const convertToTemplate = (): FlowTemplate => {
       targetHandle?: string;
     }>
   }>()
-  
+
   edges.value.forEach(edge => {
     const type = (edge.data?.relationType || 'flow') as 'flow' | 'or' | 'and' | 'in' | 'out'
     const groupKey = `${edge.source}-${type}`
-    
+
     if (!relationGroups.has(groupKey)) {
       relationGroups.set(groupKey, {
         fromElementIds: [edge.source],
@@ -1280,7 +1457,7 @@ const convertToTemplate = (): FlowTemplate => {
         connections: []
       })
     }
-    
+
     const group = relationGroups.get(groupKey)!
     group.toElementIds.push(edge.target)
     group.connections.push({
@@ -1290,7 +1467,7 @@ const convertToTemplate = (): FlowTemplate => {
       targetHandle: edge.targetHandle || undefined
     })
   })
-  
+
   // Convert grouped relations to final format with preserved handle info
   const relations: Relation[] = Array.from(relationGroups.values()).map(group => ({
     id: generateId(),
@@ -1299,7 +1476,7 @@ const convertToTemplate = (): FlowTemplate => {
     type: group.type,
     connections: group.connections
   }))
-  
+
   // Create layout object from current node positions
   const layout: { [elementId: string]: { x: number; y: number } } = {}
   reactiveNodes.value.forEach(node => {
@@ -1315,10 +1492,10 @@ const convertToTemplate = (): FlowTemplate => {
     description: templateData.value.description,
     elements,
     relations,
-    startingElementIds: templateData.value.startingElementIds,
+    startingElementId: templateData.value.startingElementId,
     layout
   }
-  
+
   return template
 }
 
@@ -1332,7 +1509,7 @@ const saveTemplate = () => {
   try {
     const template = convertToTemplate()
     emit('save', template)
-    
+
     // Update initial state to reflect saved state
     nextTick(() => {
       saveInitialState()
@@ -1762,8 +1939,7 @@ const saveTemplate = () => {
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.1);
-  min-width: 200px;
-  max-width: 250px;
+  width: 250px;
   transition: all 0.3s ease;
   position: relative;
 }
@@ -1864,8 +2040,8 @@ const saveTemplate = () => {
 }
 
 .owner-tag,
-.team-tag,
-.duration {
+.duration,
+.consulted-users {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -1912,8 +2088,8 @@ const saveTemplate = () => {
 }
 
 .owner-tag svg,
-.team-tag svg,
 .duration svg,
+.consulted-users svg,
 .type-tag svg {
   flex-shrink: 0;
 }
@@ -2262,5 +2438,45 @@ const saveTemplate = () => {
 
 .user-checkbox input[type="checkbox"] {
   cursor: pointer;
+}
+
+/* Vue Flow Edge Styles */
+:deep(.vue-flow__edge-straight) {
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:deep(.vue-flow__edge-straight path) {
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Improve text rendering for all Vue Flow elements */
+:deep(.vue-flow__node-element),
+:deep(.vue-flow__edge),
+:deep(.vue-flow__edge-label) {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle edge labels for display */
+:deep(.vue-flow__edge-label) {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+}
+
+:deep(.vue-flow__edge-label-bg) {
+  fill: rgba(255, 255, 255, 0.9) !important;
+  stroke: #cbd5e1 !important;
+  stroke-width: 1px !important;
+  rx: 4px !important;
+  ry: 4px !important;
 }
 </style>
