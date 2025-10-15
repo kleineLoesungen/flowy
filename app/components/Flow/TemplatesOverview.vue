@@ -23,65 +23,57 @@
 
       <div class="filters-grid">
         <!-- Text Search Filter -->
-        <div class="filter-card text-filter-card">
-          <div class="filter-card-header">
-            <label class="filter-label">
-              <svg class="filter-label-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-              Search Templates
-            </label>
-            <button v-if="textSearchQuery" @click="clearTextFilter" class="clear-filter-btn" title="Clear search">
+        <div class="text-search-section">
+          <div class="text-search-wrapper">
+            <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <input v-model="textSearchQuery" type="text" placeholder="Search templates by name or description..."
+              class="text-search-input" />
+            <button v-if="textSearchQuery" @click="clearTextFilter" class="clear-search-btn" title="Clear search">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
               </svg>
             </button>
           </div>
-
-          <div class="text-search-container">
-            <div class="text-search-wrapper">
-              <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-              <input v-model="textSearchQuery" type="text" placeholder="Search by name or description..."
-                class="text-search-input" />
-            </div>
-          </div>
         </div>
 
-        <!-- Teams Filter -->
-        <div class="filter-card">
-          <div class="filter-card-header">
-            <label class="filter-label">
+        <div class="button-filters">
+          <!-- Teams Filter Button -->
+          <div class="button-filter">
+            <button class="filter-button" @click="toggleTeamsDropdown" :class="{ 'active': selectedTeams.length > 0 }">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                 <path
                   d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
               </svg>
-              Teams
-            </label>
-            <span class="filter-count" v-if="selectedTeams.length > 0">{{ selectedTeams.length }}</span>
-          </div>
-
-          <div class="modern-dropdown" :class="{ 'is-open': teamsDropdownOpen }">
-            <button class="dropdown-trigger" @click="toggleTeamsDropdown"
-              :class="{ 'has-selections': selectedTeams.length > 0 }">
-              <div class="trigger-content">
-                <div v-if="selectedTeams.length === 0" class="placeholder">
-                  Select teams...
-                </div>
-                <div v-else class="selected-preview">
-                  <span class="selection-count">{{ selectedTeams.length }} selected</span>
-                </div>
-              </div>
-              <svg class="chevron" :class="{ 'rotated': teamsDropdownOpen }" fill="none" stroke="currentColor"
-                viewBox="0 0 24 24">
+              <span>Teams</span>
+              <span v-if="selectedTeams.length > 0" class="count-badge">{{ selectedTeams.length }}</span>
+              <svg class="chevron" :class="{ 'rotated': teamsDropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </button>
 
-            <div v-if="teamsDropdownOpen" class="dropdown-panel">
+            <div v-if="teamsDropdownOpen" class="dropdown-panel button-dropdown">
+              <!-- Selected Teams Section -->
+              <div v-if="selectedTeams.length > 0" class="selected-section">
+                <div class="section-header">Selected Teams</div>
+                <div class="selected-items">
+                  <div v-for="team in selectedTeams" :key="team.id" class="selected-item">
+                    <div class="item-content">
+                      <div class="item-name">{{ team.name }}</div>
+                      <div class="item-detail">{{ team.users?.length || 0 }} members</div>
+                    </div>
+                    <button @click="removeTeamFilter(team.id)" class="remove-btn">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Search Section -->
               <div class="search-container">
                 <div class="search-input-wrapper">
                   <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,6 +85,7 @@
                 </div>
               </div>
 
+              <!-- Available Options -->
               <div class="options-container">
                 <div v-for="team in filteredTeams" :key="team.id" class="option-item"
                   @click.stop="toggleTeamFilter(team.id)">
@@ -113,49 +106,39 @@
             </div>
           </div>
 
-          <!-- Selected Teams Tags -->
-          <div v-if="selectedTeams.length > 0" class="selected-tags">
-            <div v-for="team in selectedTeams" :key="team.id" class="tag team-tag">
-              <span class="tag-text">{{ team.name }}</span>
-              <button @click="removeTeamFilter(team.id)" class="tag-remove">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Users Filter -->
-        <div class="filter-card">
-          <div class="filter-card-header">
-            <label class="filter-label">
+          <!-- Users Filter Button -->
+          <div class="button-filter">
+            <button class="filter-button" @click="toggleUsersDropdown" :class="{ 'active': selectedUsers.length > 0 }">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
               </svg>
-              Users
-            </label>
-            <span class="filter-count" v-if="selectedUsers.length > 0">{{ selectedUsers.length }}</span>
-          </div>
-
-          <div class="modern-dropdown" :class="{ 'is-open': usersDropdownOpen }">
-            <button class="dropdown-trigger" @click="toggleUsersDropdown"
-              :class="{ 'has-selections': selectedUsers.length > 0 }">
-              <div class="trigger-content">
-                <div v-if="selectedUsers.length === 0" class="placeholder">
-                  Select users...
-                </div>
-                <div v-else class="selected-preview">
-                  <span class="selection-count">{{ selectedUsers.length }} selected</span>
-                </div>
-              </div>
-              <svg class="chevron" :class="{ 'rotated': usersDropdownOpen }" fill="none" stroke="currentColor"
-                viewBox="0 0 24 24">
+              <span>Users</span>
+              <span v-if="selectedUsers.length > 0" class="count-badge">{{ selectedUsers.length }}</span>
+              <svg class="chevron" :class="{ 'rotated': usersDropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </button>
 
-            <div v-if="usersDropdownOpen" class="dropdown-panel">
+            <div v-if="usersDropdownOpen" class="dropdown-panel button-dropdown">
+              <!-- Selected Users Section -->
+              <div v-if="selectedUsers.length > 0" class="selected-section">
+                <div class="section-header">Selected Users</div>
+                <div class="selected-items">
+                  <div v-for="user in selectedUsers" :key="user.id" class="selected-item">
+                    <div class="item-content">
+                      <div class="item-name">{{ user.name || 'No Name' }}</div>
+                      <div class="item-detail">{{ user.email }}</div>
+                    </div>
+                    <button @click="removeUserFilter(user.id)" class="remove-btn">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Search Section -->
               <div class="search-container">
                 <div class="search-input-wrapper">
                   <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,6 +150,7 @@
                 </div>
               </div>
 
+              <!-- Available Options -->
               <div class="options-container">
                 <div v-for="user in filteredUsers" :key="user.id" class="option-item"
                   @click.stop="toggleUserFilter(user.id)">
@@ -187,51 +171,40 @@
             </div>
           </div>
 
-          <!-- Selected Users Tags -->
-          <div v-if="selectedUsers.length > 0" class="selected-tags">
-            <div v-for="user in selectedUsers" :key="user.id" class="tag user-tag">
-              <span class="tag-text">{{ user.name || user.email }}</span>
-              <button @click="removeUserFilter(user.id)" class="tag-remove">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Artefacts Filter -->
-        <div class="filter-card">
-          <div class="filter-card-header">
-            <label class="filter-label">
+          <!-- Artefacts Filter Button -->
+          <div class="button-filter">
+            <button class="filter-button" @click="toggleArtefactsDropdown" :class="{ 'active': selectedArtefacts.length > 0 }">
               <svg class="filter-label-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
                 </path>
               </svg>
-              Artefacts
-            </label>
-            <span class="filter-count" v-if="selectedArtefacts.length > 0">{{ selectedArtefacts.length }}</span>
-          </div>
-
-          <div class="modern-dropdown" :class="{ 'is-open': artefactsDropdownOpen }">
-            <button class="dropdown-trigger" @click="toggleArtefactsDropdown"
-              :class="{ 'has-selections': selectedArtefacts.length > 0 }">
-              <div class="trigger-content">
-                <div v-if="selectedArtefacts.length === 0" class="placeholder">
-                  Select artefacts...
-                </div>
-                <div v-else class="selected-preview">
-                  <span class="selection-count">{{ selectedArtefacts.length }} selected</span>
-                </div>
-              </div>
-              <svg class="chevron" :class="{ 'rotated': artefactsDropdownOpen }" fill="none" stroke="currentColor"
-                viewBox="0 0 24 24">
+              <span>Artefacts</span>
+              <span v-if="selectedArtefacts.length > 0" class="count-badge">{{ selectedArtefacts.length }}</span>
+              <svg class="chevron" :class="{ 'rotated': artefactsDropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
             </button>
 
-            <div v-if="artefactsDropdownOpen" class="dropdown-panel">
+            <div v-if="artefactsDropdownOpen" class="dropdown-panel button-dropdown">
+              <!-- Selected Artefacts Section -->
+              <div v-if="selectedArtefacts.length > 0" class="selected-section">
+                <div class="section-header">Selected Artefacts</div>
+                <div class="selected-items">
+                  <div v-for="artefact in selectedArtefacts" :key="artefact" class="selected-item">
+                    <div class="item-content">
+                      <div class="item-name">{{ artefact }}</div>
+                    </div>
+                    <button @click="removeArtefactFilter(artefact)" class="remove-btn">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Search Section -->
               <div class="search-container">
                 <div class="search-input-wrapper">
                   <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -243,6 +216,7 @@
                 </div>
               </div>
 
+              <!-- Available Options -->
               <div class="options-container">
                 <div v-for="artefact in filteredArtefacts" :key="artefact" class="option-item"
                   @click.stop="toggleArtefactFilter(artefact)">
@@ -259,18 +233,6 @@
                   <span v-else>No artefacts available</span>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <!-- Selected Artefacts Tags -->
-          <div v-if="selectedArtefacts.length > 0" class="selected-tags">
-            <div v-for="artefact in selectedArtefacts" :key="artefact" class="tag artefact-tag">
-              <span class="tag-text">{{ artefact }}</span>
-              <button @click="removeArtefactFilter(artefact)" class="tag-remove">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
             </div>
           </div>
         </div>
@@ -638,7 +600,7 @@ const clearAllFilters = () => {
 // Handle click outside dropdowns
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement
-  if (!target.closest('.modern-dropdown')) {
+  if (!target.closest('.button-filter')) {
     teamsDropdownOpen.value = false
     usersDropdownOpen.value = false
     artefactsDropdownOpen.value = false
@@ -712,12 +674,12 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.5rem 1rem;
+  padding: 0.25rem 0.5rem;
   background: #f1f5f9;
   color: #64748b;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -734,59 +696,85 @@ onUnmounted(() => {
 }
 
 .filters-grid {
-  padding: 1rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
+  padding: 1rem 1.5rem;
+  display: flex;
   gap: 1rem;
+  align-items: center;
   overflow: visible;
-  /* Ensure dropdowns can extend beyond grid */
 }
 
-.filter-card {
-  background: #fafafa;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 0.75rem;
-  transition: all 0.2s ease;
-  overflow: visible;
-  /* Ensure dropdowns aren't clipped */
+.text-search-section {
+  flex: 1;
+  min-width: 300px;
 }
 
-.filter-card:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+.button-filters {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
-.text-filter-card {
-  background: #f8fafc;
+.button-filter {
+  position: relative;
 }
 
-.clear-filter-btn {
+.filter-button {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: rgba(0, 0, 0, 0.1);
-  border: none;
-  border-radius: 50%;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.filter-button:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.filter-button.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.filter-button svg {
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
-.clear-filter-btn:hover {
-  background: rgba(0, 0, 0, 0.2);
+.count-badge {
+  background: #3b82f6;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
 }
 
-.clear-filter-btn svg {
-  width: 12px;
-  height: 12px;
+.filter-button.active .count-badge {
+  background: #1d4ed8;
+}
+
+.chevron {
+  width: 14px;
+  height: 14px;
   color: #6b7280;
+  transition: transform 0.2s ease;
 }
 
-.text-search-container {
-  margin-top: 0.5rem;
+.chevron.rotated {
+  transform: rotate(180deg);
 }
 
 .text-search-wrapper {
@@ -798,17 +786,17 @@ onUnmounted(() => {
 .text-search-wrapper .search-icon {
   position: absolute;
   left: 0.75rem;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   color: #9ca3af;
   z-index: 1;
 }
 
 .text-search-input {
   width: 100%;
-  padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+  padding: 0.75rem 3rem 0.75rem 2.75rem;
   border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 0.875rem;
   background: white;
   transition: all 0.2s ease;
@@ -824,101 +812,33 @@ onUnmounted(() => {
   color: #9ca3af;
 }
 
-.filter-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.filter-label {
+.clear-search-btn {
+  position: absolute;
+  right: 0.75rem;
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #374151;
-  margin: 0;
-}
-
-.filter-label-icon {
-  width: 16px;
-  height: 16px;
-  color: #6b7280;
-}
-
-.filter-count {
-  background: #3b82f6;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  min-width: 20px;
-  text-align: center;
-}
-
-.modern-dropdown {
-  position: relative;
-  z-index: 1;
-  /* Establish stacking context */
-}
-
-.modern-dropdown.is-open {
-  z-index: 1001;
-  /* Higher z-index when open */
-}
-
-.dropdown-trigger {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 0.875rem;
-}
-
-.dropdown-trigger:hover {
-  border-color: #9ca3af;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.dropdown-trigger.has-selections {
-  border-color: #3b82f6;
-  background: #eff6ff;
-}
-
-.trigger-content {
-  display: flex;
-  align-items: center;
-  flex: 1;
-}
-
-.placeholder {
-  color: #9ca3af;
-}
-
-.selection-count {
-  color: #1d4ed8;
-  font-weight: 500;
-}
-
-.chevron {
-  width: 16px;
-  height: 16px;
   color: #6b7280;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
 }
 
-.chevron.rotated {
-  transform: rotate(180deg);
+.clear-search-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
 }
+
+.clear-search-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+
 
 .dropdown-panel {
   position: absolute;
@@ -931,9 +851,97 @@ onUnmounted(() => {
   border-radius: 0 0 8px 8px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   z-index: 1000;
-  /* Increased z-index significantly */
-  max-height: 240px;
+  max-height: 320px;
   overflow: hidden;
+}
+
+.button-dropdown {
+  min-width: 280px;
+  max-height: 400px;
+}
+
+.selected-section {
+  border-bottom: 1px solid #f3f4f6;
+  background: #f8fafc;
+}
+
+.section-header {
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.selected-items {
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.selected-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.15s ease;
+}
+
+.selected-item:hover {
+  background: #f1f5f9;
+}
+
+.selected-item:last-child {
+  border-bottom: none;
+}
+
+.item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-detail {
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(239, 68, 68, 0.1);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  color: #dc2626;
+}
+
+.remove-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #b91c1c;
+}
+
+.remove-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .search-container {
@@ -1035,70 +1043,7 @@ onUnmounted(() => {
   font-size: 0.875rem;
 }
 
-.selected-tags {
-  margin-top: 0.75rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
 
-.tag {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  max-width: 200px;
-}
-
-.team-tag {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-}
-
-.user-tag {
-  background: #dbeafe;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-}
-
-.artefact-tag {
-  background: #fef3c7;
-  color: #d97706;
-  border: 1px solid #fed7aa;
-}
-
-.tag-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tag-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  background: rgba(0, 0, 0, 0.1);
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-  flex-shrink: 0;
-}
-
-.tag-remove:hover {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.tag-remove svg {
-  width: 10px;
-  height: 10px;
-}
 
 .results-header {
   display: flex;
@@ -1346,30 +1291,36 @@ onUnmounted(() => {
 }
 
 /* Responsive Design */
-@media (max-width: 1200px) {
-  .filters-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-  }
-}
-
 @media (max-width: 1024px) {
   .filters-grid {
-    grid-template-columns: 1fr 1fr;
+    flex-direction: column;
     gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  .text-search-section {
+    min-width: auto;
+  }
+
+  .button-filters {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }
 
 @media (max-width: 768px) {
-  .filters-grid {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
   .filters-header {
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
+  }
+
+  .filters-grid {
+    padding: 0.75rem 1rem;
+  }
+
+  .button-dropdown {
+    min-width: 260px;
   }
 
   .list-header,
