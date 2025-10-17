@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     }
 
     if (flows.length > 0) {
-      return flows
+      return { data: flows }
     }
   } catch (error) {
     // Fall back to legacy format if organized structure doesn't exist
@@ -23,6 +23,6 @@ export default defineEventHandler(async (event) => {
 
   // Fallback to legacy array format
   const flows = (await storage.getItem('flows') as Flow[]) || []
-  return flows
+  return { data: flows }
 
 })

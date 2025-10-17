@@ -1,5 +1,5 @@
-import type { FlowTemplate } from '../../../../types/FlowTemplate'
-import useFileStorage from '../../../utils/useFileStorage'
+import type { FlowTemplate } from '../../../types/FlowTemplate'
+import useFileStorage from '../../utils/useFileStorage'
 
 export default defineEventHandler(async (event) => {
   const storage = useFileStorage()
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     }
     
     // Get the specific template from storage
-    const template = await storage.getItem(`templates:flows:${templateId}`)
+    const template = await storage.getItem(`templates:${templateId}`)
     
     if (!template) {
       throw createError({

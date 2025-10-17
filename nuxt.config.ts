@@ -9,6 +9,12 @@ export default defineNuxtConfig({
     '@vue-flow/core/dist/style.css',
     '@vue-flow/core/dist/theme-default.css'
   ],
+  runtimeConfig: {
+    jwtSecret: process.env.JWT_SECRET || 'development-secret-key-change-in-production',
+    public: {
+      nodeEnv: process.env.NODE_ENV || 'development'
+    }
+  },
   vite: {
     plugins: [
       tailwindcss(),

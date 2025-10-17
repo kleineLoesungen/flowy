@@ -1,5 +1,5 @@
 <template>
-  <FlowEditor 
+  <FlowTemplateEditor 
     :template="template" 
     :is-editing="isEditing" 
     @save="$emit('save', $event)" 
@@ -9,7 +9,6 @@
 
 <script setup lang="ts">
 import type { FlowTemplate } from '../../../../types/FlowTemplate'
-import FlowEditor from '~/components/Flow/Template/Editor.vue'
 
 defineProps<{
   template?: FlowTemplate | null

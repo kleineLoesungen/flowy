@@ -1,12 +1,12 @@
-import type { FlowTemplate } from '../../../../types/FlowTemplate'
-import useFileStorage from '../../../utils/useFileStorage'
+import type { FlowTemplate } from '../../../types/FlowTemplate'
+import useFileStorage from '../../utils/useFileStorage'
 
 export default defineEventHandler(async (event) => {
   const storage = useFileStorage()
   
   try {
     // Get all flow templates from storage
-    const templates = await storage.getKeys('templates:flows:')
+    const templates = await storage.getKeys('templates:')
     
     const flowTemplates: FlowTemplate[] = []
     

@@ -40,7 +40,7 @@ const elementId = route.params.eid as string
 const isNewElement = computed(() => elementId === 'new')
 
 // Fetch the template to get the element
-const { data: templateData, pending, error, refresh } = await useFetch(`/api/templates/flows/${templateId}`)
+const { data: templateData, pending, error, refresh } = await useFetch(`/api/templates/${templateId}`)
 
 const template = computed(() => templateData.value?.data || null)
 const element = computed(() => {
@@ -82,7 +82,7 @@ const handleSave = async (updatedElement: any) => {
     }
 
     // Save the updated template
-    await $fetch(`/api/templates/flows/${templateId}`, {
+    await $fetch(`/api/templates/${templateId}`, {
       method: 'PUT',
       body: updatedTemplate
     })
@@ -90,8 +90,18 @@ const handleSave = async (updatedElement: any) => {
     // Refresh the template data
     await refresh()
     
-    // Navigate back
-    router.go(-1)
+    // Navigate back to template editor with preserved viewport state
+    const query: Record<string, string> = {}
+    
+    // Restore viewport state from query parameters if they exist
+    if (route.query.x) query.x = route.query.x as string
+    if (route.query.y) query.y = route.query.y as string
+    if (route.query.zoom) query.zoom = route.query.zoom as string
+    
+    router.push({
+      path: `/templates/${templateId}/edit`,
+      query
+    })
   } catch (error) {
     console.error('Error saving element:', error)
     alert(`Error saving element: ${error}`)
@@ -99,8 +109,18 @@ const handleSave = async (updatedElement: any) => {
 }
 
 const handleClose = () => {
-  // Navigate back
-  router.go(-1)
+  // Navigate back to template editor with preserved viewport state
+  const query: Record<string, string> = {}
+  
+  // Restore viewport state from query parameters if they exist
+  if (route.query.x) query.x = route.query.x as string
+  if (route.query.y) query.y = route.query.y as string
+  if (route.query.zoom) query.zoom = route.query.zoom as string
+  
+  router.push({
+    path: `/templates/${templateId}/edit`,
+    query
+  })
 }
 </script>
 

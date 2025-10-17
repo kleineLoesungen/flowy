@@ -156,7 +156,8 @@ import type { User } from '../../types/User'
 
 // Page metadata
 definePageMeta({
-  title: 'Team Management'
+  title: 'Team Management',
+  middleware: 'admin'
 })
 
 // Reactive state

@@ -4,15 +4,19 @@ export interface Element {
     description: string;
     ownerId: string | null;
     consultedUserIds: string[];
-    completedAt: number | null; // real completion
-    expectedEndedAt: number | null; // generated based on duration
+    completedAt: string | null; // real completion
+    expectedEndedAt: string | null; // generated based on duration
     type: 'action' | 'state' | 'artefact';
     status: 'pending' | 'in-progress' | 'completed' | 'aborted';
     comments: ElementComment[];
 }
 
 export interface ElementComment {
-    timestamp: number;
+    id: string;
+    timestamp: string;
     comment: string;
     userId: string;
+    userName?: string;
+    userEmail?: string;
+    statusTag?: 'pending' | 'in-progress' | 'completed' | 'aborted';
 }

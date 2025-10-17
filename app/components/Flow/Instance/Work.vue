@@ -1,62 +1,112 @@
 <template>
-  <div class="flow-editor">
-    <div class="editor-header">
-      <h3>{{ isEditing ? 'Edit Template' : 'Add Template' }}</h3>
+  <div class="flow-work">
+    <div class="work-header">
+      <h3>{{ isWorking ? 'Work on Flow' : 'View Flow' }}</h3>
+      
+      <!-- Highlight Filters -->
+      <div class="highlight-filters">
+        <!-- Team Filter -->
+        <div class="filter-dropdown" :class="{ 'is-open': teamDropdownOpen }">
+          <button class="dropdown-trigger" @click="toggleTeamDropdown"
+            :class="{ 'has-selections': selectedTeamId, 'disabled': filteredTeams.length === 0 }">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path
+                d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
+            </svg>
+            <span>{{ selectedTeamId ? getTeamName(selectedTeamId) : (filteredTeams.length > 0 ? 'Highlight Team' :
+              'No Teams') }}</span>
+            <svg class="chevron" :class="{ 'rotated': teamDropdownOpen }" width="12" height="12" fill="currentColor"
+              viewBox="0 0 24 24">
+              <path d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div v-if="teamDropdownOpen" class="dropdown-panel">
+            <div v-if="selectedTeamId" class="dropdown-item clear-item" @click="clearTeamHighlight">
+              <span>Clear Team Highlight</span>
+            </div>
+            <div v-if="filteredTeams.length === 0" class="dropdown-item empty-state">
+              <span>No teams found</span>
+            </div>
+            <div v-for="team in filteredTeams" :key="team.id" class="dropdown-item"
+              :class="{ 'selected': selectedTeamId === team.id }" @click="selectTeamHighlight(team.id)">
+              <span class="team-name">{{ team.name }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- User Filter -->
+        <div class="filter-dropdown" :class="{ 'is-open': userDropdownOpen }">
+          <button class="dropdown-trigger" @click="toggleUserDropdown"
+            :class="{ 'has-selections': selectedUserId, 'disabled': filteredUsers.length === 0 }">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
+            </svg>
+            <span>{{ selectedUserId ? getUserName(selectedUserId) : (filteredUsers.length > 0 ? 'Highlight User' :
+              'No Users') }}</span>
+            <svg class="chevron" :class="{ 'rotated': userDropdownOpen }" width="12" height="12" fill="currentColor"
+              viewBox="0 0 24 24">
+              <path d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <div v-if="userDropdownOpen" class="dropdown-panel">
+            <div v-if="selectedUserId" class="dropdown-item clear-item" @click="clearUserHighlight">
+              <span>Clear User Highlight</span>
+            </div>
+            <div v-if="filteredUsers.length === 0" class="dropdown-item empty-state">
+              <span>No users found</span>
+            </div>
+            <div v-for="user in filteredUsers" :key="user.id" class="dropdown-item"
+              :class="{ 'selected': selectedUserId === user.id }" @click="selectUserHighlight(user.id)">
+              <span class="user-name">{{ user.name || 'No Name' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <div class="header-controls">
-        <button @click="addElement" class="btn btn-primary">
-          + Element
-        </button>
         <button @click="fitToView" class="btn btn-info">
           Fit View
-        </button>
-        <button @click="reorganizeLayout" class="btn btn-info">
-          Auto Layout
-        </button>
-        <button v-if="hasChanges" @click="saveTemplate" class="btn btn-success">
-          Save
         </button>
         <button v-if="hasChanges" @click="resetChanges" class="btn btn-warning">
           Reset
         </button>
-        <button @click="$emit('cancel')" class="btn btn-secondary">
+        <button @click="handleClose" class="btn btn-secondary">
           Close
         </button>
       </div>
     </div>
 
-    <!-- Basic Flow Info -->
-    <div class="template-info">
+    <!-- Flow Info (Read-only) -->
+    <div class="flow-info">
       <div class="info-row">
         <div class="form-group">
-          <label for="flow-name">Flow Name</label>
-          <input id="flow-name" v-model="templateData.name" type="text" required placeholder="Enter flow name"
-            class="form-control" />
+          <label>Flow Name</label>
+          <div class="readonly-field">{{ flowData.name }}</div>
         </div>
         <div class="form-group">
-          <label for="flow-description">Description</label>
-          <textarea id="flow-description" v-model="templateData.description" placeholder="Enter flow description"
-            class="form-control textarea-compact" rows="2"></textarea>
+          <label>Description</label>
+          <div class="readonly-field">{{ flowData.description || 'No description provided' }}</div>
+        </div>
+        <div class="form-group">
+          <label>Started At</label>
+          <div class="readonly-field">{{ flowData.startedAt ? formatDate(flowData.startedAt) : 'Not started' }}</div>
+        </div>
+        <div class="form-group">
+          <label>Expected End Date</label>
+          <div class="readonly-field">{{ flowData.expectedEndDate ? formatDate(flowData.expectedEndDate) : 'Not set' }}</div>
+        </div>
+        <div class="form-group">
+          <label>Completed At</label>
+          <div class="readonly-field">{{ flowData.completedAt ? formatDate(flowData.completedAt) : 'Not completed' }}</div>
         </div>
         <div class="form-group">
           <label>Starting Element</label>
-          <div class="starting-element-control">
-            <div v-if="nodes.length === 0" class="no-elements-message">
-              Add elements first, then select starting element.
-            </div>
-            <div v-else class="single-select-wrapper">
-              <select v-model="templateData.startingElementId" class="form-control">
-                <option value="">Select starting element...</option>
-                <option v-for="node in nodes" :key="node.id" :value="node.id">
-                  {{ node.data.name || 'Unnamed Element' }}
-                </option>
-              </select>
-            </div>
-          </div>
+          <div class="readonly-field">{{ getElementName(flowData.startingElementId) || 'Not set' }}</div>
         </div>
       </div>
     </div>
 
-    <!-- Vue Flow Editor -->
+    <!-- Vue Flow Canvas -->
     <div class="flow-canvas">
       <VueFlow :nodes="reactiveNodes" :edges="edges" @nodes-change="onNodesChange" @edges-change="onEdgesChange"
         @connect="onConnect" @node-double-click="onNodeDoubleClick" @edge-double-click="onEdgeDoubleClick"
@@ -82,74 +132,77 @@
 
         <!-- Custom Element Node -->
         <template #node-element="{ data, id }">
-          <div class="element-node" :class="`element-${data.type || 'action'}`"
-            :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}-${(data.consultedUserIds || []).length}`">
+          <div class="element-node" :class="[
+            `element-${data.type || 'action'}`,
+            data.status && data.type === 'action' ? `element-status-${data.status}` : '',
+            { 'team-highlighted': isTeamHighlighted(data) },
+            { 'user-highlighted': isUserHighlighted(data) }
+          ]" :key="`node-${id}-${data.name}-${data.description}-${data.status}-${(data.consultedUserIds || []).length}`">
             <div class="node-header">
-              <div class="element-icon">
-                <svg v-if="data.type === 'action'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M13 10h5l-6 6-6-6h5V3h2v7z" />
-                </svg>
-                <svg v-else-if="data.type === 'state'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-                </svg>
-                <svg v-else width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                  <path
-                    d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-                </svg>
+              <div class="element-icon-container">
+                <div class="element-icon">
+                  <svg v-if="data.type === 'action'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13 10h5l-6 6-6-6h5V3h2v7z" />
+                  </svg>
+                  <svg v-else-if="data.type === 'state'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                  </svg>
+                  <svg v-else width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                      d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                  </svg>
+                </div>
+                <div v-if="data.expectedEndedAt && data.type === 'action'" class="expected-end-date">
+                  {{ formatExpectedEndDate(data.expectedEndedAt) }}
+                </div>
               </div>
               <div class="element-info">
                 <h4>{{ data.name || 'Unnamed Element' }}</h4>
                 <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
                 <div class="element-meta">
-                  <span v-if="data.type" class="type-tag" :class="'type-' + data.type">
-                    <svg v-if="data.type === 'action'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M13 10h5l-6 6-6-6h5V3h2v7z" />
+                  <!-- Comment count -->
+                  <span v-if="data.comments && data.comments.length > 0" class="meta-item comment-count">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
                     </svg>
-                    <svg v-else-if="data.type === 'state'" width="12" height="12" fill="currentColor"
-                      viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-                    </svg>
-                    <svg v-else width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" />
-                    </svg>
-                    {{ data.type }}
+                    {{ data.comments.length }}
                   </span>
-                  <span v-if="data.ownerId" class="owner-tag">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor"
-                      viewBox="0 0 16 16">
+                  <!-- Status for actions -->
+                  <span v-if="data.status && data.type === 'action'" class="meta-item status-icon" :class="`status-${data.status}`">
+                    <svg v-if="data.status === 'pending'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <svg v-else-if="data.status === 'in-progress'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <svg v-else-if="data.status === 'completed'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <svg v-else-if="data.status === 'aborted'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </span>
+                  <!-- Owner icon -->
+                  <span v-if="data.ownerId" class="meta-item owner-icon">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
                     </svg>
-                    {{ getUserName(data.ownerId) }}
                   </span>
-                  <span v-if="data.durationDays" class="duration">
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
-                      <path
-                        d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
-                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                  <!-- Consulted users count -->
+                  <span v-if="data.consultedUserIds && data.consultedUserIds.length > 0" class="meta-item consulted-count">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
                     </svg>
-                    {{ data.durationDays }} day{{ data.durationDays === 1 ? '' : 's' }}
-                  </span>
-                  <span v-if="data.consultedUserIds && data.consultedUserIds.length > 0" class="consulted-users">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor"
-                      viewBox="0 0 16 16">
-                      <path
-                        d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
-                    </svg>
-                    {{ data.consultedUserIds.length }} consulted
+                    {{ data.consultedUserIds.length }}
                   </span>
                 </div>
               </div>
               <div class="node-actions">
-                <button @click="editNode(id)" class="btn-icon edit-btn">
+                <button @click="workOnNode(id)" class="btn-icon edit-btn">
                   <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
                     <path
                       d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                  </svg>
-                </button>
-                <button @click="removeNode(id)" class="btn-icon delete-btn">
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
                   </svg>
                 </button>
               </div>
@@ -214,7 +267,6 @@
       </div>
     </div>
 
-
   </div>
 </template>
 
@@ -224,27 +276,40 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { StraightEdge } from '@vue-flow/core'
 import type { Node, Edge, Connection, NodeChange, EdgeChange, XYPosition } from '@vue-flow/core'
-import type { FlowTemplate } from '../../../../types/FlowTemplate'
-import type { ElementTemplate } from '../../../../types/ElementTemplate'
+import type { Flow } from '../../../../types/Flow'
+import type { Element } from '../../../../types/Element'
 import type { Relation } from '../../../../types/Relation'
 import type { User } from '../../../../types/User'
+import type { Team } from '../../../../types/Team'
 
 // Props and emits
 const props = defineProps<{
-  template?: FlowTemplate | null
-  isEditing: boolean
+  flow?: Flow | null
+  isWorking: boolean
 }>()
 
 const emit = defineEmits<{
-  save: [template: FlowTemplate]
+  save: [flow: Flow]
   cancel: []
 }>()
 
 // Reactive state
-const templateData = ref<{ name: string, description: string, startingElementId: string }>({
+const flowData = ref<{ 
+  name: string, 
+  description: string, 
+  startingElementId: string,
+  templateId: string,
+  startedAt: string | null,
+  expectedEndDate: string | null,
+  completedAt: string | null 
+}>({
   name: '',
   description: '',
-  startingElementId: ''
+  startingElementId: '',
+  templateId: '',
+  startedAt: null,
+  expectedEndDate: null,
+  completedAt: null
 })
 
 const nodes = ref<Node[]>([])
@@ -262,7 +327,15 @@ const shouldRestoreViewport = computed(() => {
 
 // Change tracking state
 const initialState = ref<{
-  templateData: { name: string, description: string, startingElementId: string },
+  flowData: { 
+    name: string, 
+    description: string, 
+    startingElementId: string,
+    templateId: string,
+    startedAt: string | null,
+    expectedEndDate: string | null,
+    completedAt: string | null 
+  },
   nodes: Node[],
   edges: Edge[]
 } | null>(null)
@@ -270,13 +343,17 @@ const initialState = ref<{
 const hasChanges = computed(() => {
   if (!initialState.value) return false
 
-  // Check template data changes
-  const currentTemplateData = templateData.value
-  const initialTemplateData = initialState.value.templateData
+  // Check flow data changes
+  const currentFlowData = flowData.value
+  const initialFlowData = initialState.value.flowData
 
-  if (currentTemplateData.name !== initialTemplateData.name ||
-    currentTemplateData.description !== initialTemplateData.description ||
-    currentTemplateData.startingElementId !== initialTemplateData.startingElementId) {
+  if (currentFlowData.name !== initialFlowData.name ||
+    currentFlowData.description !== initialFlowData.description ||
+    currentFlowData.startingElementId !== initialFlowData.startingElementId ||
+    currentFlowData.templateId !== initialFlowData.templateId ||
+    currentFlowData.startedAt !== initialFlowData.startedAt ||
+    currentFlowData.expectedEndDate !== initialFlowData.expectedEndDate ||
+    currentFlowData.completedAt !== initialFlowData.completedAt) {
     return true
   }
 
@@ -337,12 +414,16 @@ const isArtefactConnection = computed(() => {
   return sourceType === 'artefact' || targetType === 'artefact'
 })
 
-// Note: Removed inline editing functionality - now uses URL routes
-
 // Edge configuration state
 const showEdgeModal = ref(false)
 const currentEdgeType = ref<'flow' | 'or' | 'and' | 'in' | 'out'>('flow')
 const pendingConnection = ref<Connection | null>(null)
+
+// Highlight state
+const selectedTeamId = ref<string | null>(null)
+const selectedUserId = ref<string | null>(null)
+const teamDropdownOpen = ref(false)
+const userDropdownOpen = ref(false)
 
 // No longer needed - using simple select
 
@@ -351,6 +432,7 @@ const pendingConnection = ref<Connection | null>(null)
 
 // Users data
 const users = ref<User[]>([])
+const teams = ref<(Team & { users: User[] })[]>([])
 
 // Fetch users
 const fetchUsers = async () => {
@@ -358,14 +440,29 @@ const fetchUsers = async () => {
     const response = await $fetch<{ success: boolean, data: User[] }>('/api/users')
     users.value = response?.data || []
   } catch (error) {
-    console.error('Failed to fetch users:', error)
     users.value = []
+  }
+}
+
+// Fetch teams
+const fetchTeams = async () => {
+  try {
+    const response = await $fetch<{ success: boolean, data: (Team & { users: User[] })[] }>('/api/teams')
+    teams.value = response?.data || []
+  } catch (error) {
+    teams.value = []
   }
 }
 
 // Fetch data on component mount
 onMounted(() => {
   fetchUsers()
+  fetchTeams()
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 
 // Helper functions to get display names
@@ -374,6 +471,69 @@ const getUserName = (userId: string | null): string => {
   const user = users.value.find(u => u.id === userId)
   return user?.name || user?.email || `User ${userId}`
 }
+
+const getTeamName = (teamId: string | null): string => {
+  if (!teamId) return ''
+  const team = teams.value.find(t => t.id === teamId)
+  return team?.name || `Team ${teamId}`
+}
+
+const formatExpectedEndDate = (timestamp: string | null): string => {
+  if (!timestamp) return 'Not set'
+  const date = new Date(timestamp)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${day}.${month}.`
+}
+
+// Computed properties for filtered users and teams (only those used in the flow)
+const usedUserIds = computed(() => {
+  if (!nodes.value.length) return new Set<string>()
+
+  const userIds = new Set<string>()
+
+  nodes.value.forEach(node => {
+    const data = node.data
+
+    // Add owner IDs
+    if (data.ownerId) {
+      userIds.add(data.ownerId)
+    }
+
+    // Add consulted user IDs
+    if (data.consultedUserIds && Array.isArray(data.consultedUserIds)) {
+      data.consultedUserIds.forEach((userId: string) => userIds.add(userId))
+    }
+  })
+
+  return userIds
+})
+
+const usedTeamIds = computed(() => {
+  if (!nodes.value.length || !teams.value.length) return new Set<string>()
+
+  const teamIds = new Set<string>()
+  const userIds = usedUserIds.value
+
+  // Find teams that contain any of the used users
+  teams.value.forEach(team => {
+    if (team.users && team.users.some(user => userIds.has(user.id))) {
+      teamIds.add(team.id)
+    }
+  })
+
+  return teamIds
+})
+
+const filteredUsers = computed(() => {
+  const usedIds = usedUserIds.value
+  return users.value.filter(user => usedIds.has(user.id))
+})
+
+const filteredTeams = computed(() => {
+  const usedIds = usedTeamIds.value
+  return teams.value.filter(team => usedIds.has(team.id))
+})
 
 
 // Helper lines logic - using fixed node dimensions
@@ -471,15 +631,15 @@ const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2)
 }
 
-// Load existing flow into the visual editor
-const loadTemplateIntoEditor = (template: FlowTemplate) => {
+// Load existing flow into the work interface
+const loadFlowIntoWork = (flow: Flow) => {
   // Clear existing data first
   nodes.value = []
   edges.value = []
 
   // Convert elements to nodes using smart layout algorithm (same as FlowVisualizationModal)
-  const elements = template.elements
-  const relations = template.relations || []
+  const elements = flow.elements
+  const relations = flow.relations || []
 
   // Create a map for quick element lookup
   const nodeMap = new Map(elements.map(el => [el.id, el]))
@@ -557,7 +717,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   const elementNodes: Node[] = []
 
   // Check if we have saved layout positions
-  const savedLayout = template.layout
+  const savedLayout = flow.layout
 
   if (savedLayout) {
     // Use saved positions
@@ -572,7 +732,9 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
         data: {
           ...element,
           type: element.type || 'action',
-          durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays,
+          status: element.status,
+          completedAt: element.completedAt,
+          expectedEndedAt: element.expectedEndedAt,
           consultedUserIds: element.consultedUserIds || []
         }
       })
@@ -596,7 +758,9 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
             },
             data: {
               ...element,
-              durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays,
+              status: element.status,
+              completedAt: element.completedAt,
+              expectedEndedAt: element.expectedEndedAt,
               consultedUserIds: element.consultedUserIds || []
             }
           })
@@ -609,7 +773,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   const relationEdges: Edge[] = []
   const elementIds = new Set(elements.map(el => el.id))
 
-  template.relations.forEach(relation => {
+  flow.relations.forEach((relation: Relation) => {
     relation.fromElementIds.forEach((fromId: string) => {
       relation.toElementIds.forEach((toId: string) => {
         // Only create edges for elements that actually exist
@@ -627,7 +791,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
           // Check if we have saved handle information
           if (relation.connections) {
             const connection = relation.connections.find(
-              conn => conn.fromElementId === fromId && conn.toElementId === toId
+              (conn: any) => conn.fromElementId === fromId && conn.toElementId === toId
             )
             if (connection) {
               sourceHandle = connection.sourceHandle || sourceHandle
@@ -669,7 +833,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   nextTick(() => {
     nodes.value = elementNodes
     edges.value = relationEdges
-    nodeCounter.value = template.elements.length
+    nodeCounter.value = flow.elements.length
 
     // Only fit view if viewport parameters are not in the URL (will be restored later)
     if (!shouldRestoreViewport.value) {
@@ -699,12 +863,16 @@ const getEdgeStyle = (type: string) => {
 }
 
 // Initialize data when props change
-watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) => {
-  if (template && isEditing) {
-    templateData.value.name = template.name
-    templateData.value.description = template.description
-    templateData.value.startingElementId = template.startingElementId || ''
-    loadTemplateIntoEditor(template)
+watch(() => [props.flow, props.isWorking] as const, ([flow, isWorking]) => {
+  if (flow && isWorking) {
+    flowData.value.name = flow.name
+    flowData.value.description = flow.description || ''
+    flowData.value.startingElementId = flow.startingElementId || ''
+    flowData.value.templateId = flow.templateId || ''
+    flowData.value.startedAt = flow.startedAt
+    flowData.value.expectedEndDate = flow.expectedEndDate
+    flowData.value.completedAt = flow.completedAt
+    loadFlowIntoWork(flow)
 
     // Save initial state after loading is complete
     nextTick(() => {
@@ -735,9 +903,13 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
       }
     })
   } else {
-    templateData.value.name = ''
-    templateData.value.description = ''
-    templateData.value.startingElementId = ''
+    flowData.value.name = ''
+    flowData.value.description = ''
+    flowData.value.startingElementId = ''
+    flowData.value.templateId = ''
+    flowData.value.startedAt = null
+    flowData.value.expectedEndDate = null
+    flowData.value.completedAt = null
     nodes.value = []
     edges.value = []
     nodeCounter.value = 0
@@ -755,28 +927,14 @@ const getElementName = (elementId: string): string => {
   return node?.data.name || 'Unnamed Element'
 }
 
-// Add new element node
-const addElement = async () => {
-  // Navigate to the new element page
-  if (props.template?.id) {
-    const router = useRouter()
-    
-    // Get current viewport state from Vue Flow
-    const viewport = getViewport()
-    
-    await router.push({
-      path: `/templates/${props.template.id}/edit/elements/new`,
-      query: {
-        // Preserve current viewport state
-        x: viewport.x.toString(),
-        y: viewport.y.toString(),
-        zoom: viewport.zoom.toString()
-      }
-    })
-  }
+// Helper function for date formatting
+const formatDate = (dateString: string): string => {
+  return new Date(dateString).toLocaleDateString()
 }
 
-// Reorganize layout using the same algorithm as loadTemplateIntoEditor
+
+
+// Reset layout to saved positions from flow data
 const reorganizeLayout = () => {
   if (nodes.value.length === 0) return
 
@@ -896,10 +1054,10 @@ const reorganizeLayout = () => {
     const queue: Array<{ nodeId: string, level: number }> = []
 
     // Add starting element at level 0
-    if (templateData.value.startingElementId && nodeMap.has(templateData.value.startingElementId)) {
-      levels.set(templateData.value.startingElementId, 0)
-      processed.add(templateData.value.startingElementId)
-      queue.push({ nodeId: templateData.value.startingElementId, level: 0 })
+    if (flowData.value.startingElementId && nodeMap.has(flowData.value.startingElementId)) {
+      levels.set(flowData.value.startingElementId, 0)
+      processed.add(flowData.value.startingElementId)
+      queue.push({ nodeId: flowData.value.startingElementId, level: 0 })
     }
 
     // If no starting elements defined, find elements with no incoming flow relations
@@ -927,7 +1085,7 @@ const reorganizeLayout = () => {
           rel.toElementIds.forEach((targetId: string) => {
             if (nodeMap.has(targetId) && !processed.has(targetId)) {
               // Check connection handles to determine actual flow direction
-              const connection = rel.connections?.find(conn =>
+              const connection = rel.connections?.find((conn: any) =>
                 conn.fromElementId === nodeId && conn.toElementId === targetId
               )
 
@@ -962,7 +1120,7 @@ const reorganizeLayout = () => {
         if (rel.type === 'flow' && rel.toElementIds.includes(nodeId)) {
           rel.fromElementIds.forEach((sourceId: string) => {
             if (nodeMap.has(sourceId) && !processed.has(sourceId)) {
-              const connection = rel.connections?.find(conn =>
+              const connection = rel.connections?.find((conn: any) =>
                 conn.fromElementId === sourceId && conn.toElementId === nodeId
               )
 
@@ -1178,34 +1336,32 @@ const fitToView = () => {
   })
 }
 
-// Node editing functions
-const editNode = async (nodeId: string) => {
-  // Navigate to the element edit page
-  if (props.template?.id && nodeId) {
-    const router = useRouter()
-    
-    // Get current viewport state from Vue Flow
-    const viewport = getViewport()
-    
-    await router.push({
-      path: `/templates/${props.template.id}/edit/elements/${nodeId}`,
-      query: {
-        // Preserve current viewport state
-        x: viewport.x.toString(),
-        y: viewport.y.toString(),
-        zoom: viewport.zoom.toString()
-      }
-    })
+// Node working functions
+const workOnNode = async (nodeId: string) => {
+  // Navigate to the element work page
+  if (props.flow?.id && nodeId) {
+    try {
+      const router = useRouter()
+      
+      // Get current viewport state from Vue Flow
+      const viewport = getViewport()
+      
+      await router.push({
+        path: `/flows/${props.flow.id}/work/elements/${nodeId}`,
+        query: {
+          // Preserve current viewport state
+          x: viewport.x.toString(),
+          y: viewport.y.toString(),
+          zoom: viewport.zoom.toString()
+        }
+      })
+    } catch (error) {
+      // Navigation failed silently
+    }
   }
 }
 
-
-
-// Remove node and associated edges
-const removeNode = (nodeId: string) => {
-  nodes.value = nodes.value.filter(n => n.id !== nodeId)
-  edges.value = edges.value.filter(e => e.source !== nodeId && e.target !== nodeId)
-}
+// Removed inline working functions - now using modal routes
 
 // Vue Flow event handlers
 const onNodesChange = (changes: NodeChange[]) => {
@@ -1253,9 +1409,8 @@ const onNodesChange = (changes: NodeChange[]) => {
 
         node.position = change.position
       }
-    } else if (change.type === 'remove') {
-      removeNode(change.id)
     }
+    // Note: Removed 'remove' handling - elements cannot be deleted in work interface
   })
 }
 
@@ -1270,27 +1425,7 @@ const onEdgesChange = (changes: EdgeChange[]) => {
 
 // Handle new connections
 const onConnect = (connection: Connection) => {
-  // Get source and target node types
-  const sourceNode = nodes.value.find(n => n.id === connection.source)
-  const targetNode = nodes.value.find(n => n.id === connection.target)
-
-  if (!sourceNode || !targetNode) return
-
-  const sourceType = sourceNode.data.type || 'action'
-  const targetType = targetNode.data.type || 'action'
-
-  // Set default edge type based on element types
-  if (sourceType === 'artefact' || targetType === 'artefact') {
-    // If source is artefact, default to 'out'
-    // If target is artefact, default to 'in'
-    currentEdgeType.value = sourceType === 'artefact' ? 'out' : 'in'
-  } else {
-    // Non-artefact elements default to 'flow'
-    currentEdgeType.value = 'flow'
-  }
-
-  pendingConnection.value = connection
-  showEdgeModal.value = true
+  // Connection creation is disabled - flow structure is read-only during work
 }
 
 const saveEdgeType = () => {
@@ -1355,26 +1490,24 @@ const closeEdgeModal = () => {
 
 // Double click handlers
 const onNodeDoubleClick = (event: any) => {
-  editNode(event.node.id)
+  workOnNode(event.node.id)
 }
 
 const onEdgeDoubleClick = (event: any) => {
-  const edge = event.edge
-  currentEdgeType.value = edge.data?.relationType || 'flow'
-  pendingConnection.value = { source: edge.source, target: edge.target }
-
-  // Remove existing edge and show modal for re-configuration
-  edges.value = edges.value.filter(e => e.id !== edge.id)
-  showEdgeModal.value = true
+  // Edge editing is disabled - flow structure is read-only during work
 }
 
 // Change tracking functions
 const saveInitialState = () => {
   initialState.value = {
-    templateData: {
-      name: templateData.value.name,
-      description: templateData.value.description,
-      startingElementId: templateData.value.startingElementId
+    flowData: {
+      name: flowData.value.name,
+      description: flowData.value.description,
+      startingElementId: flowData.value.startingElementId,
+      templateId: flowData.value.templateId,
+      startedAt: flowData.value.startedAt,
+      expectedEndDate: flowData.value.expectedEndDate,
+      completedAt: flowData.value.completedAt
     },
     nodes: nodes.value.map(node => ({
       ...node,
@@ -1392,9 +1525,13 @@ const resetChanges = () => {
   if (!initialState.value) return
 
   // Reset template data
-  templateData.value.name = initialState.value.templateData.name
-  templateData.value.description = initialState.value.templateData.description
-  templateData.value.startingElementId = initialState.value.templateData.startingElementId
+  flowData.value.name = initialState.value.flowData.name
+  flowData.value.description = initialState.value.flowData.description
+  flowData.value.startingElementId = initialState.value.flowData.startingElementId
+  flowData.value.templateId = initialState.value.flowData.templateId
+  flowData.value.startedAt = initialState.value.flowData.startedAt
+  flowData.value.expectedEndDate = initialState.value.flowData.expectedEndDate
+  flowData.value.completedAt = initialState.value.flowData.completedAt
 
   // Reset nodes and edges
   nodes.value = initialState.value.nodes.map(node => ({
@@ -1413,20 +1550,23 @@ const resetChanges = () => {
 
 // No cleanup needed for simple select dropdown
 
-// Convert visual editor data back to template format
-const convertToTemplate = (): FlowTemplate => {
+// Convert visual work data back to Flow format
+const convertToFlow = (): Flow => {
   // Convert nodes back to elements
   // IMPORTANT: Use node.id consistently since that's what edges reference
-  const elements: ElementTemplate[] = reactiveNodes.value.map(node => {
+  const elements: Element[] = reactiveNodes.value.map(node => {
     const elementType = node.data.type || 'action'
     return {
       id: node.id, // Always use node.id to match edge references
       name: node.data.name || '',
       description: node.data.description || '',
       ownerId: node.data.ownerId || null,
-      durationDays: (elementType === 'state' || elementType === 'artefact') ? null : (node.data.durationDays || null),
       type: elementType,
-      consultedUserIds: node.data.consultedUserIds || []
+      status: node.data.status || 'pending',
+      completedAt: node.data.completedAt || null,
+      expectedEndedAt: node.data.expectedEndedAt || null,
+      consultedUserIds: node.data.consultedUserIds || [],
+      comments: node.data.comments || []
     }
   })
 
@@ -1484,43 +1624,137 @@ const convertToTemplate = (): FlowTemplate => {
     }
   })
 
-  const template = {
-    id: props.template?.id || generateId(),
-    name: templateData.value.name,
-    description: templateData.value.description,
+  const flow = {
+    id: props.flow?.id || generateId(),
+    name: flowData.value.name,
+    description: flowData.value.description,
+    templateId: flowData.value.templateId,
+    startedAt: flowData.value.startedAt,
+    expectedEndDate: flowData.value.expectedEndDate,
+    completedAt: flowData.value.completedAt,
     elements,
     relations,
-    startingElementId: templateData.value.startingElementId,
+    startingElementId: flowData.value.startingElementId,
     layout
   }
 
-  return template
+  return flow
 }
 
 // Save flow
-const saveTemplate = () => {
-  if (!templateData.value.name.trim()) {
+const saveFlow = () => {
+  if (!flowData.value.name.trim()) {
     alert('Please enter a flow name in the field above')
     return
   }
 
   try {
-    const template = convertToTemplate()
-    emit('save', template)
+    const flow = convertToFlow()
+    emit('save', flow)
 
     // Update initial state to reflect saved state
     nextTick(() => {
       saveInitialState()
     })
   } catch (error) {
-    console.error('Error converting flow:', error)
-    alert('Error creating flow. Please check the console for details.')
+    // Silent error handling
   }
+}
+
+// Dropdown methods for highlighting
+const toggleTeamDropdown = () => {
+  if (filteredTeams.value.length === 0) return
+  teamDropdownOpen.value = !teamDropdownOpen.value
+  if (teamDropdownOpen.value) {
+    userDropdownOpen.value = false
+  }
+}
+
+const toggleUserDropdown = () => {
+  if (filteredUsers.value.length === 0) return
+  userDropdownOpen.value = !userDropdownOpen.value
+  if (userDropdownOpen.value) {
+    teamDropdownOpen.value = false
+  }
+}
+
+// Highlight methods
+const selectTeamHighlight = (teamId: string) => {
+  selectedTeamId.value = teamId
+  selectedUserId.value = null // Clear user highlight when team is selected
+  teamDropdownOpen.value = false
+}
+
+const clearTeamHighlight = () => {
+  selectedTeamId.value = null
+  teamDropdownOpen.value = false
+}
+
+const selectUserHighlight = (userId: string) => {
+  selectedUserId.value = userId
+  selectedTeamId.value = null // Clear team highlight when user is selected
+  userDropdownOpen.value = false
+}
+
+const clearUserHighlight = () => {
+  selectedUserId.value = null
+  userDropdownOpen.value = false
+}
+
+// Highlighting logic
+const isTeamHighlighted = (data: any): boolean => {
+  if (!selectedTeamId.value) return false
+
+  const team = teams.value.find(t => t.id === selectedTeamId.value)
+  if (!team || !team.users) return false
+
+  // Check if element owner is in selected team
+  if (data.ownerId) {
+    const isOwnerInTeam = team.users.some((user: User) => user.id === data.ownerId)
+    if (isOwnerInTeam) return true
+  }
+
+  // Check if any consulted users are in selected team
+  if (data.consultedUserIds && data.consultedUserIds.length > 0) {
+    const hasConsultedInTeam = data.consultedUserIds.some((userId: string) =>
+      team.users.some((user: User) => user.id === userId)
+    )
+    if (hasConsultedInTeam) return true
+  }
+
+  return false
+}
+
+const isUserHighlighted = (data: any): boolean => {
+  if (!selectedUserId.value) return false
+
+  // Check if element owner is selected user
+  if (data.ownerId === selectedUserId.value) return true
+
+  // Check if selected user is in consulted users
+  if (data.consultedUserIds && data.consultedUserIds.includes(selectedUserId.value)) return true
+
+  return false
+}
+
+// Handle click outside dropdowns
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (!target.closest('.filter-dropdown')) {
+    teamDropdownOpen.value = false
+    userDropdownOpen.value = false
+  }
+}
+
+// Handle close button - navigate to flows page
+const handleClose = async () => {
+  const router = useRouter()
+  await router.push('/flows')
 }
 </script>
 
 <style scoped>
-.flow-editor {
+.flow-work {
   height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
@@ -1532,7 +1766,7 @@ const saveTemplate = () => {
   overflow: hidden;
 }
 
-.editor-header {
+.work-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1545,7 +1779,7 @@ const saveTemplate = () => {
   min-height: 60px;
 }
 
-.editor-header h3 {
+.work-header h3 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
@@ -1557,7 +1791,166 @@ const saveTemplate = () => {
   gap: 0.5rem;
 }
 
-.template-info {
+/* Highlight Filters */
+.highlight-filters {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+}
+
+.filter-dropdown {
+  position: relative;
+  z-index: 1000;
+}
+
+.filter-dropdown.is-open {
+  z-index: 1001;
+}
+
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dropdown-trigger:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.dropdown-trigger.has-selections {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.dropdown-trigger.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.filter-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.chevron.rotated {
+  transform: rotate(180deg);
+}
+
+.dropdown-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 1000;
+  min-width: 200px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dropdown-item:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.dropdown-item.selected {
+  background: rgba(102, 126, 234, 0.15);
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.clear-item {
+  color: #ef4444;
+  font-weight: 500;
+  border-bottom: 2px solid rgba(239, 68, 68, 0.2) !important;
+}
+
+.clear-item:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.empty-state {
+  color: #9ca3af;
+  font-style: italic;
+  cursor: default;
+  text-align: center;
+}
+
+.empty-state:hover {
+  background: transparent !important;
+}
+
+.team-name,
+.user-name {
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.team-members,
+.user-email {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Scrollbar for dropdown */
+.dropdown-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdown-panel::-webkit-scrollbar-track {
+  background: rgba(100, 116, 139, 0.1);
+  border-radius: 3px;
+}
+
+.dropdown-panel::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 3px;
+}
+
+.dropdown-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.5);
+}
+
+.flow-info {
   padding: 0.5rem 1.5rem;
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
@@ -1600,6 +1993,18 @@ const saveTemplate = () => {
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   background: rgba(255, 255, 255, 1);
+}
+
+.readonly-field {
+  padding: 0.5rem 0.75rem;
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.5);
+  border-radius: 8px;
+  color: #475569;
+  font-size: 0.8rem;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
 }
 
 .textarea-compact {
@@ -1961,6 +2366,31 @@ const saveTemplate = () => {
   box-shadow: 0 8px 32px rgba(245, 158, 11, 0.15);
 }
 
+/* Status-based element styling (overrides type styling for action elements) */
+.element-node.element-status-pending {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.08) 0%, rgba(75, 85, 99, 0.05) 100%);
+  border: 1px solid rgba(107, 114, 128, 0.3);
+  box-shadow: 0 8px 32px rgba(107, 114, 128, 0.15);
+}
+
+.element-node.element-status-in-progress {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.05) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.15);
+}
+
+.element-node.element-status-completed {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.15);
+}
+
+.element-node.element-status-aborted {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.08) 0%, rgba(239, 68, 68, 0.05) 100%);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  box-shadow: 0 8px 32px rgba(248, 113, 113, 0.15);
+}
+
 .element-node:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 40px rgba(102, 126, 234, 0.15);
@@ -1971,11 +2401,39 @@ const saveTemplate = () => {
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
 }
 
+/* Highlighting Styles */
+.element-node.team-highlighted {
+  border: 4px solid #10b981 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3), 0 8px 32px rgba(16, 185, 129, 0.25) !important;
+}
+
+.element-node.user-highlighted {
+  border: 4px solid #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3), 0 8px 32px rgba(59, 130, 246, 0.25) !important;
+}
+
 .node-header {
   padding: 1rem;
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
+}
+
+.element-icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.expected-end-date {
+  font-size: 0.65rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1;
+  opacity: 0.8;
 }
 
 .element-icon {
@@ -2009,6 +2467,27 @@ const saveTemplate = () => {
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
+/* Status-specific icon colors (overrides type colors for action elements) */
+.element-status-pending .element-icon {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+}
+
+.element-status-in-progress .element-icon {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.element-status-completed .element-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.element-status-aborted .element-icon {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  box-shadow: 0 4px 12px rgba(248, 113, 113, 0.3);
+}
+
 .element-info {
   flex: 1;
   min-width: 0;
@@ -2018,7 +2497,7 @@ const saveTemplate = () => {
   margin: 0 0 0.25rem 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #2d3748;
+  color: #1e293b;
   line-height: 1.2;
   word-wrap: break-word;
 }
@@ -2026,15 +2505,70 @@ const saveTemplate = () => {
 .element-info .description {
   margin: 0 0 0.5rem 0;
   font-size: 0.8rem;
-  color: #64748b;
+  color: #475569;
   line-height: 1.3;
 }
 
 .element-meta {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 0.25rem;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.comment-count {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.status-icon.status-pending {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.status-icon.status-in-progress {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.status-icon.status-completed {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.1) 100%);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.status-icon.status-aborted {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.owner-icon {
+  background: rgba(168, 85, 247, 0.1);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.consulted-count {
+  background: rgba(168, 85, 247, 0.1);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.2);
 }
 
 .owner-tag,
@@ -2108,6 +2642,112 @@ const saveTemplate = () => {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(180, 83, 9, 0.1) 100%);
   color: #d97706;
   border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.status-pending {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(75, 85, 99, 0.1) 100%);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.status-in-progress {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.status-completed {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-aborted {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.1) 0%, rgba(239, 68, 68, 0.1) 100%);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+.completion-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1;
+  text-transform: capitalize;
+}
+
+.status-tag.status-pending {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.status-tag.status-in-progress {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.status-tag.status-completed {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-tag.status-completed-with-date {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.1) 100%);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  font-weight: 500;
+}
+
+.status-tag.status-aborted {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.completion-date {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.1) 100%);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .element-edit {
@@ -2215,33 +2855,7 @@ const saveTemplate = () => {
   transition: all 0.2s ease;
 }
 
-.edit-btn {
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
-}
 
-.edit-btn:hover {
-  background: rgba(102, 126, 234, 0.2);
-  transform: scale(1.05);
-}
-
-.edit-btn:hover svg {
-  transform: rotate(5deg);
-}
-
-.delete-btn {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.delete-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  transform: scale(1.05);
-}
-
-.delete-btn:hover svg {
-  transform: scale(1.1);
-}
 
 /* Button Styles */
 .btn {
@@ -2291,6 +2905,21 @@ const saveTemplate = () => {
   background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
 }
 
 .btn-warning {
@@ -2372,7 +3001,7 @@ const saveTemplate = () => {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .editor-header {
+  .work-header {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
@@ -2477,6 +3106,5 @@ const saveTemplate = () => {
   rx: 4px !important;
   ry: 4px !important;
 }
-
 
 </style>

@@ -19,26 +19,26 @@
             </div>
         </div>
 
-        <!-- Add Flow Modal (Simple) -->
+        <!-- Add Template Modal (Simple) -->
         <div v-if="showAddModal" class="modal-overlay" @click="closeModals">
             <div class="modal add-modal" @click.stop>
-                <h3>Add New Flow</h3>
-                <form @submit.prevent="handleAddFlow">
+                <h3>Add New Template</h3>
+                <form @submit.prevent="handleAddTemplate">
                     <div class="form-group">
-                        <label for="flow-name">Flow Name</label>
-                        <input id="flow-name" v-model="newFlowData.name" type="text" required
+                        <label for="flow-name">Template Name</label>
+                        <input id="flow-name" v-model="newTemplateData.name" type="text" required
                             placeholder="Enter flow name" class="form-control" />
                     </div>
 
                     <div class="form-group">
                         <label for="flow-description">Description</label>
-                        <textarea id="flow-description" v-model="newFlowData.description" rows="3"
-                            placeholder="Enter flow description (optional)" class="form-control"></textarea>
+                        <textarea id="flow-description" v-model="newTemplateData.description" rows="3"
+                            placeholder="Enter flow description" class="form-control"></textarea>
                     </div>
 
                     <div class="modal-actions">
                         <button type="button" @click="closeModals" class="btn btn-secondary">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Create Flow</button>
+                        <button type="submit" class="btn btn-primary">Create Template</button>
                     </div>
                 </form>
             </div>
@@ -47,7 +47,7 @@
         <!-- Delete Confirmation -->
         <div v-if="showDeleteModal" class="modal-overlay" @click="closeModals">
             <div class="modal delete-modal" @click.stop>
-                <h3>Delete Flow</h3>
+                <h3>Delete Template</h3>
                 <p>Are you sure you want to delete "{{ templateToDelete?.name }}"?</p>
                 <div class="modal-actions">
                     <button @click="closeModals" class="btn btn-secondary">Cancel</button>
@@ -75,13 +75,13 @@ const showDeleteModal = ref(false)
 const templateToDelete = ref<FlowTemplate | null>(null)
 
 // New flow form data
-const newFlowData = ref({
+const newTemplateData = ref({
     name: '',
     description: ''
 })
 
 // Fetch templates
-const { data: templatesData, pending, error, refresh } = await useFetch<{ data: FlowTemplate[] }>('/api/templates/flows')
+const { data: templatesData, pending, error, refresh } = await useFetch<{ data: FlowTemplate[] }>('/api/templates')
 
 const templates = computed(() => templatesData.value?.data || [])
 
@@ -96,31 +96,31 @@ const closeModals = () => {
     showDeleteModal.value = false
     templateToDelete.value = null
     // Reset form data
-    newFlowData.value = {
+    newTemplateData.value = {
         name: '',
         description: ''
     }
 }
 
-const handleAddFlow = async () => {
-    if (!newFlowData.value.name.trim()) {
-        alert('Please enter a flow name')
+const handleAddTemplate = async () => {
+    if (!newTemplateData.value.name.trim()) {
+        alert('Please enter a template name')
         return
     }
 
     try {
-        // Create new flow with just name and description
-        const newFlow = {
-            name: newFlowData.value.name.trim(),
-            description: newFlowData.value.description.trim(),
+        // Create new template with just name and description
+        const newTemplate = {
+            name: newTemplateData.value.name.trim(),
+            description: newTemplateData.value.description.trim(),
             elements: [],
             relations: [],
             startingElementId: ''
         }
 
-        await $fetch('/api/templates/flows', {
+        await $fetch('/api/templates', {
             method: 'POST',
-            body: newFlow
+            body: newTemplate
         })
 
         await refresh()
@@ -135,7 +135,7 @@ const deleteTemplate = async () => {
     if (!templateToDelete.value) return
 
     try {
-        await $fetch(`/api/templates/flows/${templateToDelete.value.id}`, {
+        await $fetch(`/api/templates/${templateToDelete.value.id}`, {
             method: 'DELETE'
         })
 

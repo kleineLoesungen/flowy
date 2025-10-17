@@ -2,7 +2,7 @@
   <div class="element-editor-modal">
     <!-- Modal Overlay -->
     <div class="modal-overlay" @click="handleClose">
-      <div class="modal-content" @click.stop>
+      <div class="modal-content" @click="handleModalClick">
         <!-- Modal Header -->
         <div class="modal-header">
           <h2>{{ isNewElement ? 'Add Element' : 'Edit Element' }}</h2>
@@ -42,33 +42,64 @@
             <!-- Element Type -->
             <div class="form-group">
               <label for="element-type">Element Type</label>
-              <select 
-                id="element-type"
-                v-model="elementData.type"
-                class="form-control"
-              >
-                <option value="action">Action</option>
-                <option value="state">State</option>
-                <option value="artefact">Artefact</option>
-              </select>
+              <div class="searchable-dropdown">
+                <div 
+                  class="dropdown-input" 
+                  :class="{ 'open': typeDropdownOpen }"
+                  @click="toggleTypeDropdown"
+                >
+                  <span v-if="selectedElementType" class="selected-value">
+                    {{ selectedElementType.label }}
+                  </span>
+                  <span v-else class="placeholder">Select element type...</span>
+                  <svg class="dropdown-arrow" :class="{ 'rotated': typeDropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </div>
+                
+                <div v-show="typeDropdownOpen" class="dropdown-menu">
+                  <div v-if="elementTypes.length > 10" class="search-input-wrapper">
+                    <input 
+                      v-model="typeSearchQuery"
+                      type="text"
+                      placeholder="Search types..."
+                      class="search-input"
+                      @click.stop
+                    />
+                  </div>
+                  <div class="dropdown-options">
+                    <div 
+                      v-for="type in filteredElementTypes" 
+                      :key="type.value"
+                      class="dropdown-option"
+                      :class="{ 'selected': elementData.type === type.value }"
+                      @click.stop="selectElementType(type)"
+                    >
+                      <span>{{ type.label }}</span>
+                    </div>
+                    <div v-if="filteredElementTypes.length === 0 && typeSearchQuery" class="no-results">
+                      No types found
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <!-- Duration (only for actions) -->
-            <div class="form-group" v-if="elementData.type === 'action'">
-              <label for="element-duration">Duration (Days)</label>
+            <!-- Duration (only for action elements) -->
+            <div v-if="elementData.type === 'action'" class="form-group">
+              <label for="element-duration">Expected Duration (Days)</label>
               <input 
                 id="element-duration"
                 v-model.number="elementData.durationDays"
-                type="number"
-                min="0"
-                step="0.5"
-                placeholder="Enter duration in days"
+                type="number" 
+                min="1"
+                placeholder="Enter expected duration in days"
                 class="form-control"
               />
             </div>
 
-            <!-- Owner -->
-            <div class="form-group">
+            <!-- Owner (only for action elements) -->
+            <div v-if="elementData.type === 'action'" class="form-group">
               <label for="element-owner">Owner</label>
               <div class="searchable-dropdown">
                 <div 
@@ -86,7 +117,7 @@
                 </div>
                 
                 <div v-show="ownerDropdownOpen" class="dropdown-menu">
-                  <div class="search-input-wrapper">
+                  <div v-if="users.length > 10" class="search-input-wrapper">
                     <input 
                       v-model="ownerSearchQuery"
                       type="text"
@@ -120,8 +151,8 @@
               </div>
             </div>
 
-            <!-- Consulted Users -->
-            <div class="form-group">
+            <!-- Consulted Users (only for action elements) -->
+            <div v-if="elementData.type === 'action'" class="form-group">
               <label>Consulted Users</label>
               <div class="searchable-multi-dropdown">
                 <div 
@@ -149,7 +180,7 @@
                 </div>
                 
                 <div v-show="consultedDropdownOpen" class="dropdown-menu">
-                  <div class="search-input-wrapper">
+                  <div v-if="users.length > 10" class="search-input-wrapper">
                     <input 
                       v-model="consultedSearchQuery"
                       type="text"
@@ -198,15 +229,15 @@
 </template>
 
 <script setup lang="ts">
-// Types will be inferred from the API responses
+import type { ElementTemplate } from '../../../../types/ElementTemplate'
 
 interface Props {
-  element?: any | null
+  element?: ElementTemplate | null
   isNewElement?: boolean
 }
 
 interface Emits {
-  (e: 'save', element: any): void
+  (e: 'save', element: ElementTemplate): void
   (e: 'close'): void
 }
 
@@ -218,14 +249,14 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>()
 
 // Initialize element data
-const elementData = ref({
+const elementData = ref<ElementTemplate>({
   id: '',
   name: '',
   description: '',
   type: 'action',
-  durationDays: 1,
   ownerId: null,
-  consultedUserIds: [] as string[]
+  consultedUserIds: [],
+  durationDays: null
 })
 
 // Load users
@@ -236,11 +267,26 @@ const users = computed(() => usersData.value?.data || [])
 // Dropdown state
 const ownerDropdownOpen = ref(false)
 const consultedDropdownOpen = ref(false)
+const typeDropdownOpen = ref(false)
 const ownerSearchQuery = ref('')
 const consultedSearchQuery = ref('')
+const typeSearchQuery = ref('')
+
+// Element type options
+const elementTypes = ref([
+  { value: 'action', label: 'Action' },
+  { value: 'state', label: 'State' },
+  { value: 'artefact', label: 'Artefact' }
+])
+
+
 
 // Computed properties for filtered users
 const filteredOwnerUsers = computed(() => {
+  // If 10 or fewer users, show all users (no search needed)
+  if (users.value.length <= 10) return users.value
+  
+  // If more than 10 users, apply search filter
   if (!ownerSearchQuery.value) return users.value
   const query = ownerSearchQuery.value.toLowerCase()
   return users.value.filter(user => 
@@ -250,6 +296,10 @@ const filteredOwnerUsers = computed(() => {
 })
 
 const filteredConsultedUsers = computed(() => {
+  // If 10 or fewer users, show all users (no search needed)
+  if (users.value.length <= 10) return users.value
+  
+  // If more than 10 users, apply search filter
   if (!consultedSearchQuery.value) return users.value
   const query = consultedSearchQuery.value.toLowerCase()
   return users.value.filter(user => 
@@ -268,23 +318,63 @@ const selectedConsultedUsers = computed(() => {
   return users.value.filter(user => elementData.value.consultedUserIds.includes(user.id))
 })
 
+const filteredElementTypes = computed(() => {
+  // If 10 or fewer types, show all types (no search needed)
+  if (elementTypes.value.length <= 10) return elementTypes.value
+  
+  // If more than 10 types, apply search filter
+  if (!typeSearchQuery.value) return elementTypes.value
+  const query = typeSearchQuery.value.toLowerCase()
+  return elementTypes.value.filter(type => 
+    type.label.toLowerCase().includes(query) ||
+    type.value.toLowerCase().includes(query)
+  )
+})
+
+const selectedElementType = computed(() => {
+  if (!elementData.value.type) return null
+  return elementTypes.value.find(type => type.value === elementData.value.type) || null
+})
+
+
+
 // Initialize element data when prop changes
 watchEffect(() => {
   if (props.element) {
-    elementData.value = { 
+    const element = { 
       ...props.element,
       consultedUserIds: props.element.consultedUserIds || []
     }
+    
+    // Clear action-specific fields for non-action elements
+    if (element.type !== 'action') {
+      element.durationDays = null
+      element.ownerId = null
+      element.consultedUserIds = []
+    }
+    
+    elementData.value = element
   } else if (props.isNewElement) {
-    elementData.value = {
+    const newElement: ElementTemplate = {
       id: Date.now().toString(36) + Math.random().toString(36).substr(2),
       name: '',
       description: '',
       type: 'action',
-      durationDays: 1,
       ownerId: null,
-      consultedUserIds: []
+      consultedUserIds: [],
+      durationDays: null
     }
+    elementData.value = newElement
+  }
+})
+
+// Watch for element type changes to clear action-specific fields
+watch(() => elementData.value.type, (newType, oldType) => {
+  if (oldType === 'action' && newType !== 'action') {
+    // Clear action-specific fields when switching away from action type
+    elementData.value.durationDays = null
+    elementData.value.ownerId = null
+    elementData.value.consultedUserIds = []
   }
 })
 
@@ -293,6 +383,7 @@ const toggleOwnerDropdown = () => {
   ownerDropdownOpen.value = !ownerDropdownOpen.value
   if (ownerDropdownOpen.value) {
     consultedDropdownOpen.value = false
+    typeDropdownOpen.value = false
     ownerSearchQuery.value = ''
   }
 }
@@ -301,14 +392,33 @@ const toggleConsultedDropdown = () => {
   consultedDropdownOpen.value = !consultedDropdownOpen.value
   if (consultedDropdownOpen.value) {
     ownerDropdownOpen.value = false
+    typeDropdownOpen.value = false
     consultedSearchQuery.value = ''
   }
 }
+
+const toggleTypeDropdown = () => {
+  typeDropdownOpen.value = !typeDropdownOpen.value
+  if (typeDropdownOpen.value) {
+    ownerDropdownOpen.value = false
+    consultedDropdownOpen.value = false
+    typeSearchQuery.value = ''
+  }
+}
+
+
 
 const selectOwner = (user: any) => {
   elementData.value.ownerId = user?.id || null
   ownerDropdownOpen.value = false
 }
+
+const selectElementType = (type: any) => {
+  elementData.value.type = type.value
+  typeDropdownOpen.value = false
+}
+
+
 
 const removeConsultedUser = (userId: string) => {
   toggleConsultedUser(userId)
@@ -334,42 +444,66 @@ const handleSave = () => {
     return
   }
 
-  emit('save', { ...elementData.value })
+  const elementToSave = { ...elementData.value }
+  
+  // Clear action-specific fields for non-action elements
+  if (elementToSave.type !== 'action') {
+    elementToSave.durationDays = null
+    elementToSave.ownerId = null
+    elementToSave.consultedUserIds = []
+  }
+
+  emit('save', elementToSave)
 }
 
 const handleClose = () => {
   emit('close')
 }
 
-// Handle click outside to close dropdowns
-const handleClickOutside = (event: MouseEvent) => {
+// Handle click inside modal to close dropdowns when clicking outside dropdown areas
+const handleModalClick = (event: MouseEvent) => {
   const target = event.target as HTMLElement
   if (!target.closest('.searchable-dropdown') && !target.closest('.searchable-multi-dropdown')) {
     ownerDropdownOpen.value = false
     consultedDropdownOpen.value = false
+    typeDropdownOpen.value = false
   }
+  // Stop event propagation to prevent modal from closing
+  event.stopPropagation()
 }
 
 // Handle escape key
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') {
-    if (ownerDropdownOpen.value || consultedDropdownOpen.value) {
+    if (ownerDropdownOpen.value || consultedDropdownOpen.value || typeDropdownOpen.value) {
       ownerDropdownOpen.value = false
       consultedDropdownOpen.value = false
+      typeDropdownOpen.value = false
     } else {
       handleClose()
     }
   }
 }
 
+// Scroll lock functionality
+const lockScroll = () => {
+  document.body.style.overflow = 'hidden'
+  document.body.style.paddingRight = '0px' // Prevent layout shift from scrollbar
+}
+
+const unlockScroll = () => {
+  document.body.style.overflow = ''
+  document.body.style.paddingRight = ''
+}
+
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
-  document.addEventListener('click', handleClickOutside)
+  lockScroll()
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
-  document.removeEventListener('click', handleClickOutside)
+  unlockScroll()
 })
 </script>
 
@@ -389,21 +523,26 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 4rem 2rem;
 }
 
 .modal-content {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 32px 64px rgba(102, 126, 234, 0.15),
+    0 16px 32px rgba(102, 126, 234, 0.1),
+    0 8px 16px rgba(0, 0, 0, 0.05);
   max-width: 600px;
   width: 100%;
-  max-height: 90vh;
+  max-height: 80vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -413,35 +552,41 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e2e8f0;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  padding: 1rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.03) 100%);
+  backdrop-filter: blur(10px);
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #2d3748;
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .close-button {
   width: 32px;
   height: 32px;
   border: none;
-  background: none;
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: #64748b;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
 }
 
 .close-button:hover {
-  background: #f1f5f9;
-  color: #374151;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  transform: scale(1.1);
 }
 
 .close-icon {
@@ -526,39 +671,46 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
-  padding: 1.5rem 2rem;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  padding: 1rem 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.01) 100%);
+  backdrop-filter: blur(10px);
 }
 
 .btn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   transition: all 0.2s ease;
 }
 
 .btn-primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .btn-primary:hover {
   background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(102, 126, 234, 0.3);
 }
 
 .btn-secondary {
-  background: #e5e7eb;
+  background: rgba(255, 255, 255, 0.7);
   color: #374151;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
 }
 
 .btn-secondary:hover {
-  background: #d1d5db;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
 /* Searchable Dropdown Styles */

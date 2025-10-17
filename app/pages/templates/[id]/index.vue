@@ -128,7 +128,7 @@ useHead({
 })
 
 // Fetch the specific template
-const { data: templateData, pending, error, refresh } = await useFetch<{ data: FlowTemplate }>(`/api/templates/flows/${templateId}`)
+const { data: templateData, pending, error, refresh } = await useFetch<{ data: FlowTemplate }>(`/api/templates/${templateId}`)
 
 const template = computed(() => templateData.value?.data || null)
 
@@ -189,7 +189,7 @@ const handleCancel = () => {
 
 const handleSave = async (updatedTemplate: FlowTemplate) => {
   try {
-    await $fetch(`/api/templates/flows/${updatedTemplate.id}`, {
+    await $fetch(`/api/templates/${updatedTemplate.id}`, {
       method: 'PUT',
       body: updatedTemplate
     })

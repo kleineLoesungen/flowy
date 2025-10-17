@@ -1,14 +1,5 @@
 <template>
     <div class="flows-page" :class="{ 'editing': showWorkModal }">
-        <!-- Page Header (only show when not working) -->
-        <div v-if="!showWorkModal" class="page-header">
-            <h2>Flows</h2>
-            <button @click="showCreateModal = true" class="btn btn-primary">
-                <span class="icon">+</span>
-                Flow
-            </button>
-        </div>
-
         <!-- Flows List (only show when not working) -->
         <div v-if="!showWorkModal && pending" class="loading">
             Loading flows...
@@ -19,12 +10,7 @@
         </div>
 
         <div v-else-if="!showWorkModal" class="flows-container">
-            <FlowInstancesOverview :flows="flows" @delete="confirmDelete" @work="workOnFlow" />
-        </div>
-
-        <!-- Full-Screen Work Mode -->
-        <div v-if="showWorkModal" class="fullscreen-work">
-            <FlowWorkEditor :flow="selectedFlow" @save="handleSave" @close="closeModals" />
+            <FlowInstancesOverview :flows="flows" @delete="confirmDelete" @create="showCreateModal = true" />
         </div>
 
         <!-- Create Flow Instance Modal -->
@@ -49,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Flow } from '../../types/Flow'
+import type { Flow } from '../../../types/Flow'
 
 // Page metadata
 useHead({
@@ -64,16 +50,11 @@ const selectedFlow = ref<Flow | null>(null)
 const flowToDelete = ref<Flow | null>(null)
 
 // Fetch flows
-const { data: flowsData, pending, error, refresh } = await useFetch<Flow[]>('/api/flows')
+const { data: flowsData, pending, error, refresh } = await useFetch<{ data: Flow[] }>('/api/flows')
 
-const flows = computed(() => flowsData.value || [])
+const flows = computed(() => flowsData.value?.data || [])
 
 // Methods
-const workOnFlow = (flow: Flow) => {
-    selectedFlow.value = flow
-    showWorkModal.value = true
-}
-
 const confirmDelete = (flow: Flow) => {
     flowToDelete.value = flow
     showDeleteModal.value = true

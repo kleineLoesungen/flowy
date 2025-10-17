@@ -1,5 +1,5 @@
-import type { FlowTemplate } from '../../../../types/FlowTemplate'
-import useFileStorage from '../../../utils/useFileStorage'
+import type { FlowTemplate } from '../../../types/FlowTemplate'
+import useFileStorage from '../../utils/useFileStorage'
 
 export default defineEventHandler(async (event) => {
   const storage = useFileStorage()
@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
     }
     
     // Store the template
-    const key = `templates:flows:${body.id}`
+    const key = `templates:${body.id}`
     await storage.setItem(key, body)
     
     return {

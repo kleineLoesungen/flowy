@@ -1,4 +1,5 @@
 import type { User } from '../../../types/User'
+import type { UserWithPassword } from '../../types/UserWithPassword'
 import useFileStorage from '../../utils/useFileStorage'
 
 export default defineEventHandler(async (event) => {
@@ -10,8 +11,10 @@ export default defineEventHandler(async (event) => {
     const users: User[] = []
     
     for (const key of userKeys) {
-      const user = await storage.getItem(key) as User
-      if (user) {
+      const userData = await storage.getItem(key) as UserWithPassword
+      if (userData) {
+        // Remove passwordHash before returning to client
+        const { passwordHash, ...user } = userData
         users.push(user)
       }
     }

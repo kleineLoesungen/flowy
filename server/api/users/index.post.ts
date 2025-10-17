@@ -8,10 +8,10 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event) as Omit<User, 'id'>
     
     // Validate required fields
-    if (!body.name || !body.email) {
+    if (!body.name || !body.email || !body.role) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Name and email are required'
+        statusMessage: 'Name, email, and role are required'
       })
     }
     
@@ -40,7 +40,8 @@ export default defineEventHandler(async (event) => {
     const user: User = {
       id: Date.now().toString(36) + Math.random().toString(36).substr(2),
       name: body.name.trim(),
-      email: body.email.trim().toLowerCase()
+      email: body.email.trim().toLowerCase(),
+      role: body.role
     }
     
     // Store the user
