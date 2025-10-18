@@ -98,30 +98,30 @@
               />
             </div>
 
-            <!-- Owner (only for action elements) -->
+            <!-- Owner Team (only for action elements) -->
             <div v-if="elementData.type === 'action'" class="form-group">
-              <label for="element-owner">Owner</label>
+              <label for="element-owner-team">Owner Team</label>
               <div class="searchable-dropdown">
                 <div 
                   class="dropdown-input" 
                   :class="{ 'open': ownerDropdownOpen }"
                   @click="toggleOwnerDropdown"
                 >
-                  <span v-if="selectedOwner" class="selected-value">
-                    {{ selectedOwner.name || selectedOwner.email }}
+                  <span v-if="selectedOwnerTeam" class="selected-value">
+                    {{ selectedOwnerTeam.name }}
                   </span>
-                  <span v-else class="placeholder">Select owner...</span>
+                  <span v-else class="placeholder">Select owner team...</span>
                   <svg class="dropdown-arrow" :class="{ 'rotated': ownerDropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                   </svg>
                 </div>
                 
                 <div v-show="ownerDropdownOpen" class="dropdown-menu">
-                  <div v-if="users.length > 10" class="search-input-wrapper">
+                  <div v-if="teams.length > 10" class="search-input-wrapper">
                     <input 
                       v-model="ownerSearchQuery"
                       type="text"
-                      placeholder="Search users..."
+                      placeholder="Search teams..."
                       class="search-input"
                       @click.stop
                     />
@@ -129,83 +129,83 @@
                   <div class="dropdown-options">
                     <div 
                       class="dropdown-option"
-                      :class="{ 'selected': elementData.ownerId === null }"
-                      @click.stop="selectOwner(null)"
+                      :class="{ 'selected': elementData.ownerTeamId === null }"
+                      @click.stop="selectOwnerTeam(null)"
                     >
-                      <span>No Owner</span>
+                      <span>No Owner Team</span>
                     </div>
                     <div 
-                      v-for="user in filteredOwnerUsers" 
-                      :key="user.id"
+                      v-for="team in filteredOwnerTeams" 
+                      :key="team.id"
                       class="dropdown-option"
-                      :class="{ 'selected': elementData.ownerId === user.id }"
-                      @click.stop="selectOwner(user)"
+                      :class="{ 'selected': elementData.ownerTeamId === team.id }"
+                      @click.stop="selectOwnerTeam(team)"
                     >
-                      <span>{{ user.name || user.email }}</span>
+                      <span>{{ team.name }}</span>
                     </div>
-                    <div v-if="filteredOwnerUsers.length === 0 && ownerSearchQuery" class="no-results">
-                      No users found
+                    <div v-if="filteredOwnerTeams.length === 0 && ownerSearchQuery" class="no-results">
+                      No teams found
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Consulted Users (only for action elements) -->
+            <!-- Consulted Teams (only for action elements) -->
             <div v-if="elementData.type === 'action'" class="form-group">
-              <label>Consulted Users</label>
+              <label>Consulted Teams</label>
               <div class="searchable-multi-dropdown">
                 <div 
                   class="dropdown-input multi" 
                   :class="{ 'open': consultedDropdownOpen }"
                   @click="toggleConsultedDropdown"
                 >
-                  <div class="selected-tags" v-if="selectedConsultedUsers.length > 0">
+                  <div class="selected-tags" v-if="selectedConsultedTeams.length > 0">
                     <span 
-                      v-for="user in selectedConsultedUsers" 
-                      :key="user.id"
+                      v-for="team in selectedConsultedTeams" 
+                      :key="team.id"
                       class="tag"
                     >
-                      {{ user.name || user.email }}
+                      {{ team.name }}
                       <button 
-                        @click.stop="removeConsultedUser(user.id)"
+                        @click.stop="removeConsultedTeam(team.id)"
                         class="tag-remove"
                       >×</button>
                     </span>
                   </div>
-                  <span v-else class="placeholder">Select consulted users...</span>
+                  <span v-else class="placeholder">Select consulted teams...</span>
                   <svg class="dropdown-arrow" :class="{ 'rotated': consultedDropdownOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                   </svg>
                 </div>
                 
                 <div v-show="consultedDropdownOpen" class="dropdown-menu">
-                  <div v-if="users.length > 10" class="search-input-wrapper">
+                  <div v-if="teams.length > 10" class="search-input-wrapper">
                     <input 
                       v-model="consultedSearchQuery"
                       type="text"
-                      placeholder="Search users..."
+                      placeholder="Search teams..."
                       class="search-input"
                       @click.stop
                     />
                   </div>
                   <div class="dropdown-options">
                     <div 
-                      v-for="user in filteredConsultedUsers" 
-                      :key="user.id"
+                      v-for="team in filteredConsultedTeams" 
+                      :key="team.id"
                       class="dropdown-option checkbox-option"
-                      :class="{ 'selected': elementData.consultedUserIds?.includes(user.id) }"
-                      @click.stop="toggleConsultedUser(user.id)"
+                      :class="{ 'selected': elementData.consultedTeamIds?.includes(team.id) }"
+                      @click.stop="toggleConsultedTeam(team.id)"
                     >
                       <input 
                         type="checkbox" 
-                        :checked="elementData.consultedUserIds?.includes(user.id) || false"
+                        :checked="elementData.consultedTeamIds?.includes(team.id) || false"
                         @click.stop
                       />
-                      <span>{{ user.name || user.email }}</span>
+                      <span>{{ team.name }}</span>
                     </div>
-                    <div v-if="filteredConsultedUsers.length === 0 && consultedSearchQuery" class="no-results">
-                      No users found
+                    <div v-if="filteredConsultedTeams.length === 0 && consultedSearchQuery" class="no-results">
+                      No teams found
                     </div>
                   </div>
                 </div>
@@ -254,15 +254,15 @@ const elementData = ref<ElementTemplate>({
   name: '',
   description: '',
   type: 'action',
-  ownerId: null,
-  consultedUserIds: [],
+  ownerTeamId: null,
+  consultedTeamIds: [],
   durationDays: null
 })
 
-// Load users
-const { data: usersData } = await useFetch('/api/users')
+// Load teams
+const { data: teamsData } = await useFetch('/api/teams')
 
-const users = computed(() => usersData.value?.data || [])
+const teams = computed(() => teamsData.value?.data || [])
 
 // Dropdown state
 const ownerDropdownOpen = ref(false)
@@ -281,41 +281,39 @@ const elementTypes = ref([
 
 
 
-// Computed properties for filtered users
-const filteredOwnerUsers = computed(() => {
-  // If 10 or fewer users, show all users (no search needed)
-  if (users.value.length <= 10) return users.value
+// Computed properties for filtered teams
+const filteredOwnerTeams = computed(() => {
+  // If 10 or fewer teams, show all teams (no search needed)
+  if (teams.value.length <= 10) return teams.value
   
-  // If more than 10 users, apply search filter
-  if (!ownerSearchQuery.value) return users.value
+  // If more than 10 teams, apply search filter
+  if (!ownerSearchQuery.value) return teams.value
   const query = ownerSearchQuery.value.toLowerCase()
-  return users.value.filter(user => 
-    (user.name && user.name.toLowerCase().includes(query)) ||
-    (user.email && user.email.toLowerCase().includes(query))
+  return teams.value.filter(team => 
+    team.name && team.name.toLowerCase().includes(query)
   )
 })
 
-const filteredConsultedUsers = computed(() => {
-  // If 10 or fewer users, show all users (no search needed)
-  if (users.value.length <= 10) return users.value
+const filteredConsultedTeams = computed(() => {
+  // If 10 or fewer teams, show all teams (no search needed)
+  if (teams.value.length <= 10) return teams.value
   
-  // If more than 10 users, apply search filter
-  if (!consultedSearchQuery.value) return users.value
+  // If more than 10 teams, apply search filter
+  if (!consultedSearchQuery.value) return teams.value
   const query = consultedSearchQuery.value.toLowerCase()
-  return users.value.filter(user => 
-    (user.name && user.name.toLowerCase().includes(query)) ||
-    (user.email && user.email.toLowerCase().includes(query))
+  return teams.value.filter(team => 
+    team.name && team.name.toLowerCase().includes(query)
   )
 })
 
-const selectedOwner = computed(() => {
-  if (!elementData.value.ownerId) return null
-  return users.value.find(user => user.id === elementData.value.ownerId) || null
+const selectedOwnerTeam = computed(() => {
+  if (!elementData.value.ownerTeamId) return null
+  return teams.value.find(team => team.id === elementData.value.ownerTeamId) || null
 })
 
-const selectedConsultedUsers = computed(() => {
-  if (!elementData.value.consultedUserIds?.length) return []
-  return users.value.filter(user => elementData.value.consultedUserIds.includes(user.id))
+const selectedConsultedTeams = computed(() => {
+  if (!elementData.value.consultedTeamIds?.length) return []
+  return teams.value.filter(team => elementData.value.consultedTeamIds.includes(team.id))
 })
 
 const filteredElementTypes = computed(() => {
@@ -343,14 +341,14 @@ watchEffect(() => {
   if (props.element) {
     const element = { 
       ...props.element,
-      consultedUserIds: props.element.consultedUserIds || []
+      consultedTeamIds: props.element.consultedTeamIds || []
     }
     
     // Clear action-specific fields for non-action elements
     if (element.type !== 'action') {
       element.durationDays = null
-      element.ownerId = null
-      element.consultedUserIds = []
+      element.ownerTeamId = null
+      element.consultedTeamIds = []
     }
     
     elementData.value = element
@@ -360,8 +358,8 @@ watchEffect(() => {
       name: '',
       description: '',
       type: 'action',
-      ownerId: null,
-      consultedUserIds: [],
+      ownerTeamId: null,
+      consultedTeamIds: [],
       durationDays: null
     }
     elementData.value = newElement
@@ -373,8 +371,8 @@ watch(() => elementData.value.type, (newType, oldType) => {
   if (oldType === 'action' && newType !== 'action') {
     // Clear action-specific fields when switching away from action type
     elementData.value.durationDays = null
-    elementData.value.ownerId = null
-    elementData.value.consultedUserIds = []
+    elementData.value.ownerTeamId = null
+    elementData.value.consultedTeamIds = []
   }
 })
 
@@ -408,8 +406,8 @@ const toggleTypeDropdown = () => {
 
 
 
-const selectOwner = (user: any) => {
-  elementData.value.ownerId = user?.id || null
+const selectOwnerTeam = (team: any) => {
+  elementData.value.ownerTeamId = team?.id || null
   ownerDropdownOpen.value = false
 }
 
@@ -420,21 +418,21 @@ const selectElementType = (type: any) => {
 
 
 
-const removeConsultedUser = (userId: string) => {
-  toggleConsultedUser(userId)
+const removeConsultedTeam = (teamId: string) => {
+  toggleConsultedTeam(teamId)
 }
 
-const toggleConsultedUser = (userId: string) => {
-  // Ensure consultedUserIds is initialized
-  if (!elementData.value.consultedUserIds) {
-    elementData.value.consultedUserIds = []
+const toggleConsultedTeam = (teamId: string) => {
+  // Ensure consultedTeamIds is initialized
+  if (!elementData.value.consultedTeamIds) {
+    elementData.value.consultedTeamIds = []
   }
   
-  const index = elementData.value.consultedUserIds.indexOf(userId)
+  const index = elementData.value.consultedTeamIds.indexOf(teamId)
   if (index > -1) {
-    elementData.value.consultedUserIds.splice(index, 1)
+    elementData.value.consultedTeamIds.splice(index, 1)
   } else {
-    elementData.value.consultedUserIds.push(userId)
+    elementData.value.consultedTeamIds.push(teamId)
   }
 }
 
@@ -449,8 +447,8 @@ const handleSave = () => {
   // Clear action-specific fields for non-action elements
   if (elementToSave.type !== 'action') {
     elementToSave.durationDays = null
-    elementToSave.ownerId = null
-    elementToSave.consultedUserIds = []
+    elementToSave.ownerTeamId = null
+    elementToSave.consultedTeamIds = []
   }
 
   emit('save', elementToSave)

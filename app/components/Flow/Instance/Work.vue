@@ -137,7 +137,7 @@
             data.status && data.type === 'action' ? `element-status-${data.status}` : '',
             { 'team-highlighted': isTeamHighlighted(data) },
             { 'user-highlighted': isUserHighlighted(data) }
-          ]" :key="`node-${id}-${data.name}-${data.description}-${data.status}-${(data.consultedUserIds || []).length}`">
+          ]" :key="`node-${id}-${data.name}-${data.description}-${data.status}-${(data.consultedTeamIds || []).length}`">
             <div class="node-header">
               <div class="element-icon-container">
                 <div class="element-icon">
@@ -184,17 +184,17 @@
                     </svg>
                   </span>
                   <!-- Owner icon -->
-                  <span v-if="data.ownerId" class="meta-item owner-icon">
+                  <span v-if="data.ownerTeamId" class="meta-item owner-icon">
                     <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
                     </svg>
                   </span>
                   <!-- Consulted users count -->
-                  <span v-if="data.consultedUserIds && data.consultedUserIds.length > 0" class="meta-item consulted-count">
+                  <span v-if="data.consultedTeamIds && data.consultedTeamIds.length > 0" class="meta-item consulted-count">
                     <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
                     </svg>
-                    {{ data.consultedUserIds.length }}
+                    {{ data.consultedTeamIds.length }}
                   </span>
                 </div>
               </div>
@@ -487,42 +487,42 @@ const formatExpectedEndDate = (timestamp: string | null): string => {
 }
 
 // Computed properties for filtered users and teams (only those used in the flow)
-const usedUserIds = computed(() => {
+const usedTeamIds = computed(() => {
   if (!nodes.value.length) return new Set<string>()
 
-  const userIds = new Set<string>()
+  const teamIds = new Set<string>()
 
   nodes.value.forEach(node => {
     const data = node.data
 
-    // Add owner IDs
-    if (data.ownerId) {
-      userIds.add(data.ownerId)
+    // Add owner team IDs
+    if (data.ownerTeamId) {
+      teamIds.add(data.ownerTeamId)
     }
 
-    // Add consulted user IDs
-    if (data.consultedUserIds && Array.isArray(data.consultedUserIds)) {
-      data.consultedUserIds.forEach((userId: string) => userIds.add(userId))
-    }
-  })
-
-  return userIds
-})
-
-const usedTeamIds = computed(() => {
-  if (!nodes.value.length || !teams.value.length) return new Set<string>()
-
-  const teamIds = new Set<string>()
-  const userIds = usedUserIds.value
-
-  // Find teams that contain any of the used users
-  teams.value.forEach(team => {
-    if (team.users && team.users.some(user => userIds.has(user.id))) {
-      teamIds.add(team.id)
+    // Add consulted team IDs
+    if (data.consultedTeamIds && Array.isArray(data.consultedTeamIds)) {
+      data.consultedTeamIds.forEach((teamId: string) => teamIds.add(teamId))
     }
   })
 
   return teamIds
+})
+
+const usedUserIds = computed(() => {
+  if (!nodes.value.length || !teams.value.length) return new Set<string>()
+
+  const userIds = new Set<string>()
+  const teamIds = usedTeamIds.value
+
+  // Find users that belong to any of the used teams
+  teams.value.forEach(team => {
+    if (teamIds.has(team.id) && team.users) {
+      team.users.forEach(user => userIds.add(user.id))
+    }
+  })
+
+  return userIds
 })
 
 const filteredUsers = computed(() => {
@@ -735,7 +735,7 @@ const loadFlowIntoWork = (flow: Flow) => {
           status: element.status,
           completedAt: element.completedAt,
           expectedEndedAt: element.expectedEndedAt,
-          consultedUserIds: element.consultedUserIds || []
+          consultedTeamIds: element.consultedTeamIds || []
         }
       })
     })
@@ -761,7 +761,7 @@ const loadFlowIntoWork = (flow: Flow) => {
               status: element.status,
               completedAt: element.completedAt,
               expectedEndedAt: element.expectedEndedAt,
-              consultedUserIds: element.consultedUserIds || []
+              consultedTeamIds: element.consultedTeamIds || []
             }
           })
         }
@@ -1560,12 +1560,12 @@ const convertToFlow = (): Flow => {
       id: node.id, // Always use node.id to match edge references
       name: node.data.name || '',
       description: node.data.description || '',
-      ownerId: node.data.ownerId || null,
+      ownerTeamId: node.data.ownerTeamId || null,
       type: elementType,
       status: node.data.status || 'pending',
       completedAt: node.data.completedAt || null,
       expectedEndedAt: node.data.expectedEndedAt || null,
-      consultedUserIds: node.data.consultedUserIds || [],
+      consultedTeamIds: node.data.consultedTeamIds || [],
       comments: node.data.comments || []
     }
   })
@@ -1705,21 +1705,16 @@ const clearUserHighlight = () => {
 const isTeamHighlighted = (data: any): boolean => {
   if (!selectedTeamId.value) return false
 
-  const team = teams.value.find(t => t.id === selectedTeamId.value)
-  if (!team || !team.users) return false
-
-  // Check if element owner is in selected team
-  if (data.ownerId) {
-    const isOwnerInTeam = team.users.some((user: User) => user.id === data.ownerId)
-    if (isOwnerInTeam) return true
+  // Check if element owner team is selected team
+  if (data.ownerTeamId && data.ownerTeamId === selectedTeamId.value) {
+    return true
   }
 
-  // Check if any consulted users are in selected team
-  if (data.consultedUserIds && data.consultedUserIds.length > 0) {
-    const hasConsultedInTeam = data.consultedUserIds.some((userId: string) =>
-      team.users.some((user: User) => user.id === userId)
-    )
-    if (hasConsultedInTeam) return true
+  // Check if any consulted teams include selected team
+  if (data.consultedTeamIds && data.consultedTeamIds.length > 0) {
+    if (data.consultedTeamIds.includes(selectedTeamId.value)) {
+      return true
+    }
   }
 
   return false
@@ -1728,11 +1723,23 @@ const isTeamHighlighted = (data: any): boolean => {
 const isUserHighlighted = (data: any): boolean => {
   if (!selectedUserId.value) return false
 
-  // Check if element owner is selected user
-  if (data.ownerId === selectedUserId.value) return true
+  // Check if selected user is in owner team
+  if (data.ownerTeamId) {
+    const ownerTeam = teams.value.find(t => t.id === data.ownerTeamId)
+    if (ownerTeam && ownerTeam.users.some((user: User) => user.id === selectedUserId.value)) {
+      return true
+    }
+  }
 
-  // Check if selected user is in consulted users
-  if (data.consultedUserIds && data.consultedUserIds.includes(selectedUserId.value)) return true
+  // Check if selected user is in any consulted team
+  if (data.consultedTeamIds && data.consultedTeamIds.length > 0) {
+    for (const teamId of data.consultedTeamIds) {
+      const consultedTeam = teams.value.find(t => t.id === teamId)
+      if (consultedTeam && consultedTeam.users.some((user: User) => user.id === selectedUserId.value)) {
+        return true
+      }
+    }
+  }
 
   return false
 }

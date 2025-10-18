@@ -3,13 +3,6 @@ import type { UserWithPassword } from '../../types/UserWithPassword'
 import useFileStorage from '../../utils/useFileStorage'
 
 export default defineEventHandler(async (event) => {
-  if (getMethod(event) !== 'POST') {
-    throw createError({
-      statusCode: 405,
-      statusMessage: 'Method not allowed'
-    })
-  }
-
   const { name, email, password } = await readBody(event)
 
   if (!name || !email || !password) {
@@ -71,7 +64,8 @@ export default defineEventHandler(async (event) => {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       role: role,
-      passwordHash
+      passwordHash,
+      teamIds: []
     }
 
     // Store the user

@@ -1,11 +1,4 @@
 export default defineEventHandler(async (event) => {
-  if (getMethod(event) !== 'POST') {
-    throw createError({
-      statusCode: 405,
-      statusMessage: 'Method not allowed'
-    })
-  }
-
   try {
     // Clear the authentication cookie
     setCookie(event, 'auth-token', '', {

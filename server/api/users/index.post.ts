@@ -41,7 +41,8 @@ export default defineEventHandler(async (event) => {
       id: Date.now().toString(36) + Math.random().toString(36).substr(2),
       name: body.name.trim(),
       email: body.email.trim().toLowerCase(),
-      role: body.role
+      role: body.role,
+      teamIds: body.teamIds || []
     }
     
     // Store the user

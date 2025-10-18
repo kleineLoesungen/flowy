@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Flow } from '../../../../types/Flow'
+import type { Flow } from '../../../../../types/Flow'
 import FlowInstanceWork from '~/components/Flow/Instance/Work.vue'
 
 // Get route params

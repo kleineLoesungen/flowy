@@ -439,47 +439,51 @@ const filteredTemplates = computed(() => {
   }
 
   return filtered.filter(template => {
-    // Team filter (AND logic - template must have users from ALL selected teams)
+    // Team filter (AND logic - template must have ALL selected teams assigned)
     if (selectedTeamIds.value.length > 0) {
-      const templateUserIds = new Set<string>()
+      const templateTeamIds = new Set<string>()
 
-      // Collect all user IDs from template elements
+      // Collect all team IDs from template elements
       template.elements.forEach(element => {
-        if (element.ownerId) {
-          templateUserIds.add(element.ownerId)
+        if (element.ownerTeamId) {
+          templateTeamIds.add(element.ownerTeamId)
         }
-        if (element.consultedUserIds) {
-          element.consultedUserIds.forEach(userId => templateUserIds.add(userId))
+        if (element.consultedTeamIds) {
+          element.consultedTeamIds.forEach(teamId => templateTeamIds.add(teamId))
         }
       })
 
-      // Check if template contains users from ALL selected teams
-      const hasAllTeams = selectedTeamIds.value.every(teamId => {
-        const team = teams.value.find(t => t.id === teamId)
-        if (!team || !team.users) return false
-
-        // Check if template has at least one user from this team
-        return team.users.some(user => templateUserIds.has(user.id))
-      })
+      // Check if template contains ALL selected teams
+      const hasAllTeams = selectedTeamIds.value.every(teamId =>
+        templateTeamIds.has(teamId)
+      )
 
       if (!hasAllTeams) return false
     }
 
-    // User filter (AND logic - template must have ALL selected users)
+    // User filter (AND logic - template must have ALL selected users through team assignments)
     if (selectedUserIds.value.length > 0) {
       const templateUserIds = new Set<string>()
 
-      // Collect all user IDs from template elements
+      // Collect all user IDs from template elements via team assignments
       template.elements.forEach(element => {
-        if (element.ownerId) {
-          templateUserIds.add(element.ownerId)
+        if (element.ownerTeamId) {
+          const ownerTeam = teams.value.find(t => t.id === element.ownerTeamId)
+          if (ownerTeam?.users) {
+            ownerTeam.users.forEach(user => templateUserIds.add(user.id))
+          }
         }
-        if (element.consultedUserIds) {
-          element.consultedUserIds.forEach(userId => templateUserIds.add(userId))
+        if (element.consultedTeamIds) {
+          element.consultedTeamIds.forEach(teamId => {
+            const consultedTeam = teams.value.find(t => t.id === teamId)
+            if (consultedTeam?.users) {
+              consultedTeam.users.forEach(user => templateUserIds.add(user.id))
+            }
+          })
         }
       })
 
-      // Check if template contains ALL selected users
+      // Check if template contains ALL selected users (through team memberships)
       const hasAllUsers = selectedUserIds.value.every(userId =>
         templateUserIds.has(userId)
       )

@@ -33,21 +33,21 @@
                 <span class="readonly-value">{{ formatExpectedEndDate(originalElementData.expectedEndedAt) }}</span>
               </div>
               <div class="readonly-item">
-                <span class="readonly-label">Owner:</span>
+                <span class="readonly-label">Owner Team:</span>
                 <span class="readonly-value">
                   <span v-if="selectedOwner" class="inline-user">
-                    <span class="inline-user-avatar">{{ getUserInitial(selectedOwner) }}</span>
-                    {{ selectedOwner.name || selectedOwner.email }}
+                    <span class="inline-user-avatar">{{ getTeamInitial(selectedOwner) }}</span>
+                    {{ selectedOwner.name }}
                   </span>
-                  <span v-else class="no-value">No Owner</span>
+                  <span v-else class="no-value">No Owner Team</span>
                 </span>
               </div>
-              <div class="readonly-item" v-if="selectedConsultedUsers.length > 0">
-                <span class="readonly-label">Consulted:</span>
+              <div class="readonly-item" v-if="selectedConsultedTeams.length > 0">
+                <span class="readonly-label">Consulted Teams:</span>
                 <span class="readonly-value">
-                  <span v-for="(user, index) in selectedConsultedUsers" :key="user.id" class="inline-user">
-                    <span class="inline-user-avatar">{{ getUserInitial(user) }}</span>
-                    {{ user.name || user.email }}<span v-if="index < selectedConsultedUsers.length - 1">, </span>
+                  <span v-for="(team, index) in selectedConsultedTeams" :key="team.id" class="inline-user">
+                    <span class="inline-user-avatar">{{ getTeamInitial(team) }}</span>
+                    {{ team.name }}<span v-if="index < selectedConsultedTeams.length - 1">, </span>
                   </span>
                 </span>
               </div>
@@ -140,10 +140,10 @@
 
             </div>
 
-            <!-- Chat/Comments Section -->
+            <!-- Chat/Updates Section -->
             <div v-if="!isNewElement" class="chat-section" @click.stop>
               <div class="chat-header">
-                <h3>Comments</h3>
+                <h3>Updates</h3>
                 <span class="comment-count">{{ elementData.comments.length }}</span>
               </div>
               
@@ -215,7 +215,7 @@
                   <svg class="no-comments-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                   </svg>
-                  <p>No comments yet. Start the conversation!</p>
+                  <p>No updates yet. Start the conversation!</p>
                 </div>
                 
                 <div v-for="(comment, index) in sortedComments" :key="`comment-${index}-${comment.timestamp}`" class="chat-message">
@@ -314,8 +314,8 @@ const originalElementData = ref({
   description: '',
   type: 'action' as 'action' | 'state' | 'artefact',
   status: 'pending' as 'pending' | 'in-progress' | 'completed' | 'aborted',
-  ownerId: null,
-  consultedUserIds: [] as string[],
+  ownerTeamId: null,
+  consultedTeamIds: [] as string[],
   completedAt: null as string | null,
   expectedEndedAt: null as string | null,
   comments: [] as Array<{ timestamp: string; comment: string; userId: string; statusTag?: 'pending' | 'in-progress' | 'completed' | 'aborted' }>
@@ -328,8 +328,8 @@ const elementData = ref({
   description: '',
   type: 'action' as 'action' | 'state' | 'artefact',
   status: 'pending' as 'pending' | 'in-progress' | 'completed' | 'aborted',
-  ownerId: null,
-  consultedUserIds: [] as string[],
+  ownerTeamId: null,
+  consultedTeamIds: [] as string[],
   completedAt: null as string | null,
   expectedEndedAt: null as string | null,
   comments: [] as Array<{ timestamp: string; comment: string; userId: string; statusTag?: 'pending' | 'in-progress' | 'completed' | 'aborted' }>
@@ -367,41 +367,39 @@ const elementStatuses = ref([
   { value: 'aborted', label: 'Aborted' }
 ])
 
-// Computed properties for filtered users
-const filteredOwnerUsers = computed(() => {
-  // If 10 or fewer users, show all users (no search needed)
-  if (users.value.length <= 10) return users.value
+// Computed properties for filtered teams
+const filteredOwnerTeams = computed(() => {
+  // If 10 or fewer teams, show all teams (no search needed)
+  if (teams.value.length <= 10) return teams.value
   
-  // If more than 10 users, apply search filter
-  if (!ownerSearchQuery.value) return users.value
+  // If more than 10 teams, apply search filter
+  if (!ownerSearchQuery.value) return teams.value
   const query = ownerSearchQuery.value.toLowerCase()
-  return users.value.filter(user => 
-    (user.name && user.name.toLowerCase().includes(query)) ||
-    (user.email && user.email.toLowerCase().includes(query))
+  return teams.value.filter(team => 
+    (team.name && team.name.toLowerCase().includes(query))
   )
 })
 
-const filteredConsultedUsers = computed(() => {
-  // If 10 or fewer users, show all users (no search needed)
-  if (users.value.length <= 10) return users.value
+const filteredConsultedTeams = computed(() => {
+  // If 10 or fewer teams, show all teams (no search needed)
+  if (teams.value.length <= 10) return teams.value
   
-  // If more than 10 users, apply search filter
-  if (!consultedSearchQuery.value) return users.value
+  // If more than 10 teams, apply search filter
+  if (!consultedSearchQuery.value) return teams.value
   const query = consultedSearchQuery.value.toLowerCase()
-  return users.value.filter(user => 
-    (user.name && user.name.toLowerCase().includes(query)) ||
-    (user.email && user.email.toLowerCase().includes(query))
+  return teams.value.filter(team => 
+    (team.name && team.name.toLowerCase().includes(query))
   )
 })
 
 const selectedOwner = computed(() => {
-  if (!elementData.value.ownerId) return null
-  return users.value.find(user => user.id === elementData.value.ownerId) || null
+  if (!elementData.value.ownerTeamId) return null
+  return teams.value.find(team => team.id === elementData.value.ownerTeamId) || null
 })
 
-const selectedConsultedUsers = computed(() => {
-  if (!elementData.value.consultedUserIds?.length) return []
-  return users.value.filter(user => elementData.value.consultedUserIds.includes(user.id))
+const selectedConsultedTeams = computed(() => {
+  if (!elementData.value.consultedTeamIds?.length) return []
+  return teams.value.filter(team => elementData.value.consultedTeamIds.includes(team.id))
 })
 
 const filteredElementTypes = computed(() => {
@@ -422,25 +420,24 @@ const selectedElementType = computed(() => {
   return elementTypes.value.find(type => type.value === elementData.value.type) || null
 })
 
-// Check if current user can modify status (owner or owner's team members only)
+// Check if current user can modify status (owner team members and admins)
 const canModifyStatus = computed(() => {
   if (!currentUser.value) return false
   
-  // If there's no owner, everyone can modify status
-  if (!elementData.value.ownerId) return true
+  // Admins can always modify status
+  if (currentUser.value.role === 'admin') return true
   
-  // Allow if user is the owner
-  if (elementData.value.ownerId === currentUser.value.id) return true
+  // If there's no owner team, everyone can modify status
+  if (!elementData.value.ownerTeamId) return true
   
-  // Find the owner
-  const owner = users.value.find(user => user.id === elementData.value.ownerId)
-  if (!owner) return false
+  // Find the owner team
+  const ownerTeam = teams.value.find(team => team.id === elementData.value.ownerTeamId)
+  if (!ownerTeam) return false
   
-  // Check if current user is in the same team as the owner
-  const ownerTeams = teams.value.filter(team => team.userIds?.includes(owner.id))
-  const currentUserInOwnerTeam = ownerTeams.some(team => team.userIds?.includes(currentUser.value?.id || ''))
+  // Check if current user is in the owner team
+  const currentUserInOwnerTeam = ownerTeam.users?.some(user => user.id === currentUser.value?.id)
   
-  return currentUserInOwnerTeam
+  return currentUserInOwnerTeam || false
 })
 
 // Check if current user can use complete/abort actions in chat
@@ -503,7 +500,8 @@ watchEffect(() => {
       ...props.element,
       type: props.element.type as 'action' | 'state' | 'artefact',
       status: props.element.status as 'pending' | 'in-progress' | 'completed' | 'aborted',
-      consultedUserIds: [...(props.element.consultedUserIds || [])],
+      ownerTeamId: props.element.ownerTeamId || null,
+      consultedTeamIds: [...(props.element.consultedTeamIds || [])],
       completedAt: props.element.completedAt ? (typeof props.element.completedAt === 'number' ? new Date(props.element.completedAt).toISOString() : props.element.completedAt) : null,
       expectedEndedAt: props.element.expectedEndedAt ? (typeof props.element.expectedEndedAt === 'number' ? new Date(props.element.expectedEndedAt).toISOString() : props.element.expectedEndedAt) : null,
       comments: (props.element.comments || []).map((comment: any) => ({ 
@@ -514,7 +512,7 @@ watchEffect(() => {
     originalElementData.value = { ...initialData }
     elementData.value = { 
       ...initialData,
-      consultedUserIds: [...initialData.consultedUserIds],
+      consultedTeamIds: [...initialData.consultedTeamIds],
       comments: initialData.comments.map((comment: any) => ({ ...comment }))
     }
   } else if (props.isNewElement) {
@@ -524,8 +522,8 @@ watchEffect(() => {
       description: '',
       type: 'action' as 'action' | 'state' | 'artefact',
       status: 'pending' as 'pending' | 'in-progress' | 'completed' | 'aborted',
-      ownerId: null,
-      consultedUserIds: [] as string[],
+      ownerTeamId: null,
+      consultedTeamIds: [] as string[],
       completedAt: null as string | null,
       expectedEndedAt: null as string | null,
       comments: [] as Array<{ timestamp: string; comment: string; userId: string; statusTag?: 'pending' | 'in-progress' | 'completed' | 'aborted' }>
@@ -576,8 +574,8 @@ const toggleStatusDropdown = () => {
   }
 }
 
-const selectOwner = (user: any) => {
-  elementData.value.ownerId = user?.id || null
+const selectOwner = (team: any) => {
+  elementData.value.ownerTeamId = team?.id || null
   ownerDropdownOpen.value = false
 }
 
@@ -673,8 +671,8 @@ const getOriginalElementTypeLabel = () => {
 // Check if there are any pending changes
 const hasPendingChanges = computed(() => {
   const statusChanged = elementData.value.status !== originalElementData.value.status
-  const ownerChanged = elementData.value.ownerId !== originalElementData.value.ownerId
-  const consultedChanged = JSON.stringify(elementData.value.consultedUserIds?.sort()) !== JSON.stringify(originalElementData.value.consultedUserIds?.sort())
+  const ownerChanged = elementData.value.ownerTeamId !== originalElementData.value.ownerTeamId
+  const consultedChanged = JSON.stringify(elementData.value.consultedTeamIds?.sort()) !== JSON.stringify(originalElementData.value.consultedTeamIds?.sort())
   
   // Check if comments have changed (length or content)
   const commentsChanged = elementData.value.comments.length !== originalElementData.value.comments.length ||
@@ -689,21 +687,21 @@ const hasPendingChanges = computed(() => {
   return statusChanged || ownerChanged || consultedChanged || commentsChanged
 })
 
-const removeConsultedUser = (userId: string) => {
-  toggleConsultedUser(userId)
+const removeConsultedTeam = (teamId: string) => {
+  toggleConsultedTeam(teamId)
 }
 
-const toggleConsultedUser = (userId: string) => {
-  // Ensure consultedUserIds is initialized
-  if (!elementData.value.consultedUserIds) {
-    elementData.value.consultedUserIds = []
+const toggleConsultedTeam = (teamId: string) => {
+  // Ensure consultedTeamIds is initialized
+  if (!elementData.value.consultedTeamIds) {
+    elementData.value.consultedTeamIds = []
   }
   
-  const index = elementData.value.consultedUserIds.indexOf(userId)
+  const index = elementData.value.consultedTeamIds.indexOf(teamId)
   if (index > -1) {
-    elementData.value.consultedUserIds.splice(index, 1)
+    elementData.value.consultedTeamIds.splice(index, 1)
   } else {
-    elementData.value.consultedUserIds.push(userId)
+    elementData.value.consultedTeamIds.push(teamId)
   }
 }
 
@@ -720,7 +718,7 @@ const handleSave = () => {
   // This ensures that saved changes (including comments) become the new baseline
   originalElementData.value = { 
     ...elementData.value,
-    consultedUserIds: [...(elementData.value.consultedUserIds || [])],
+    consultedTeamIds: [...(elementData.value.consultedTeamIds || [])],
     comments: elementData.value.comments.map((comment: any) => ({ ...comment }))
   }
 }
@@ -733,7 +731,7 @@ const resetChanges = () => {
   // Create deep copies to avoid reference issues
   elementData.value = { 
     ...originalElementData.value,
-    consultedUserIds: [...(originalElementData.value.consultedUserIds || [])],
+    consultedTeamIds: [...(originalElementData.value.consultedTeamIds || [])],
     comments: originalElementData.value.comments.map((comment: any) => ({ ...comment }))
   }
 }
@@ -793,18 +791,28 @@ const getUserInitial = (user: any) => {
   return name.charAt(0).toUpperCase()
 }
 
+const getTeamName = (team: any) => {
+  return team ? team.name : 'Unknown Team'
+}
+
+const getTeamInitial = (team: any) => {
+  if (!team) return '?'
+  const name = team.name || '?'
+  return name.charAt(0).toUpperCase()
+}
+
 const getPlaceholderText = () => {
   if (!canCompleteOrAbort.value) {
-    return 'Type your comment...'
+    return 'Type your update...'
   }
   
   switch (sendMode.value) {
     case 'complete':
-      return 'Type comment and complete element...'
+      return 'Type update and complete element...'
     case 'abort':
-      return 'Type comment and abort element...'
+      return 'Type update and abort element...'
     default:
-      return 'Type your comment...'
+      return 'Type your update...'
   }
 }
 

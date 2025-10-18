@@ -289,6 +289,10 @@ const templates = computed(() => templatesData.value?.data || [])
 const { data: usersData } = await useFetch('/api/users')
 const users = computed(() => usersData.value?.data || [])
 
+// Load teams data for team-based filtering
+const { data: teamsData } = await useFetch('/api/teams')
+const teams = computed(() => teamsData.value?.data || [])
+
 // Filter state
 const textSearchQuery = ref('')
 const selectedStatuses = ref<string[]>([])
@@ -349,22 +353,30 @@ const filteredFlows = computed(() => {
     )
   }
 
-  // User filter (AND logic - flow must have ALL selected users)
+  // User filter (AND logic - flow must have ALL selected users through team assignments)
   if (selectedUserIds.value.length > 0) {
     filtered = filtered.filter(flow => {
       const flowUserIds = new Set<string>()
 
-      // Collect all user IDs from flow elements
+      // Collect all user IDs from flow elements via team assignments
       flow.elements.forEach(element => {
-        if (element.ownerId) {
-          flowUserIds.add(element.ownerId)
+        if (element.ownerTeamId) {
+          const ownerTeam = teams.value.find(t => t.id === element.ownerTeamId)
+          if (ownerTeam?.users) {
+            ownerTeam.users.forEach(user => flowUserIds.add(user.id))
+          }
         }
-        if (element.consultedUserIds) {
-          element.consultedUserIds.forEach(userId => flowUserIds.add(userId))
+        if (element.consultedTeamIds) {
+          element.consultedTeamIds.forEach(teamId => {
+            const consultedTeam = teams.value.find(t => t.id === teamId)
+            if (consultedTeam?.users) {
+              consultedTeam.users.forEach(user => flowUserIds.add(user.id))
+            }
+          })
         }
       })
 
-      // Check if flow contains ALL selected users
+      // Check if flow contains ALL selected users (through team memberships)
       return selectedUserIds.value.every(userId => flowUserIds.has(userId))
     })
   }

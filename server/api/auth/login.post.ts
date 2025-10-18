@@ -4,13 +4,6 @@ import type { UserWithPassword } from '../../types/UserWithPassword'
 import useFileStorage from '../../utils/useFileStorage'
 
 export default defineEventHandler(async (event) => {
-  if (getMethod(event) !== 'POST') {
-    throw createError({
-      statusCode: 405,
-      statusMessage: 'Method not allowed'
-    })
-  }
-
   const { email, password } = await readBody(event)
 
   if (!email || !password) {
@@ -40,14 +33,6 @@ export default defineEventHandler(async (event) => {
       throw createError({
         statusCode: 401,
         statusMessage: 'Invalid credentials'
-      })
-    }
-
-    // Verify password - if no passwordHash exists, this is a legacy user
-    if (!user.passwordHash) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: 'Password not set for this user'
       })
     }
 

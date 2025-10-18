@@ -2,8 +2,8 @@ export interface Element {
     id: string;
     name: string;
     description: string;
-    ownerId: string | null;
-    consultedUserIds: string[];
+    ownerTeamId: string | null;
+    consultedTeamIds: string[];
     completedAt: string | null; // real completion
     expectedEndedAt: string | null; // generated based on duration
     type: 'action' | 'state' | 'artefact';

@@ -4,7 +4,7 @@ export interface ElementTemplate {
     description: string;
     type: 'action' | 'state' | 'artefact';
     // The following fields are only used for 'action' type elements:
-    ownerId: string | null;        // null for non-action elements
-    durationDays: number | null;   // null for non-action elements  
-    consultedUserIds: string[];    // empty array for non-action elements
+    ownerTeamId: string | null;        // null for non-action elements
+    durationDays: number | null;       // null for non-action elements  
+    consultedTeamIds: string[];        // empty array for non-action elements
 }

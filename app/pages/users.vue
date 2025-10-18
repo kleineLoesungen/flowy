@@ -59,15 +59,6 @@
                 <p>{{ user.email }}</p>
               </div>
               <div class="user-actions">
-                <button @click="showUserAssignments(user)" class="btn-icon assignments-btn"
-                  :title="`Assignments: ${getUserAssignmentCounts(user).templates} Templates, ${getUserAssignmentCounts(user).flows} Flows`">
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path
-                      d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" />
-                  </svg>
-                  <span class="assignment-count">{{ getUserAssignmentCounts(user).templates +
-                    getUserAssignmentCounts(user).flows }}</span>
-                </button>
                 <button @click="editUser(user)" class="btn-icon edit-btn" title="Edit User">
                   <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
                     <path
@@ -116,15 +107,6 @@
                 <p>{{ user.email }}</p>
               </div>
               <div class="user-actions">
-                <button @click="showUserAssignments(user)" class="btn-icon assignments-btn"
-                  :title="`Assignments: ${getUserAssignmentCounts(user).templates} Templates, ${getUserAssignmentCounts(user).flows} Flows`">
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path
-                      d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" />
-                  </svg>
-                  <span class="assignment-count">{{ getUserAssignmentCounts(user).templates +
-                    getUserAssignmentCounts(user).flows }}</span>
-                </button>
                 <button @click="editUser(user)" class="btn-icon edit-btn" title="Edit User">
                   <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
                     <path
@@ -237,82 +219,16 @@
 
         <div v-else class="assignments-content">
           <!-- Templates Section -->
-          <div v-if="userTemplates.length > 0" class="assignment-group">
-            <h4>
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24" class="section-icon">
-                <path
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Templates ({{ userTemplates.length }})
-            </h4>
-            <div class="assignments-list">
-              <div v-for="template in userTemplates" :key="template.id" class="assignment-item">
-                <div class="assignment-info">
-                  <div class="assignment-header">
-                    <h5>{{ template.name }}</h5>
-                    <a :href="`/templates/${template.id}`" target="_blank" class="assignment-link" title="Open template in new tab">
-                      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                        <path d="M7 17L17 7"/>
-                        <path d="M7 7h10v10"/>
-                      </svg>
-                    </a>
-                  </div>
-                  <p>{{ template.description || 'No description' }}</p>
-                  <div class="elements-info">
-                    <span v-for="element in getUserElementsInTemplate(template)" :key="element.id" class="element-tag">
-                      {{ element.name }}
-                      <small v-if="element.ownerId === selectedUserForAssignments?.id">(Owner)</small>
-                      <small
-                        v-else-if="element.consultedUserIds?.includes(selectedUserForAssignments?.id)">(Consulted)</small>
-                    </span>
-                  </div>
-                </div>
-              </div>
+          <div class="assignment-group migration-notice">
+            <h4>Assignment System Update</h4>
+            <p>
+              The assignment system has been migrated from user-centric to team-centric. 
+              Individual user assignments are now managed through team memberships. 
+              Please use the Teams page to manage team assignments and view team-based workflows.
+            </p>
+            <div class="migration-actions">
+              <a href="/teams" class="btn btn-primary">Manage Teams</a>
             </div>
-          </div>
-
-          <!-- Flows Section -->
-          <div v-if="userFlows.length > 0" class="assignment-group">
-            <h4>
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24" class="section-icon">
-                <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Flows ({{ userFlows.length }})
-            </h4>
-            <div class="assignments-list">
-              <div v-for="flow in userFlows" :key="flow.id" class="assignment-item">
-                <div class="assignment-info">
-                  <div class="assignment-header">
-                    <h5>{{ flow.name }}</h5>
-                    <a :href="`/flows/${flow.id}/work`" target="_blank" class="assignment-link" title="Open flow in new tab">
-                      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                        <path d="M7 17L17 7"/>
-                        <path d="M7 7h10v10"/>
-                      </svg>
-                    </a>
-                  </div>
-                  <p>{{ flow.description || 'No description' }}</p>
-                  <div class="elements-info">
-                    <span v-for="element in getUserElementsInFlow(flow)" :key="element.id" class="element-tag">
-                      {{ element.name }}
-                      <small v-if="element.ownerId === selectedUserForAssignments?.id">(Owner)</small>
-                      <small
-                        v-else-if="element.consultedUserIds?.includes(selectedUserForAssignments?.id)">(Consulted)</small>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- No Assignments -->
-          <div v-if="userTemplates.length === 0 && userFlows.length === 0" class="no-assignments">
-            <svg width="48" height="48" fill="currentColor" viewBox="0 0 24 24" class="empty-icon">
-              <path
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h4>No Assignments</h4>
-            <p>{{ selectedUserForAssignments?.name }} is not assigned to any templates or flows.</p>
           </div>
         </div>
 
@@ -351,6 +267,7 @@ const userForm = ref<Omit<User, 'id'> & { password?: string }>({
   name: '',
   email: '',
   role: 'member',
+  teamIds: [],
   password: undefined
 })
 
@@ -378,25 +295,13 @@ const allFlows = computed(() => flowsData.value?.data || [])
 
 // Filter templates and flows for selected user
 const userTemplates = computed(() => {
-  if (!selectedUserForAssignments.value) return []
-  const userId = selectedUserForAssignments.value.id
-  return allTemplates.value.filter(template =>
-    template.elements?.some(element =>
-      element.ownerId === userId ||
-      element.consultedUserIds?.includes(userId)
-    )
-  )
+  // TODO: Update for team-based assignments
+  return []
 })
 
 const userFlows = computed(() => {
-  if (!selectedUserForAssignments.value) return []
-  const userId = selectedUserForAssignments.value.id
-  return allFlows.value.filter(flow =>
-    flow.elements?.some(element =>
-      element.ownerId === userId ||
-      element.consultedUserIds?.includes(userId)
-    )
-  )
+  // TODO: Update for team-based assignments
+  return []
 })
 
 // Password generation utility
@@ -454,6 +359,7 @@ const editUser = (user: User) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    teamIds: user.teamIds || [],
     password: undefined
   }
   showEditModal.value = true
@@ -474,41 +380,25 @@ const showUserAssignments = async (user: User) => {
 }
 
 const getUserElementsInTemplate = (template: any) => {
+  // TODO: Update for team-based assignments - need to check team memberships
+  // and then look for team assignments rather than direct user assignments
   if (!selectedUserForAssignments.value) return []
-  const userId = selectedUserForAssignments.value.id
-  return template.elements?.filter((element: any) =>
-    element.ownerId === userId ||
-    element.consultedUserIds?.includes(userId)
-  ) || []
+  return []
 }
 
 const getUserElementsInFlow = (flow: any) => {
+  // TODO: Update for team-based assignments - need to check team memberships
+  // and then look for team assignments rather than direct user assignments
   if (!selectedUserForAssignments.value) return []
-  const userId = selectedUserForAssignments.value.id
-  return flow.elements?.filter((element: any) =>
-    element.ownerId === userId ||
-    element.consultedUserIds?.includes(userId)
-  ) || []
+  return []
 }
 
 const getUserAssignmentCounts = (user: any) => {
-  const userId = user.id
-
-  const templatesCount = allTemplates.value?.filter((template: any) =>
-    template.elements?.some((element: any) =>
-      element.ownerId === userId || element.consultedUserIds?.includes(userId)
-    )
-  ).length || 0
-
-  const flowsCount = allFlows.value?.filter((flow: any) =>
-    flow.elements?.some((element: any) =>
-      element.ownerId === userId || element.consultedUserIds?.includes(userId)
-    )
-  ).length || 0
-
+  // TODO: Update for team-based assignments - need to check which teams
+  // the user belongs to and then count team-based assignments
   return {
-    templates: templatesCount,
-    flows: flowsCount
+    templates: 0,
+    flows: 0
   }
 }
 
@@ -525,6 +415,7 @@ const closeModals = () => {
     name: '',
     email: '',
     role: 'member',
+    teamIds: [],
     password: undefined
   }
   // Reset password generation state
