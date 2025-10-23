@@ -21,6 +21,7 @@
       v-else
       :element="element"
       :is-new-element="isNewElement"
+      :is-flow-completed="!!flow?.completedAt"
       @save="handleSave"
       @close="handleClose"
     />
@@ -28,6 +29,9 @@
 </template>
 
 <script setup lang="ts">
+
+// Import the relations composable for handling the new connections structure
+const { getFromElementIds, getToElementIds } = useRelations()
 
 // Get route parameters
 const route = useRoute()
@@ -39,11 +43,17 @@ const elementId = route.params.eid as string
 const isNewElement = computed(() => elementId === 'new')
 
 // Fetch the flow to get the element
-const { data: flowData, pending, error, refresh } = await useFetch<any>(`/api/flows/${flowId}`)
+const { data: flowData, pending, error, refresh } = await useFetch<{ data: any }>(`/api/flows/${flowId}`)
 
-const flow = computed(() => flowData.value || null)
+const flow = computed(() => {
+  if (flowData.value?.data) {
+    return flowData.value.data
+  }
+  return null
+})
+
 const element = computed(() => {
-  if (isNewElement.value || !flow.value) {
+  if (isNewElement.value || !flow.value || !flow.value.elements) {
     return null
   }
   return flow.value.elements.find((el: any) => el.id === elementId) || null
@@ -63,11 +73,11 @@ const findNextActionElements = (stateElementId: string, flowData: any, isReverse
   
   // Find relations where the state element is a source
   const nextRelationsFromState = isReversed 
-    ? flowData.relations.filter((relation: any) => relation.toElementIds.includes(stateElementId))
-    : flowData.relations.filter((relation: any) => relation.fromElementIds.includes(stateElementId))
+    ? flowData.relations.filter((relation: any) => getToElementIds(relation).includes(stateElementId))
+    : flowData.relations.filter((relation: any) => getFromElementIds(relation).includes(stateElementId))
   
   nextRelationsFromState.forEach((relation: any) => {
-    const targetIds = isReversed ? relation.fromElementIds : relation.toElementIds
+    const targetIds = isReversed ? getFromElementIds(relation) : getToElementIds(relation)
     
     targetIds.forEach((targetId: string) => {
       const targetElement = flowData.elements.find((el: any) => el.id === targetId)
@@ -92,13 +102,15 @@ const findNextActionElements = (stateElementId: string, flowData: any, isReverse
 // Helper function to automatically progress next elements
 const progressNextElements = (completedElementId: string, flowData: any): any => {
   // Find all relations where the completed element is a source - try both directions
-  const nextRelationsFrom = flowData.relations.filter((relation: any) => 
-    relation.fromElementIds.includes(completedElementId)
-  )
+  const nextRelationsFrom = flowData.relations.filter((relation: any) => {
+    const fromElementIds = getFromElementIds(relation)
+    return fromElementIds.includes(completedElementId)
+  })
   
-  const nextRelationsTo = flowData.relations.filter((relation: any) => 
-    relation.toElementIds.includes(completedElementId)
-  )
+  const nextRelationsTo = flowData.relations.filter((relation: any) => {
+    const toElementIds = getToElementIds(relation)
+    return toElementIds.includes(completedElementId)
+  })
 
   // Determine which direction to use - try both and see which makes sense
   // If we find relations where this element is in toElementIds, then the flow direction might be reversed
@@ -110,8 +122,8 @@ const progressNextElements = (completedElementId: string, flowData: any): any =>
 
   nextRelations.forEach((relation: any) => {
     // Determine which IDs are the targets based on direction
-    const targetIds = isReversed ? relation.fromElementIds : relation.toElementIds
-    const sourceIds = isReversed ? relation.toElementIds : relation.fromElementIds
+    const targetIds = isReversed ? getFromElementIds(relation) : getToElementIds(relation)
+    const sourceIds = isReversed ? getToElementIds(relation) : getFromElementIds(relation)
     
     targetIds.forEach((targetId: string) => {
       // Skip if this is the element we just completed (avoid circular logic)
@@ -194,14 +206,16 @@ const progressNextElements = (completedElementId: string, flowData: any): any =>
 // Helper function to revert dependent elements when an element is no longer completed
 const revertDependentElements = (revertedElementId: string, flowData: any): any => {
   // Find all relations where the reverted element is a source
-  const dependentRelations = flowData.relations.filter((relation: any) => 
-    relation.fromElementIds.includes(revertedElementId)
-  )
+  const dependentRelations = flowData.relations.filter((relation: any) => {
+    const fromElementIds = getFromElementIds(relation)
+    return fromElementIds.includes(revertedElementId)
+  })
 
   // Get all target element IDs that might need to be reverted
   const potentiallyAffectedElements = new Set<string>()
   dependentRelations.forEach((relation: any) => {
-    relation.toElementIds.forEach((id: string) => potentiallyAffectedElements.add(id))
+    const toElementIds = getToElementIds(relation)
+    toElementIds.forEach((id: string) => potentiallyAffectedElements.add(id))
   })
 
   // Check which elements should be reverted to pending
@@ -216,9 +230,10 @@ const revertDependentElements = (revertedElementId: string, flowData: any): any 
     }
 
     // Find all relations that could have triggered this element
-    const triggeringRelations = flowData.relations.filter((relation: any) => 
-      relation.toElementIds.includes(targetId)
-    )
+    const triggeringRelations = flowData.relations.filter((relation: any) => {
+      const toElementIds = getToElementIds(relation)
+      return toElementIds.includes(targetId)
+    })
 
     // Check if this element still has valid triggers
     let hasValidTrigger = false
@@ -226,7 +241,8 @@ const revertDependentElements = (revertedElementId: string, flowData: any): any 
     for (const relation of triggeringRelations) {
       if (relation.type === 'flow' || relation.type === 'or') {
         // For flow/or relations, any completed source is enough
-        const hasCompletedSource = relation.fromElementIds.some((sourceId: string) => {
+        const fromElementIds = getFromElementIds(relation)
+        const hasCompletedSource = fromElementIds.some((sourceId: string) => {
           if (sourceId === revertedElementId) return false // The reverted element no longer counts
           const sourceElement = flowData.elements.find((el: any) => el.id === sourceId)
           return sourceElement && (sourceElement.status === 'completed' || sourceElement.status === 'aborted')
@@ -237,7 +253,8 @@ const revertDependentElements = (revertedElementId: string, flowData: any): any 
         }
       } else if (relation.type === 'and') {
         // For AND relations, all sources must be completed
-        const allSourcesCompleted = relation.fromElementIds.every((sourceId: string) => {
+        const fromElementIds = getFromElementIds(relation)
+        const allSourcesCompleted = fromElementIds.every((sourceId: string) => {
           if (sourceId === revertedElementId) return false // The reverted element no longer counts
           const sourceElement = flowData.elements.find((el: any) => el.id === sourceId)
           return sourceElement && (sourceElement.status === 'completed' || sourceElement.status === 'aborted')
@@ -317,6 +334,13 @@ const handleSave = async (updatedElement: any) => {
       body: updatedFlow
     })
 
+    // Check if user came from dashboard
+    if (route.query.from === 'dashboard') {
+      // Navigate back to the dashboard (InstancesOverview)
+      await router.push('/flows')
+      return
+    }
+
     // Navigate back to flow work page with preserved viewport state
     const query: Record<string, string> = {}
     
@@ -336,6 +360,13 @@ const handleSave = async (updatedElement: any) => {
 }
 
 const handleClose = async () => {
+  // Check if user came from dashboard
+  if (route.query.from === 'dashboard') {
+    // Navigate back to the dashboard (InstancesOverview)
+    await router.push('/flows')
+    return
+  }
+
   // Navigate back to flow work page with preserved viewport state
   const query: Record<string, string> = {}
   

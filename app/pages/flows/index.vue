@@ -39,7 +39,7 @@ import type { Flow } from '../../../types/Flow'
 
 // Page metadata
 useHead({
-    title: 'Flow Instances'
+    title: 'flowy | Flows'
 })
 
 // Reactive data

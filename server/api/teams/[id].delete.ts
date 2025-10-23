@@ -1,8 +1,8 @@
 import type { Team } from '../../../types/Team'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     const teamId = getRouterParam(event, 'id')

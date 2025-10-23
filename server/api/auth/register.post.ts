@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import type { UserWithPassword } from '../../types/UserWithPassword'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 
 export default defineEventHandler(async (event) => {
   const { name, email, password } = await readBody(event)
@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const storage = useFileStorage()
+    const storage = useDatabaseStorage()
     
     // Get all existing users
     const userKeys = await storage.getKeys('users:')
@@ -64,8 +64,7 @@ export default defineEventHandler(async (event) => {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       role: role,
-      passwordHash,
-      teamIds: []
+      passwordHash
     }
 
     // Store the user

@@ -64,8 +64,21 @@
       </div>
       
       <div class="header-controls">
+        <NuxtLink v-if="flowData.templateId" :to="`/templates/${flowData.templateId}`" class="btn btn-template">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 1a2.5 2.5 0 0 1 2.5 2.5V4h-5v-.5A2.5 2.5 0 0 1 8 1zm3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H1v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4h-3.5zM2 5h12v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5z"/>
+          </svg>
+          Template
+        </NuxtLink>
         <button @click="fitToView" class="btn btn-info">
           Fit View
+        </button>
+        <button v-if="canCompleteFlow && isWorking" @click="completeFlow" class="btn btn-success" 
+                title="All actions are completed or aborted - click to mark flow as completed">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Complete Flow
         </button>
         <button v-if="hasChanges" @click="resetChanges" class="btn btn-warning">
           Reset
@@ -281,6 +294,7 @@ import type { Element } from '../../../../types/Element'
 import type { Relation } from '../../../../types/Relation'
 import type { User } from '../../../../types/User'
 import type { Team } from '../../../../types/Team'
+import { useRelations } from '../../../composables/useRelations'
 
 // Props and emits
 const props = defineProps<{
@@ -315,6 +329,9 @@ const flowData = ref<{
 const nodes = ref<Node[]>([])
 const edges = ref<Edge[]>([])
 const nodeCounter = ref(0)
+
+// Initialize relations composable
+const { getFromElementIds, getToElementIds } = useRelations()
 
 // Vue Flow instance
 const { fitView, getViewport, setViewport } = useVueFlow()
@@ -486,6 +503,18 @@ const formatExpectedEndDate = (timestamp: string | null): string => {
   return `${day}.${month}.`
 }
 
+// Check if all actions are completed or aborted
+const canCompleteFlow = computed(() => {
+  if (flowData.value.completedAt) return false // Already completed
+  
+  const actionElements = nodes.value.filter(node => node.data.type === 'action')
+  if (actionElements.length === 0) return false // No actions to complete
+  
+  return actionElements.every(node => 
+    node.data.status === 'completed' || node.data.status === 'aborted'
+  )
+})
+
 // Computed properties for filtered users and teams (only those used in the flow)
 const usedTeamIds = computed(() => {
   if (!nodes.value.length) return new Set<string>()
@@ -637,6 +666,12 @@ const loadFlowIntoWork = (flow: Flow) => {
   nodes.value = []
   edges.value = []
 
+  // Validate flow data
+  if (!flow || !flow.elements || !Array.isArray(flow.elements)) {
+    console.warn('Invalid flow data:', flow)
+    return
+  }
+
   // Convert elements to nodes using smart layout algorithm (same as FlowVisualizationModal)
   const elements = flow.elements
   const relations = flow.relations || []
@@ -652,8 +687,11 @@ const loadFlowIntoWork = (flow: Flow) => {
   })
 
   relations.forEach(rel => {
-    rel.fromElementIds.forEach((fromId: string) => {
-      rel.toElementIds.forEach((toId: string) => {
+    const fromIds = getFromElementIds(rel)
+    const toIds = getToElementIds(rel)
+    
+    fromIds.forEach((fromId: string) => {
+      toIds.forEach((toId: string) => {
         if (nodeMap.has(fromId) && nodeMap.has(toId)) {
           const outgoing = outgoingEdges.get(fromId) || []
           outgoing.push(toId)
@@ -773,11 +811,15 @@ const loadFlowIntoWork = (flow: Flow) => {
   const relationEdges: Edge[] = []
   const elementIds = new Set(elements.map(el => el.id))
 
-  flow.relations.forEach((relation: Relation) => {
-    relation.fromElementIds.forEach((fromId: string) => {
-      relation.toElementIds.forEach((toId: string) => {
-        // Only create edges for elements that actually exist
-        if (elementIds.has(fromId) && elementIds.has(toId)) {
+  if (flow.relations && Array.isArray(flow.relations)) {
+    flow.relations.forEach((relation: Relation) => {
+      const fromIds = getFromElementIds(relation)
+      const toIds = getToElementIds(relation)
+      
+      fromIds.forEach((fromId: string) => {
+        toIds.forEach((toId: string) => {
+          // Only create edges for elements that actually exist
+          if (elementIds.has(fromId) && elementIds.has(toId)) {
           // Determine appropriate handles based on relation type and node types
           const sourceElement = nodeMap.get(fromId)
           const targetElement = nodeMap.get(toId)
@@ -828,6 +870,7 @@ const loadFlowIntoWork = (flow: Flow) => {
       })
     })
   })
+  }
 
   // Update reactive data
   nextTick(() => {
@@ -1635,6 +1678,7 @@ const convertToFlow = (): Flow => {
     elements,
     relations,
     startingElementId: flowData.value.startingElementId,
+    hidden: props.flow?.hidden || false,
     layout
   }
 
@@ -1753,6 +1797,39 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
+// Complete the flow
+const completeFlow = async () => {
+  if (!canCompleteFlow.value) return
+  
+  // Ask for confirmation
+  const confirmed = confirm('Are you sure you want to complete this flow? This will set the completion date to today and mark the flow as finished.')
+  if (!confirmed) return
+  
+  // Set completion date to today in YYYY-MM-DD format
+  const today = new Date()
+  const completionDate = today.toISOString().split('T')[0] || null
+  
+  flowData.value.completedAt = completionDate
+  
+  try {
+    const convertedFlow = convertToFlow()
+    await $fetch(`/api/flows/${props.flow?.id}`, {
+      method: 'PUT',
+      body: convertedFlow
+    })
+    
+    // Update initial state to reflect the completion
+    saveInitialState()
+    
+    alert('Flow completed successfully!')
+  } catch (error) {
+    console.error('Error completing flow:', error)
+    // Revert the completion date on error
+    flowData.value.completedAt = null
+    alert('Error completing flow. Please try again.')
+  }
+}
+
 // Handle close button - navigate to flows page
 const handleClose = async () => {
   const router = useRouter()
@@ -1820,7 +1897,7 @@ const handleClose = async () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.375rem 0.75rem;
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -1828,7 +1905,7 @@ const handleClose = async () => {
   color: white;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -2866,7 +2943,7 @@ const handleClose = async () => {
 
 /* Button Styles */
 .btn {
-  padding: 0.5rem 1rem;
+  padding: 0.375rem 0.75rem;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -2951,6 +3028,29 @@ const handleClose = async () => {
   background: linear-gradient(135deg, #cbd5e1 0%, #b0bec5 100%);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.btn-template {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  transition: all 0.3s ease;
+}
+
+.btn-template:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
 }
 
 /* Edge Configuration Modal */

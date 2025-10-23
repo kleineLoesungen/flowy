@@ -1,10 +1,10 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import type { UserWithPassword } from '../../types/UserWithPassword'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     const body = await readBody(event) as {

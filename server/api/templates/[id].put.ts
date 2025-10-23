@@ -1,12 +1,17 @@
 import type { FlowTemplate } from '../../../types/FlowTemplate'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { correctTemplateRelations } from '../../utils/templates/correctTemplateRelations'
+import { migrateLegacyRelations } from '../../utils/templates/migrateRelations'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     const templateId = getRouterParam(event, 'id')
-    const body = await readBody(event) as FlowTemplate
+    const bodyData = await readBody(event) as FlowTemplate
+    
+    // Create a mutable copy to allow modifications
+    const body = { ...bodyData }
     
     if (!templateId) {
       throw createError({
@@ -23,6 +28,47 @@ export default defineEventHandler(async (event) => {
       })
     }
     
+    // Normalize element templates according to their type requirements
+    if (body.elements) {
+      body.elements = body.elements.map((element: any) => {
+        const normalizedElement = { ...element }
+        
+        // Handle state and artefact elements - clear fields that should be null/empty
+        if (element.type === 'state' || element.type === 'artefact') {
+          normalizedElement.ownerTeamId = null
+          normalizedElement.durationDays = null
+          normalizedElement.consultedTeamIds = []
+        }
+        
+        return normalizedElement
+      })
+    }
+    
+    // Validate and auto-set starting element
+    if (body.elements && body.elements.length > 0) {
+      // If no starting element is defined but we have elements, set the first element as starting
+      if (!body.startingElementId) {
+        body.startingElementId = body.elements[0].id
+        console.log(`Auto-setting starting element to first element: ${body.startingElementId}`)
+      }
+      
+      // Check if starting element exists
+      const startingElementExists = body.elements.some(el => el.id === body.startingElementId)
+      if (!startingElementExists) {
+        // If the current startingElementId doesn't exist, set it to the first element
+        body.startingElementId = body.elements[0].id
+        console.log(`Starting element not found, auto-setting to first element: ${body.startingElementId}`)
+      }
+    } else {
+      // If no elements, clear the starting element ID
+      body.startingElementId = null
+    }
+    
+    // Migrate legacy relations to new format
+    if (body.relations) {
+      body.relations = migrateLegacyRelations(body.relations as any)
+    }
+
     // Clean up orphaned relations
     if (body.elements && body.relations) {
       const existingElementIds = new Set(body.elements.map(el => el.id))
@@ -31,18 +77,17 @@ export default defineEventHandler(async (event) => {
       // Filter and clean relations
       body.relations = body.relations
         .map(relation => {
-          // Filter out non-existent fromElementIds
-          const validFromIds = relation.fromElementIds.filter((id: string) => existingElementIds.has(id))
-          
-          // Filter out non-existent toElementIds
-          const validToIds = relation.toElementIds.filter((id: string) => existingElementIds.has(id))
+          // Filter out connections with non-existent element IDs
+          const validConnections = relation.connections.filter(connection => 
+            existingElementIds.has(connection.fromElementId) && 
+            existingElementIds.has(connection.toElementId)
+          )
           
           // Return updated relation if it still has valid connections
-          if (validFromIds.length > 0 && validToIds.length > 0) {
+          if (validConnections.length > 0) {
             return {
               ...relation,
-              fromElementIds: validFromIds,
-              toElementIds: validToIds
+              connections: validConnections
             }
           }
           
@@ -66,13 +111,16 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    // Update the template
+    // Correct relation directions from starting element
     body.id = templateId
-    await storage.setItem(key, body)
+    const correctedTemplate = correctTemplateRelations(body)
+    
+    // Update the template
+    await storage.setItem(key, correctedTemplate)
     
     return {
       success: true,
-      data: body
+      data: correctedTemplate
     }
   } catch (error: any) {
     if (error.statusCode) {

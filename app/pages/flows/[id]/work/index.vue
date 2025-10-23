@@ -47,7 +47,15 @@ const router = useRouter()
 const flowId = route.params.id as string
 
 // Fetch flow data
-const { data: flow, pending, error } = await useFetch<Flow>(`/api/flows/${flowId}`)
+const { data: flowData, pending, error } = await useFetch<{ data: Flow }>(`/api/flows/${flowId}`)
+
+// Extract the flow object from the API response
+const flow = computed(() => {
+  if (flowData.value?.data) {
+    return flowData.value.data
+  }
+  return null
+})
 
 // Set page metadata
 useHead({

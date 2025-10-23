@@ -1,7 +1,8 @@
 import type { Flow } from '../../../types/Flow'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   const flowId = getRouterParam(event, 'id')
 
   if (!flowId) {
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
     // Try organized structure first
     const flow = await storage.getItem(`flows:${flowId}`) as Flow
     if (flow) {
-      return flow
+      return { data: flow }
     }
   } catch (error) {
     // Fall back to legacy format
@@ -33,5 +34,5 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  return flow
+  return { data: flow }
 })

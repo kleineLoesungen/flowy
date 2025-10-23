@@ -1,10 +1,10 @@
 import type { User } from '../../../types/User'
 import type { UserWithPassword } from '../../types/UserWithPassword'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 import bcrypt from 'bcryptjs'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     const userId = getRouterParam(event, 'id')

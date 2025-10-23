@@ -285,6 +285,7 @@
       <div class="list-header">
         <div class="col-header col-title">Template</div>
         <div class="col-header col-elements">Elements</div>
+        <div class="col-header col-flows">Flows</div>
         <div class="col-header col-duration">Duration</div>
         <div class="col-header col-actions">Actions</div>
       </div>
@@ -300,6 +301,17 @@
           <span class="label">{{ template.elements.length === 1 ? 'element' : 'elements' }}</span>
         </div>
 
+        <div class="col-flows">
+          <button 
+            class="flow-count-btn" 
+            @click="openFlowsModal(template)"
+            :disabled="(flowCountsByTemplate.get(template.id) || 0) === 0"
+          >
+            <span class="count">{{ flowCountsByTemplate.get(template.id) || 0 }}</span>
+            <span class="label">{{ (flowCountsByTemplate.get(template.id) || 0) === 1 ? 'flow' : 'flows' }}</span>
+          </button>
+        </div>
+
         <div class="col-duration">
           <div class="duration-info">
             <span class="duration-main">
@@ -310,11 +322,80 @@
             </span>
           </div>
         </div>
-
         <div class="col-actions">
           <NuxtLink :to="`/templates/${template.id}`" class="btn btn-primary">View</NuxtLink>
-          <NuxtLink :to="`/templates/${template.id}/edit`" class="btn btn-secondary">Edit</NuxtLink>
-          <button @click="$emit('delete', template)" class="btn btn-danger">Delete</button>
+          <NuxtLink :to="`/flows/add?templateId=${template.id}`" class="btn btn-icon btn-success" title="Create new flow from this template">
+            <svg fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </NuxtLink>
+          <NuxtLink :to="`/templates/${template.id}/edit`" class="btn btn-icon btn-secondary" title="Edit template">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+          </NuxtLink>
+          <button @click="$emit('delete', template)" class="btn btn-icon btn-danger" title="Delete template">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flows Modal -->
+    <div v-if="showFlowsModal" class="modal-overlay" @click="closeFlowsModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Flows from "{{ selectedTemplateForModal?.name }}"</h3>
+          <button @click="closeFlowsModal" class="modal-close-btn">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="modal-body">
+          <div v-if="selectedTemplateFlows.length === 0" class="empty-flows">
+            <p>No flows have been created from this template yet.</p>
+          </div>
+          
+          <div v-else class="flows-list">
+            <div class="flows-list-header">
+              <div class="flow-col-title">Flow Name</div>
+              <div class="flow-col-timeframe">Timeframe</div>
+              <div class="flow-col-action">Action</div>
+            </div>
+            
+            <div v-for="flow in selectedTemplateFlows" :key="flow.id" class="flow-item">
+              <div class="flow-col-title">
+                <h4>{{ flow.name }}</h4>
+                <p v-if="flow.description" class="flow-description">{{ flow.description }}</p>
+              </div>
+              
+              <div class="flow-col-timeframe">
+                <span class="timeframe-text">{{ formatTimeframe(flow) }}</span>
+                <span v-if="flow.completedAt" class="status-badge completed">Completed</span>
+                <span v-else-if="flow.startedAt" class="status-badge in-progress">In Progress</span>
+                <span v-else class="status-badge not-started">Not Started</span>
+              </div>
+              
+              <div class="flow-col-action">
+                <NuxtLink 
+                  :to="`/flows/${flow.id}/work`" 
+                  class="btn btn-primary flow-link"
+                  target="_blank"
+                  title="Open flow in new tab"
+                >
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                  </svg>
+                  Open Flow
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -323,6 +404,7 @@
 
 <script setup lang="ts">
 import type { FlowTemplate } from '../../../types/FlowTemplate'
+import type { Flow } from '../../../types/Flow'
 import type { User } from '../../../types/User'
 import type { Team } from '../../../types/Team'
 import {
@@ -342,11 +424,13 @@ defineEmits<{
   delete: [template: FlowTemplate]
 }>()
 
-// Load users and teams data
+// Load users, teams, and flows data
 const { data: usersData } = await useFetch('/api/users')
 const { data: teamsData } = await useFetch('/api/teams')
+const { data: flowsData } = await useFetch('/api/flows')
 const users = computed(() => usersData.value?.data || [])
 const teams = computed(() => teamsData.value?.data || [])
+const flows = computed(() => flowsData.value?.data || [])
 
 // Filter state
 const selectedTeamIds = ref<string[]>([])
@@ -372,6 +456,27 @@ const selectedUsers = computed(() => {
 })
 
 const selectedArtefacts = computed(() => selectedArtefactNames.value)
+
+// Flow counts per template
+const flowCountsByTemplate = computed(() => {
+  const counts = new Map<string, number>()
+  flows.value.forEach(flow => {
+    if (flow.templateId) {
+      counts.set(flow.templateId, (counts.get(flow.templateId) || 0) + 1)
+    }
+  })
+  return counts
+})
+
+// Modal state
+const showFlowsModal = ref(false)
+const selectedTemplateForModal = ref<FlowTemplate | null>(null)
+
+// Get flows for selected template
+const selectedTemplateFlows = computed(() => {
+  if (!selectedTemplateForModal.value) return []
+  return flows.value.filter(flow => flow.templateId === selectedTemplateForModal.value?.id)
+})
 
 const filteredTeams = computed(() => {
   if (!teamsSearchQuery.value) return teams.value
@@ -599,6 +704,33 @@ const clearAllFilters = () => {
   selectedUserIds.value = []
   selectedArtefactNames.value = []
   textSearchQuery.value = ''
+}
+
+const openFlowsModal = (template: FlowTemplate) => {
+  selectedTemplateForModal.value = template
+  showFlowsModal.value = true
+}
+
+const closeFlowsModal = () => {
+  showFlowsModal.value = false
+  selectedTemplateForModal.value = null
+}
+
+// Format date for display
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return 'Not set'
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+// Format timeframe for display
+const formatTimeframe = (flow: any) => {
+  const start = flow.startedAt ? formatDate(flow.startedAt) : 'Not started'
+  const end = flow.completedAt ? formatDate(flow.completedAt) : (flow.expectedEndDate ? formatDate(flow.expectedEndDate) : 'No end date')
+  return `${start} - ${end}`
 }
 
 // Handle click outside dropdowns
@@ -1140,7 +1272,7 @@ onUnmounted(() => {
 
 .list-header {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 1rem;
   padding: 1.5rem 2rem;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
@@ -1154,7 +1286,7 @@ onUnmounted(() => {
 
 .template-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 1rem;
   padding: 1.5rem 2rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
@@ -1190,6 +1322,7 @@ onUnmounted(() => {
 }
 
 .col-elements,
+.col-flows,
 .col-duration {
   display: flex;
   flex-direction: column;
@@ -1277,6 +1410,33 @@ onUnmounted(() => {
   box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
 }
 
+.btn-success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #0d9488 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.btn-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* Ensure dropdowns are always visible */
 .modern-dropdown {
   isolation: isolate;
@@ -1343,6 +1503,7 @@ onUnmounted(() => {
 
   .col-title,
   .col-elements,
+  .col-flows,
   .col-duration,
   .col-actions {
     display: flex;
@@ -1352,6 +1513,12 @@ onUnmounted(() => {
 
   .col-elements::before {
     content: 'Elements:';
+    font-weight: 600;
+    color: #34495e;
+  }
+
+  .col-flows::before {
+    content: 'Flows:';
     font-weight: 600;
     color: #34495e;
   }
@@ -1367,6 +1534,280 @@ onUnmounted(() => {
     margin-top: 1rem;
     padding-top: 1rem;
     border-top: 1px solid #f0f0f0;
+  }
+}
+
+/* Flow Count Button */
+.flow-count-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.flow-count-btn:hover:not(:disabled) {
+  background: rgba(102, 126, 234, 0.1);
+  transform: scale(1.05);
+}
+
+.flow-count-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.flow-count-btn .count {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #3b82f6;
+  line-height: 1;
+}
+
+.flow-count-btn:disabled .count {
+  color: #9ca3af;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #f1f5f9;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.modal-close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.empty-flows {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.flows-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.flows-list-header {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr;
+  gap: 1rem;
+  padding: 1rem 2rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.flow-item {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.2s ease;
+}
+
+.flow-item:hover {
+  background: #f8fafc;
+}
+
+.flow-item:last-child {
+  border-bottom: none;
+}
+
+.flow-col-title h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.flow-description {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.flow-col-timeframe {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.timeframe-text {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-self: flex-start;
+}
+
+.status-badge.completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.in-progress {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-badge.not-started {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.flow-col-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.flow-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.flow-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Responsive Modal Styles */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    max-height: 85vh;
+    margin: 1rem;
+  }
+
+  .modal-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .modal-header h3 {
+    font-size: 1.125rem;
+  }
+
+  .flows-list-header,
+  .flow-item {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+  }
+
+  .flows-list-header {
+    display: none;
+  }
+
+  .flow-item {
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .flow-col-title,
+  .flow-col-timeframe,
+  .flow-col-action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .flow-col-action {
+    align-items: flex-start;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .status-badge {
+    align-self: flex-start;
   }
 }
 </style>

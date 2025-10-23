@@ -1,8 +1,9 @@
 import type { FlowTemplate } from '../../../types/FlowTemplate'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { migrateLegacyRelations } from '../../utils/templates/migrateRelations'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     const templateId = getRouterParam(event, 'id')
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
     }
     
     // Get the specific template from storage
-    const template = await storage.getItem(`templates:${templateId}`)
+    let template = await storage.getItem(`templates:${templateId}`) as FlowTemplate
     
     if (!template) {
       throw createError({
@@ -24,8 +25,13 @@ export default defineEventHandler(async (event) => {
       })
     }
     
+    // Migrate legacy relations if needed
+    if (template.relations) {
+      template.relations = migrateLegacyRelations(template.relations as any)
+    }
+    
     return {
-      data: template as FlowTemplate
+      data: template
     }
   } catch (error) {
     // If it's already a createError, re-throw it

@@ -1,10 +1,8 @@
 export interface Relation {
     id: string;
-    fromElementIds: string[];
-    toElementIds: string[];
     type: 'flow' | 'or' | 'and' | 'in' | 'out';
-    // Enhanced to store handle information for each connection
-    connections?: Array<{
+    // Store handle information for each connection - this is the primary data
+    connections: Array<{
         fromElementId: string;
         toElementId: string;
         sourceHandle?: string;

@@ -1,243 +1,217 @@
 <template>
-    <div class="app-layout">
-        <!-- Navigation Header -->
-        <nav class="nav-header">
-            <div class="nav-brand">
-                <NuxtLink to="/templates" class="brand-link">
-                    <h1>flowy</h1>
-                </NuxtLink>
-            </div>
-            
-            <div class="nav-links">
-                <NuxtLink to="/flows" class="nav-link">
-                    Flows
-                </NuxtLink>
-                <NuxtLink to="/templates" class="nav-link">
-                    Templates
-                </NuxtLink>
-                <NuxtLink v-if="isAuthenticated && user && user.role === 'admin'" to="/users" class="nav-link">
-                    Users
-                </NuxtLink>
-                <NuxtLink v-if="isAuthenticated && user && user.role === 'admin'" to="/teams" class="nav-link">
-                    Teams
-                </NuxtLink>
-                
-                <!-- Authentication -->
-                <div class="user-selector" @click.stop>
-                    <button 
-                        @click="toggleUserDropdown"
-                        class="user-btn"
-                        :class="{ 'has-user': isAuthenticated }"
-                    >
-                        <span v-if="isAuthenticated && user" class="user-initial">
-                            {{ getUserInitial(user) }}
-                        </span>
-                        <svg v-else class="user-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                        </svg>
-                    </button>
-                    
-                    <div v-show="userDropdownOpen" class="user-dropdown">
-                        <div v-if="isAuthenticated && user" class="authenticated-section">
-                            <div class="dropdown-header">{{ user.name || user.email }}</div>
-                            <div class="dropdown-options">
-                                <div class="dropdown-option" @click="showChangePassword">
-                                    <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                                    </svg>
-                                    <span>Change Password</span>
-                                </div>
-                                <div class="dropdown-option" @click="handleLogout">
-                                    <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                                    </svg>
-                                    <span>Logout</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div v-else class="unauthenticated-section">
-                            <div class="dropdown-header">Authentication</div>
-                            <div class="dropdown-options">
-                                <div class="dropdown-option" @click="showLogin">
-                                    <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-                                    </svg>
-                                    <span>Login</span>
-                                </div>
-                                <div class="dropdown-option" @click="showRegister">
-                                    <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-                                    </svg>
-                                    <span>Register</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </nav>
-        
-        <!-- Page Content -->
-        <main class="main-content">
-            <slot />
-        </main>
+  <div class="app-layout">
+    <!-- Navigation Header -->
+    <nav class="nav-header">
+      <div class="nav-brand">
+        <NuxtLink to="/templates" class="brand-link">
+          <h1>flowy</h1>
+        </NuxtLink>
+      </div>
 
-        <!-- Login Modal -->
-        <div v-if="showLoginModal" class="modal-overlay" @click="closeModal">
-            <div class="modal-content" @click.stop>
-                <div class="modal-header">
-                    <h3>Login</h3>
-                    <button @click="closeModal" class="close-button">×</button>
-                </div>
-                <form @submit.prevent="handleLogin" class="auth-form">
-                    <div class="form-group">
-                        <label for="login-email">Email</label>
-                        <input 
-                            id="login-email"
-                            v-model="loginForm.email" 
-                            type="email" 
-                            required 
-                            placeholder="Enter your email"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="login-password">Password</label>
-                        <input 
-                            id="login-password"
-                            v-model="loginForm.password" 
-                            type="password" 
-                            required 
-                            placeholder="Enter your password"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-                    <div v-if="loginError" class="error-message">{{ loginError }}</div>
-                    <div class="form-actions">
-                        <button type="button" @click="closeModal" :disabled="isSubmitting">Cancel</button>
-                        <button type="submit" :disabled="isSubmitting" class="primary">
-                            {{ isSubmitting ? 'Logging in...' : 'Login' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+      <div class="nav-links">
+        <NuxtLink to="/flows" class="nav-link">
+          Flows
+        </NuxtLink>
+        <NuxtLink to="/templates" class="nav-link">
+          Templates
+        </NuxtLink>
+        <NuxtLink v-if="isAuthenticated && user && user.role === 'admin'" to="/users" class="nav-link">
+          Users
+        </NuxtLink>
+        <NuxtLink v-if="isAuthenticated && user && user.role === 'admin'" to="/teams" class="nav-link">
+          Teams
+        </NuxtLink>
 
-        <!-- Register Modal -->
-        <div v-if="showPasswordModal" class="modal-overlay" @click="closeModal">
-            <div class="modal-content" @click.stop>
-                <div class="modal-header">
-                    <h3>Register User</h3>
-                    <button @click="closeModal" class="close-button">×</button>
-                </div>
-                <form @submit.prevent="handleRegister" class="auth-form">
-                    <div class="form-group">
-                        <label for="register-name">Name</label>
-                        <input 
-                            id="register-name"
-                            v-model="passwordForm.name" 
-                            type="text" 
-                            required 
-                            placeholder="Enter your full name"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="register-email">Email</label>
-                        <input 
-                            id="register-email"
-                            v-model="passwordForm.email" 
-                            type="email" 
-                            required 
-                            placeholder="Enter your email"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="password-new">New Password</label>
-                        <input 
-                            id="password-new"
-                            v-model="passwordForm.password" 
-                            type="password" 
-                            required 
-                            placeholder="Enter new password (min. 6 chars)"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="password-confirm">Confirm Password</label>
-                        <input 
-                            id="password-confirm"
-                            v-model="passwordForm.confirmPassword" 
-                            type="password" 
-                            required 
-                            placeholder="Confirm new password"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-                    <div v-if="passwordError" class="error-message">{{ passwordError }}</div>
-                    <div class="form-actions">
-                        <button type="button" @click="closeModal" :disabled="isSubmitting">Cancel</button>
-                        <button type="submit" :disabled="isSubmitting" class="primary">
-                            {{ isSubmitting ? 'Registering...' : 'Register' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        <!-- Authentication -->
+        <div class="user-selector" @click.stop>
+          <button @click="toggleUserDropdown" class="user-btn" :class="{ 'has-user': isAuthenticated }">
+            <span v-if="isAuthenticated && user" class="user-initial">
+              {{ getUserInitial(user) }}
+            </span>
+            <svg v-else class="user-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </button>
 
-        <!-- Change Password Modal -->
-        <div v-if="showChangePasswordModal" class="modal-overlay" @click="closeModal">
-            <div class="modal-content" @click.stop>
-                <div class="modal-header">
-                    <h3>Change Password</h3>
-                    <button @click="closeModal" class="close-button">×</button>
+          <div v-show="userDropdownOpen" class="user-dropdown">
+            <div v-if="isAuthenticated && user" class="authenticated-section">
+              <div class="dropdown-header">{{ user.name || user.email }}</div>
+              <div class="dropdown-options">
+                <div class="dropdown-option" @click="showChangePassword">
+                  <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  <span>Change Password</span>
                 </div>
-                <form @submit.prevent="handleChangePassword" class="auth-form">
-                    <div class="form-group">
-                        <label for="current-password">Current Password</label>
-                        <input 
-                            id="current-password"
-                            v-model="changePasswordForm.currentPassword" 
-                            type="password" 
-                            required 
-                            placeholder="Enter your current password"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="new-password">New Password</label>
-                        <input 
-                            id="new-password"
-                            v-model="changePasswordForm.newPassword" 
-                            type="password" 
-                            required 
-                            placeholder="Enter new password (min. 6 chars)"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="confirm-new-password">Confirm New Password</label>
-                        <input 
-                            id="confirm-new-password"
-                            v-model="changePasswordForm.confirmNewPassword" 
-                            type="password" 
-                            required 
-                            placeholder="Confirm new password"
-                            :disabled="isSubmitting"
-                        />
-                    </div>
-                    <div v-if="changePasswordError" class="error-message">{{ changePasswordError }}</div>
-                    <div class="form-actions">
-                        <button type="button" @click="closeModal" :disabled="isSubmitting">Cancel</button>
-                        <button type="submit" :disabled="isSubmitting" class="primary">
-                            {{ isSubmitting ? 'Changing...' : 'Change Password' }}
-                        </button>
-                    </div>
-                </form>
+                <div class="dropdown-option" @click="handleLogout">
+                  <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span>Logout</span>
+                </div>
+              </div>
             </div>
+            <div v-else class="unauthenticated-section">
+              <div class="dropdown-header">Authentication</div>
+              <div class="dropdown-options">
+                <div class="dropdown-option" @click="showLogin">
+                  <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  <span>Login</span>
+                </div>
+                <div class="dropdown-option" @click="showRegister">
+                  <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  <span>Register</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+    </nav>
+
+    <!-- Page Content -->
+    <main class="main-content">
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p class="footer-text">
+        Made with 
+        <span class="tech-item">
+          <svg class="tech-icon claude-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          Claude Sonnet/Copilot
+        </span>
+        • Thanks to 
+        <span class="tech-item">
+          <svg class="tech-icon nuxt-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L2 22h20L12 2z"/>
+          </svg>
+          Nuxt
+        </span>
+        • 
+        <span class="tech-item">
+          <svg class="tech-icon vueflow-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 4l4 8 4-8h6L12 20 2 4h6z"/>
+          </svg>
+          Vue Flow
+        </span>
+      </p>
+    </footer>
+
+    <!-- Login Modal -->
+    <div v-if="showLoginModal" class="modal-overlay" @click="closeModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Login</h3>
+          <button @click="closeModal" class="close-button">×</button>
+        </div>
+        <form @submit.prevent="handleLogin" class="auth-form">
+          <div class="form-group">
+            <label for="login-email">Email</label>
+            <input id="login-email" v-model="loginForm.email" type="email" required placeholder="Enter your email"
+              :disabled="isSubmitting" />
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input id="login-password" v-model="loginForm.password" type="password" required
+              placeholder="Enter your password" :disabled="isSubmitting" />
+          </div>
+          <div v-if="loginError" class="error-message">{{ loginError }}</div>
+          <div class="form-actions">
+            <button type="button" @click="closeModal" :disabled="isSubmitting">Cancel</button>
+            <button type="submit" :disabled="isSubmitting" class="primary">
+              {{ isSubmitting ? 'Logging in...' : 'Login' }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
+
+    <!-- Register Modal -->
+    <div v-if="showPasswordModal" class="modal-overlay" @click="closeModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Register User</h3>
+          <button @click="closeModal" class="close-button">×</button>
+        </div>
+        <form @submit.prevent="handleRegister" class="auth-form">
+          <div class="form-group">
+            <label for="register-name">Name</label>
+            <input id="register-name" v-model="passwordForm.name" type="text" required
+              placeholder="Enter your full name" :disabled="isSubmitting" />
+          </div>
+          <div class="form-group">
+            <label for="register-email">Email</label>
+            <input id="register-email" v-model="passwordForm.email" type="email" required placeholder="Enter your email"
+              :disabled="isSubmitting" />
+          </div>
+          <div class="form-group">
+            <label for="password-new">New Password</label>
+            <input id="password-new" v-model="passwordForm.password" type="password" required
+              placeholder="Enter new password (min. 6 chars)" :disabled="isSubmitting" />
+          </div>
+          <div class="form-group">
+            <label for="password-confirm">Confirm Password</label>
+            <input id="password-confirm" v-model="passwordForm.confirmPassword" type="password" required
+              placeholder="Confirm new password" :disabled="isSubmitting" />
+          </div>
+          <div v-if="passwordError" class="error-message">{{ passwordError }}</div>
+          <div class="form-actions">
+            <button type="button" @click="closeModal" :disabled="isSubmitting">Cancel</button>
+            <button type="submit" :disabled="isSubmitting" class="primary">
+              {{ isSubmitting ? 'Registering...' : 'Register' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div v-if="showChangePasswordModal" class="modal-overlay" @click="closeModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Change Password</h3>
+          <button @click="closeModal" class="close-button">×</button>
+        </div>
+        <form @submit.prevent="handleChangePassword" class="auth-form">
+          <div class="form-group">
+            <label for="current-password">Current Password</label>
+            <input id="current-password" v-model="changePasswordForm.currentPassword" type="password" required
+              placeholder="Enter your current password" :disabled="isSubmitting" />
+          </div>
+          <div class="form-group">
+            <label for="new-password">New Password</label>
+            <input id="new-password" v-model="changePasswordForm.newPassword" type="password" required
+              placeholder="Enter new password (min. 6 chars)" :disabled="isSubmitting" />
+          </div>
+          <div class="form-group">
+            <label for="confirm-new-password">Confirm New Password</label>
+            <input id="confirm-new-password" v-model="changePasswordForm.confirmNewPassword" type="password" required
+              placeholder="Confirm new password" :disabled="isSubmitting" />
+          </div>
+          <div v-if="changePasswordError" class="error-message">{{ changePasswordError }}</div>
+          <div class="form-actions">
+            <button type="button" @click="closeModal" :disabled="isSubmitting">Cancel</button>
+            <button type="submit" :disabled="isSubmitting" class="primary">
+              {{ isSubmitting ? 'Changing...' : 'Change Password' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -308,7 +282,7 @@ const showChangePassword = () => {
     alert('Please log in first to change your password.')
     return
   }
-  
+
   showChangePasswordModal.value = true
   changePasswordForm.currentPassword = ''
   changePasswordForm.newPassword = ''
@@ -327,7 +301,7 @@ const handleLogin = async () => {
   loginError.value = ''
 
   const result = await login(loginForm.email, loginForm.password)
-  
+
   if (result.success) {
     showLoginModal.value = false
     loginForm.email = ''
@@ -335,7 +309,7 @@ const handleLogin = async () => {
   } else {
     loginError.value = result.message
   }
-  
+
   isSubmitting.value = false
 }
 
@@ -372,40 +346,40 @@ const handleRegister = async () => {
     try {
       const response = await $fetch('/api/auth/register', {
         method: 'POST',
-        body: { 
+        body: {
           name: passwordForm.name,
-          email: passwordForm.email, 
-          password: passwordForm.password 
+          email: passwordForm.email,
+          password: passwordForm.password
         }
       })
       result = { success: response.success, message: response.message }
     } catch (apiError: any) {
-      result = { 
-        success: false, 
-        message: apiError.data?.message || apiError.message || 'Registration failed' 
+      result = {
+        success: false,
+        message: apiError.data?.message || apiError.message || 'Registration failed'
       }
     }
   }
-  
+
   if (result.success) {
     showPasswordModal.value = false
-    
+
     // Save credentials before clearing form
     const email = passwordForm.email
     const password = passwordForm.password
-    
+
     // Clear form
     passwordForm.name = ''
     passwordForm.email = ''
     passwordForm.password = ''
     passwordForm.confirmPassword = ''
-    
+
     // Automatically try to login with saved credentials
     await login(email, password)
   } else {
     passwordError.value = result.message
   }
-  
+
   isSubmitting.value = false
 }
 
@@ -449,7 +423,7 @@ const handleChangePassword = async () => {
     }
   } catch (error: any) {
     const errorMessage = error.data?.message || error.message || 'Failed to change password'
-    
+
     if (error.status === 401) {
       changePasswordError.value = 'Your session has expired. Please log in again.'
       // Auto-logout on auth failure
@@ -571,6 +545,56 @@ onUnmounted(() => {
 
 .main-content {
   padding: 0;
+}
+
+/* Footer Styles */
+.footer {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem;
+  text-align: center;
+  margin-top: auto;
+}
+
+.footer p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.footer-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.tech-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tech-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.claude-icon {
+  color: #f97316;
+}
+
+.nuxt-icon {
+  color: #00dc82;
+}
+
+.vueflow-icon {
+  color: #3b82f6;
 }
 
 /* User Selector Styles */
@@ -847,35 +871,41 @@ onUnmounted(() => {
     gap: 1rem;
     padding: 1rem;
   }
-  
+
   .nav-links {
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.25rem;
   }
-  
+
   .nav-link {
     padding: 0.25rem 1rem;
     font-size: 0.875rem;
   }
-  
+
   .user-selector {
     margin-left: 0;
     margin-top: 0.5rem;
   }
-  
+
   .user-dropdown {
     right: auto;
     left: 50%;
     transform: translateX(-50%);
   }
-  
+
   .modal-content {
     width: 95%;
   }
-  
+
   .form-actions {
     flex-direction: column;
+  }
+
+  .footer-text {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
   }
 }
 </style>

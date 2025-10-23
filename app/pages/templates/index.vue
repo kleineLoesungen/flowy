@@ -66,7 +66,7 @@ import FlowTemplatesOverview from '~/components/Flow/TemplatesOverview.vue'
 
 // Page metadata
 useHead({
-    title: 'Flow Templates'
+    title: 'flowy | Templates'
 })
 
 // Reactive data

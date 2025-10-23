@@ -513,15 +513,22 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   })
 
   relations.forEach(rel => {
-    rel.fromElementIds.forEach((fromId: string) => {
-      rel.toElementIds.forEach((toId: string) => {
+    // Handle both new and legacy relation formats
+    if (rel.connections && rel.connections.length > 0) {
+      // New format with connections
+      rel.connections.forEach(connection => {
+        const fromId = connection.fromElementId
+        const toId = connection.toElementId
         if (nodeMap.has(fromId) && nodeMap.has(toId)) {
           const outgoing = outgoingEdges.get(fromId) || []
           outgoing.push(toId)
           outgoingEdges.set(fromId, outgoing)
         }
       })
-    })
+    } else {
+      // No connections available - skip this relation
+      console.warn('Relation without connections found:', rel)
+    }
   })
 
   // Calculate distance from end for each node (convergence-aware layout)
@@ -579,11 +586,19 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
 
   // Check if we have saved layout positions
   const savedLayout = template.layout
+  console.log('[DEBUG] Template layout loading:', {
+    templateName: template.name,
+    hasLayout: !!savedLayout,
+    layoutKeys: savedLayout ? Object.keys(savedLayout) : [],
+    layout: savedLayout
+  })
 
   if (savedLayout) {
     // Use saved positions
+    console.log('[DEBUG] Using saved layout positions')
     elements.forEach(element => {
       const savedPosition = savedLayout[element.id]
+      console.log(`[DEBUG] Element ${element.id}: savedPosition =`, savedPosition)
       elementNodes.push({
         id: element.id,
         type: 'element',
@@ -631,29 +646,29 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   const elementIds = new Set(elements.map(el => el.id))
 
   template.relations.forEach(relation => {
-    relation.fromElementIds.forEach((fromId: string) => {
-      relation.toElementIds.forEach((toId: string) => {
+    // Handle both new and legacy relation formats
+    if (relation.connections && relation.connections.length > 0) {
+      // New format with connections
+      relation.connections.forEach(connection => {
+        const fromId = connection.fromElementId
+        const toId = connection.toElementId
+        
         // Only create edges for elements that actually exist
         if (elementIds.has(fromId) && elementIds.has(toId)) {
           // Determine appropriate handles based on relation type and node types
           const sourceElement = nodeMap.get(fromId)
           const targetElement = nodeMap.get(toId)
-          const sourceType = sourceElement?.type || 'action'
-          const targetType = targetElement?.type || 'action'
 
           // Use default handles
           let sourceHandle = 'bottom-source'
           let targetHandle = 'top-target'
 
-          // Check if we have saved handle information
-          if (relation.connections) {
-            const connection = relation.connections.find(
-              conn => conn.fromElementId === fromId && conn.toElementId === toId
-            )
-            if (connection) {
-              sourceHandle = connection.sourceHandle || sourceHandle
-              targetHandle = connection.targetHandle || targetHandle
-            }
+          // Check if we have saved handle information from the connection
+          if (connection.sourceHandle) {
+            sourceHandle = connection.sourceHandle
+          }
+          if (connection.targetHandle) {
+            targetHandle = connection.targetHandle
           }
 
           relationEdges.push({
@@ -683,7 +698,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
           })
         }
       })
-    })
+    }
   })
 
   // Update reactive data
@@ -880,31 +895,33 @@ const reorganizeLayout = () => {
   relations.forEach(rel => {
     if (rel.type === 'or' || rel.type === 'and') {
       // OR/AND relations create horizontal groups
-      const groupKey = `${rel.type}-${rel.fromElementIds.join('-')}-${rel.toElementIds.join('-')}`
+      const fromIds = [...new Set(rel.connections.map((c: any) => c.fromElementId as string))]
+      const toIds = [...new Set(rel.connections.map((c: any) => c.toElementId as string))]
+      const groupKey = `${rel.type}-${fromIds.join('-')}-${toIds.join('-')}`
       horizontalGroups.set(groupKey, {
-        nodes: [...rel.fromElementIds, ...rel.toElementIds],
+        nodes: [...fromIds, ...toIds] as string[],
         type: rel.type
       })
     } else {
       // Flow relations create vertical connections (top to bottom)
-      rel.fromElementIds.forEach((fromId: string) => {
-        rel.toElementIds.forEach((toId: string) => {
-          if (nodeMap.has(fromId) && nodeMap.has(toId)) {
-            // Check connection handles to determine direction
-            const connectionKey = `${fromId}-${toId}`
-            const connection = connectionInfo.get(connectionKey)
+      rel.connections.forEach((connection: any) => {
+        const fromId = connection.fromElementId
+        const toId = connection.toElementId
+        if (nodeMap.has(fromId) && nodeMap.has(toId)) {
+          // Check connection handles to determine direction
+          const connectionKey = `${fromId}-${toId}`
+          const connectionData = connectionInfo.get(connectionKey)
 
-            // If source uses bottom handle or target uses top handle, it's vertical flow
-            if (connection &&
-              (connection.sourceHandle.includes('bottom') ||
-                connection.targetHandle.includes('top'))) {
+          // If source uses bottom handle or target uses top handle, it's vertical flow
+          if (connectionData &&
+              (connectionData.sourceHandle.includes('bottom') ||
+                connectionData.targetHandle.includes('top'))) {
               const outgoing = verticalFlow.get(fromId) || []
               outgoing.push(toId)
               verticalFlow.set(fromId, outgoing)
             }
           }
         })
-      })
     }
   })
 

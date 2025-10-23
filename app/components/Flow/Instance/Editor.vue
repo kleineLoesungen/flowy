@@ -1,7 +1,7 @@
 <template>
   <div class="flow-editor">
     <div class="editor-header">
-      <h3>{{ isEditing ? 'Edit Template' : 'Add Template' }}</h3>
+      <h3>{{ isEditing ? 'Edit Flow' : 'Add Flow' }}</h3>
       <div class="header-controls">
         <button @click="addElement" class="btn btn-primary">
           + Element
@@ -12,7 +12,7 @@
         <button @click="reorganizeLayout" class="btn btn-info">
           Auto Layout
         </button>
-        <button v-if="hasChanges" @click="saveTemplate" class="btn btn-success">
+        <button v-if="hasChanges" @click="saveFlow" class="btn btn-success">
           Save
         </button>
         <button v-if="hasChanges" @click="resetChanges" class="btn btn-warning">
@@ -29,12 +29,12 @@
       <div class="info-row">
         <div class="form-group">
           <label for="flow-name">Flow Name</label>
-          <input id="flow-name" v-model="templateData.name" type="text" required placeholder="Enter flow name"
+          <input id="flow-name" v-model="flowData.name" type="text" required placeholder="Enter flow name"
             class="form-control" />
         </div>
         <div class="form-group">
           <label for="flow-description">Description</label>
-          <textarea id="flow-description" v-model="templateData.description" placeholder="Enter flow description"
+          <textarea id="flow-description" v-model="flowData.description" placeholder="Enter flow description"
             class="form-control textarea-compact" rows="2"></textarea>
         </div>
         <div class="form-group">
@@ -44,7 +44,7 @@
               Add elements first, then select starting element.
             </div>
             <div v-else class="single-select-wrapper">
-              <select v-model="templateData.startingElementId" class="form-control">
+              <select v-model="flowData.startingElementId" class="form-control">
                 <option value="">Select starting element...</option>
                 <option v-for="node in nodes" :key="node.id" :value="node.id">
                   {{ node.data.name || 'Unnamed Element' }}
@@ -52,6 +52,15 @@
               </select>
             </div>
           </div>
+        </div>
+        <div class="form-group">
+          <label class="toggle-label" title="Only team members assigned to elements can see this flow. Admins can always see all flows.">
+            Private Flow
+            <div class="toggle-switch">
+              <input type="checkbox" v-model="flowData.hidden" class="toggle-input" />
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
         </div>
       </div>
     </div>
@@ -83,61 +92,64 @@
         <!-- Custom Element Node -->
         <template #node-element="{ data, id }">
           <div class="element-node" :class="`element-${data.type || 'action'}`"
-            :key="`node-${id}-${data.name}-${data.description}-${data.durationDays}-${(data.consultedTeamIds || []).length}`">
+            :key="`node-${id}-${data.name}-${data.description}-${data.status}-${(data.consultedTeamIds || []).length}`">
             <div class="node-header">
-              <div class="element-icon">
-                <svg v-if="data.type === 'action'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M13 10h5l-6 6-6-6h5V3h2v7z" />
-                </svg>
-                <svg v-else-if="data.type === 'state'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-                </svg>
-                <svg v-else width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-                  <path
-                    d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-                </svg>
+              <div class="element-icon-container">
+                <div class="element-icon">
+                  <svg v-if="data.type === 'action'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13 10h5l-6 6-6-6h5V3h2v7z" />
+                  </svg>
+                  <svg v-else-if="data.type === 'state'" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                  </svg>
+                  <svg v-else width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                      d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                  </svg>
+                </div>
+                <div v-if="data.expectedEndedAt && data.type === 'action'" class="expected-end-date">
+                  {{ formatExpectedEndDate(data.expectedEndedAt) }}
+                </div>
               </div>
               <div class="element-info">
                 <h4>{{ data.name || 'Unnamed Element' }}</h4>
                 <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
                 <div class="element-meta">
-                  <span v-if="data.type" class="type-tag" :class="'type-' + data.type">
-                    <svg v-if="data.type === 'action'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M13 10h5l-6 6-6-6h5V3h2v7z" />
-                    </svg>
-                    <svg v-else-if="data.type === 'state'" width="12" height="12" fill="currentColor"
-                      viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-                    </svg>
-                    <svg v-else width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" />
-                    </svg>
-                    {{ data.type }}
-                  </span>
-                  <span v-if="data.ownerTeamId" class="team-tag">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor"
-                      viewBox="0 0 16 16">
-                      <path
-                        d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
-                    </svg>
-                    {{ getTeamName(data.ownerTeamId) }}
-                  </span>
-                  <span v-if="data.durationDays" class="duration">
+                  <!-- Comment count -->
+                  <span v-if="data.comments && data.comments.length > 0" class="meta-item comment-count">
                     <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
-                      <path
-                        d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
-                      <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                      <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
                     </svg>
-                    {{ data.durationDays }} day{{ data.durationDays === 1 ? '' : 's' }}
+                    {{ data.comments.length }}
                   </span>
-                  <span v-if="data.consultedTeamIds && data.consultedTeamIds.length > 0" class="consulted-teams">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor"
-                      viewBox="0 0 16 16">
-                      <path
-                        d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
+                  <!-- Status for actions -->
+                  <span v-if="data.status && data.type === 'action'" class="meta-item status-icon" :class="`status-${data.status}`">
+                    <svg v-if="data.status === 'pending'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    {{ data.consultedTeamIds.length }} teams
+                    <svg v-else-if="data.status === 'in-progress'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <svg v-else-if="data.status === 'completed'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <svg v-else-if="data.status === 'aborted'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </span>
+                  <!-- Owner icon -->
+                  <span v-if="data.ownerTeamId" class="meta-item owner-icon">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
+                    </svg>
+                  </span>
+                  <!-- Consulted users count -->
+                  <span v-if="data.consultedTeamIds && data.consultedTeamIds.length > 0" class="meta-item consulted-count">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
+                    </svg>
+                    {{ data.consultedTeamIds.length }}
                   </span>
                 </div>
               </div>
@@ -227,31 +239,51 @@ import { StraightEdge } from '@vue-flow/core'
 import type { Node, Edge, Connection, NodeChange, EdgeChange, XYPosition } from '@vue-flow/core'
 import type { FlowTemplate } from '../../../../types/FlowTemplate'
 import type { ElementTemplate } from '../../../../types/ElementTemplate'
+import type { Flow } from '../../../../types/Flow'
+import type { Element } from '../../../../types/Element'
 import type { Relation } from '../../../../types/Relation'
 import type { User } from '../../../../types/User'
 import type { Team } from '../../../../types/Team'
+import { useRelations } from '../../../composables/useRelations'
 
 // Props and emits
 const props = defineProps<{
-  template?: FlowTemplate | null
+  flow?: Flow | null
   isEditing: boolean
 }>()
 
 const emit = defineEmits<{
-  save: [template: FlowTemplate]
+  save: [flow: Flow]
   cancel: []
 }>()
 
 // Reactive state
-const templateData = ref<{ name: string, description: string, startingElementId: string }>({
+const flowData = ref<{ 
+  name: string, 
+  description: string, 
+  startingElementId: string,
+  templateId: string,
+  startedAt: string | null,
+  expectedEndDate: string | null,
+  completedAt: string | null,
+  hidden: boolean
+}>({
   name: '',
   description: '',
-  startingElementId: ''
+  startingElementId: '',
+  templateId: '',
+  startedAt: null,
+  expectedEndDate: null,
+  completedAt: null,
+  hidden: false
 })
 
 const nodes = ref<Node[]>([])
 const edges = ref<Edge[]>([])
 const nodeCounter = ref(0)
+
+// Initialize relations composable
+const { getFromElementIds, getToElementIds } = useRelations()
 
 // Vue Flow instance
 const { fitView, getViewport, setViewport } = useVueFlow()
@@ -264,7 +296,16 @@ const shouldRestoreViewport = computed(() => {
 
 // Change tracking state
 const initialState = ref<{
-  templateData: { name: string, description: string, startingElementId: string },
+  flowData: { 
+    name: string, 
+    description: string, 
+    startingElementId: string,
+    templateId: string,
+    startedAt: string | null,
+    expectedEndDate: string | null,
+    completedAt: string | null,
+    hidden: boolean
+  },
   nodes: Node[],
   edges: Edge[]
 } | null>(null)
@@ -272,13 +313,18 @@ const initialState = ref<{
 const hasChanges = computed(() => {
   if (!initialState.value) return false
 
-  // Check template data changes
-  const currentTemplateData = templateData.value
-  const initialTemplateData = initialState.value.templateData
+  // Check flow data changes
+  const currentFlowData = flowData.value
+  const initialFlowData = initialState.value.flowData
 
-  if (currentTemplateData.name !== initialTemplateData.name ||
-    currentTemplateData.description !== initialTemplateData.description ||
-    currentTemplateData.startingElementId !== initialTemplateData.startingElementId) {
+  if (currentFlowData.name !== initialFlowData.name ||
+    currentFlowData.description !== initialFlowData.description ||
+    currentFlowData.startingElementId !== initialFlowData.startingElementId ||
+    currentFlowData.templateId !== initialFlowData.templateId ||
+    currentFlowData.startedAt !== initialFlowData.startedAt ||
+    currentFlowData.expectedEndDate !== initialFlowData.expectedEndDate ||
+    currentFlowData.completedAt !== initialFlowData.completedAt ||
+    currentFlowData.hidden !== initialFlowData.hidden) {
     return true
   }
 
@@ -396,6 +442,14 @@ const getTeamName = (teamId: string | null): string => {
   return team?.name || `Team ${teamId}`
 }
 
+const formatExpectedEndDate = (timestamp: string | null): string => {
+  if (!timestamp) return 'Not set'
+  const date = new Date(timestamp)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${day}.${month}.`
+}
+
 
 // Helper lines logic - using fixed node dimensions
 const getHelperLines = (change: NodeChange, nodes: Node[]): { horizontal?: number; vertical?: number } => {
@@ -493,14 +547,14 @@ const generateId = (): string => {
 }
 
 // Load existing flow into the visual editor
-const loadTemplateIntoEditor = (template: FlowTemplate) => {
+const loadFlowIntoEditor = (flow: Flow) => {
   // Clear existing data first
   nodes.value = []
   edges.value = []
 
   // Convert elements to nodes using smart layout algorithm (same as FlowVisualizationModal)
-  const elements = template.elements
-  const relations = template.relations || []
+  const elements = flow.elements
+  const relations = flow.relations || []
 
   // Create a map for quick element lookup
   const nodeMap = new Map(elements.map(el => [el.id, el]))
@@ -513,8 +567,11 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   })
 
   relations.forEach(rel => {
-    rel.fromElementIds.forEach((fromId: string) => {
-      rel.toElementIds.forEach((toId: string) => {
+    const fromIds = getFromElementIds(rel)
+    const toIds = getToElementIds(rel)
+    
+    fromIds.forEach((fromId: string) => {
+      toIds.forEach((toId: string) => {
         if (nodeMap.has(fromId) && nodeMap.has(toId)) {
           const outgoing = outgoingEdges.get(fromId) || []
           outgoing.push(toId)
@@ -578,7 +635,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   const elementNodes: Node[] = []
 
   // Check if we have saved layout positions
-  const savedLayout = template.layout
+  const savedLayout = flow.layout
 
   if (savedLayout) {
     // Use saved positions
@@ -593,7 +650,6 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
         data: {
           ...element,
           type: element.type || 'action',
-          durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays,
           consultedTeamIds: element.consultedTeamIds || []
         }
       })
@@ -617,7 +673,6 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
             },
             data: {
               ...element,
-              durationDays: (element.type === 'state' || element.type === 'artefact') ? null : element.durationDays,
               consultedTeamIds: element.consultedTeamIds || []
             }
           })
@@ -630,9 +685,12 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   const relationEdges: Edge[] = []
   const elementIds = new Set(elements.map(el => el.id))
 
-  template.relations.forEach(relation => {
-    relation.fromElementIds.forEach((fromId: string) => {
-      relation.toElementIds.forEach((toId: string) => {
+  flow.relations.forEach((relation: Relation) => {
+    const fromIds = getFromElementIds(relation)
+    const toIds = getToElementIds(relation)
+    
+    fromIds.forEach((fromId: string) => {
+      toIds.forEach((toId: string) => {
         // Only create edges for elements that actually exist
         if (elementIds.has(fromId) && elementIds.has(toId)) {
           // Determine appropriate handles based on relation type and node types
@@ -648,7 +706,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
           // Check if we have saved handle information
           if (relation.connections) {
             const connection = relation.connections.find(
-              conn => conn.fromElementId === fromId && conn.toElementId === toId
+              (conn: any) => conn.fromElementId === fromId && conn.toElementId === toId
             )
             if (connection) {
               sourceHandle = connection.sourceHandle || sourceHandle
@@ -690,7 +748,7 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
   nextTick(() => {
     nodes.value = elementNodes
     edges.value = relationEdges
-    nodeCounter.value = template.elements.length
+    nodeCounter.value = flow.elements.length
 
     // Only fit view if viewport parameters are not in the URL (will be restored later)
     if (!shouldRestoreViewport.value) {
@@ -720,18 +778,23 @@ const getEdgeStyle = (type: string) => {
 }
 
 // Initialize data when props change
-watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) => {
-  if (template && isEditing) {
-    templateData.value.name = template.name
-    templateData.value.description = template.description
-    templateData.value.startingElementId = template.startingElementId || ''
-    loadTemplateIntoEditor(template)
+watch(() => [props.flow, props.isEditing] as const, ([flow, isEditing]) => {
+  if (flow && isEditing) {
+    flowData.value.name = flow.name
+    flowData.value.description = flow.description || ''
+    flowData.value.startingElementId = flow.startingElementId || ''
+    flowData.value.templateId = flow.templateId || ''
+    flowData.value.startedAt = flow.startedAt
+    flowData.value.expectedEndDate = flow.expectedEndDate
+    flowData.value.completedAt = flow.completedAt
+    flowData.value.hidden = flow.hidden || false
+    loadFlowIntoEditor(flow)
 
     // Save initial state after loading is complete
     nextTick(() => {
       saveInitialState()
 
-      // Restore viewport from URL parameters if present (after template is loaded)
+      // Restore viewport from URL parameters if present (after flow is loaded)
       if (shouldRestoreViewport.value) {
         const x = route.query.x as string
         const y = route.query.y as string
@@ -752,18 +815,22 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
           delete newQuery.y
           delete newQuery.zoom
           router.replace({ query: newQuery })
-        }, 50) // Small delay to ensure template is rendered
+        }, 50) // Small delay to ensure flow is rendered
       }
     })
   } else {
-    templateData.value.name = ''
-    templateData.value.description = ''
-    templateData.value.startingElementId = ''
+    flowData.value.name = ''
+    flowData.value.description = ''
+    flowData.value.startingElementId = ''
+    flowData.value.templateId = ''
+    flowData.value.startedAt = null
+    flowData.value.expectedEndDate = null
+    flowData.value.completedAt = null
     nodes.value = []
     edges.value = []
     nodeCounter.value = 0
 
-    // Save initial state for new templates
+    // Save initial state for new flows
     nextTick(() => {
       saveInitialState()
     })
@@ -779,14 +846,14 @@ const getElementName = (elementId: string): string => {
 // Add new element node
 const addElement = async () => {
   // Navigate to the new element page
-  if (props.template?.id) {
+  if (props.flow?.id) {
     const router = useRouter()
     
     // Get current viewport state from Vue Flow
     const viewport = getViewport()
     
     await router.push({
-      path: `/templates/${props.template.id}/edit/elements/new`,
+      path: `/flows/${props.flow.id}/edit/elements/new`,
       query: {
         // Preserve current viewport state
         x: viewport.x.toString(),
@@ -917,10 +984,10 @@ const reorganizeLayout = () => {
     const queue: Array<{ nodeId: string, level: number }> = []
 
     // Add starting element at level 0
-    if (templateData.value.startingElementId && nodeMap.has(templateData.value.startingElementId)) {
-      levels.set(templateData.value.startingElementId, 0)
-      processed.add(templateData.value.startingElementId)
-      queue.push({ nodeId: templateData.value.startingElementId, level: 0 })
+    if (flowData.value.startingElementId && nodeMap.has(flowData.value.startingElementId)) {
+      levels.set(flowData.value.startingElementId, 0)
+      processed.add(flowData.value.startingElementId)
+      queue.push({ nodeId: flowData.value.startingElementId, level: 0 })
     }
 
     // If no starting elements defined, find elements with no incoming flow relations
@@ -1202,14 +1269,14 @@ const fitToView = () => {
 // Node editing functions
 const editNode = async (nodeId: string) => {
   // Navigate to the element edit page
-  if (props.template?.id && nodeId) {
+  if (props.flow?.id && nodeId) {
     const router = useRouter()
     
     // Get current viewport state from Vue Flow
     const viewport = getViewport()
     
     await router.push({
-      path: `/templates/${props.template.id}/edit/elements/${nodeId}`,
+      path: `/flows/${props.flow.id}/edit/elements/${nodeId}`,
       query: {
         // Preserve current viewport state
         x: viewport.x.toString(),
@@ -1392,10 +1459,15 @@ const onEdgeDoubleClick = (event: any) => {
 // Change tracking functions
 const saveInitialState = () => {
   initialState.value = {
-    templateData: {
-      name: templateData.value.name,
-      description: templateData.value.description,
-      startingElementId: templateData.value.startingElementId
+    flowData: {
+      name: flowData.value.name,
+      description: flowData.value.description,
+      startingElementId: flowData.value.startingElementId,
+      templateId: flowData.value.templateId,
+      startedAt: flowData.value.startedAt,
+      expectedEndDate: flowData.value.expectedEndDate,
+      completedAt: flowData.value.completedAt,
+      hidden: flowData.value.hidden
     },
     nodes: nodes.value.map(node => ({
       ...node,
@@ -1412,10 +1484,14 @@ const saveInitialState = () => {
 const resetChanges = () => {
   if (!initialState.value) return
 
-  // Reset template data
-  templateData.value.name = initialState.value.templateData.name
-  templateData.value.description = initialState.value.templateData.description
-  templateData.value.startingElementId = initialState.value.templateData.startingElementId
+  // Reset flow data
+  flowData.value.name = initialState.value.flowData.name
+  flowData.value.description = initialState.value.flowData.description
+  flowData.value.startingElementId = initialState.value.flowData.startingElementId
+  flowData.value.templateId = initialState.value.flowData.templateId
+  flowData.value.startedAt = initialState.value.flowData.startedAt
+  flowData.value.expectedEndDate = initialState.value.flowData.expectedEndDate
+  flowData.value.completedAt = initialState.value.flowData.completedAt
 
   // Reset nodes and edges
   nodes.value = initialState.value.nodes.map(node => ({
@@ -1434,20 +1510,23 @@ const resetChanges = () => {
 
 // No cleanup needed for simple select dropdown
 
-// Convert visual editor data back to template format
-const convertToTemplate = (): FlowTemplate => {
+// Convert visual editor data back to flow format
+const convertToFlow = (): Flow => {
   // Convert nodes back to elements
   // IMPORTANT: Use node.id consistently since that's what edges reference
-  const elements: ElementTemplate[] = reactiveNodes.value.map(node => {
+  const elements: Element[] = reactiveNodes.value.map(node => {
     const elementType = node.data.type || 'action'
     return {
       id: node.id, // Always use node.id to match edge references
       name: node.data.name || '',
       description: node.data.description || '',
       ownerTeamId: node.data.ownerTeamId || null,
-      durationDays: (elementType === 'state' || elementType === 'artefact') ? null : (node.data.durationDays || null),
+      consultedTeamIds: node.data.consultedTeamIds || [],
+      completedAt: node.data.completedAt || null,
+      expectedEndedAt: node.data.expectedEndedAt || null,
       type: elementType,
-      consultedTeamIds: node.data.consultedTeamIds || []
+      status: node.data.status || 'pending',
+      comments: node.data.comments || []
     }
   })
 
@@ -1505,29 +1584,34 @@ const convertToTemplate = (): FlowTemplate => {
     }
   })
 
-  const template = {
-    id: props.template?.id || generateId(),
-    name: templateData.value.name,
-    description: templateData.value.description,
+  const flow = {
+    id: props.flow?.id || generateId(),
+    name: flowData.value.name,
+    description: flowData.value.description,
+    templateId: flowData.value.templateId,
     elements,
     relations,
-    startingElementId: templateData.value.startingElementId,
+    startingElementId: flowData.value.startingElementId,
+    startedAt: flowData.value.startedAt,
+    expectedEndDate: flowData.value.expectedEndDate,
+    completedAt: flowData.value.completedAt,
+    hidden: flowData.value.hidden,
     layout
   }
 
-  return template
+  return flow
 }
 
 // Save flow
-const saveTemplate = () => {
-  if (!templateData.value.name.trim()) {
+const saveFlow = () => {
+  if (!flowData.value.name.trim()) {
     alert('Please enter a flow name in the field above')
     return
   }
 
   try {
-    const template = convertToTemplate()
-    emit('save', template)
+    const flow = convertToFlow()
+    emit('save', flow)
 
     // Update initial state to reflect saved state
     nextTick(() => {
@@ -1628,6 +1712,83 @@ const saveTemplate = () => {
   min-height: 60px;
   max-height: 80px;
   line-height: 1.4;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.toggle-label:hover {
+  background: rgba(102, 126, 234, 0.05);
+  border-color: rgba(102, 126, 234, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #cbd5e1;
+  border-radius: 24px;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-input:checked + .toggle-slider {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: rgba(102, 126, 234, 0.3);
+}
+
+.toggle-input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.toggle-slider:hover {
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
 }
 
 .layout-info {
@@ -1999,6 +2160,23 @@ const saveTemplate = () => {
   gap: 0.75rem;
 }
 
+.element-icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.expected-end-date {
+  font-size: 0.65rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1;
+  opacity: 0.8;
+}
+
 .element-icon {
   width: 40px;
   height: 40px;
@@ -2053,9 +2231,64 @@ const saveTemplate = () => {
 
 .element-meta {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 0.25rem;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.comment-count {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.status-icon.status-pending {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.status-icon.status-in-progress {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.status-icon.status-completed {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.1) 100%);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.status-icon.status-aborted {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.owner-icon {
+  background: rgba(168, 85, 247, 0.1);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.consulted-count {
+  background: rgba(168, 85, 247, 0.1);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.2);
 }
 
 .owner-tag,

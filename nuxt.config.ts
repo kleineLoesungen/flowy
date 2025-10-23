@@ -9,6 +9,11 @@ export default defineNuxtConfig({
     '@vue-flow/core/dist/style.css',
     '@vue-flow/core/dist/theme-default.css'
   ],
+  app: {
+    head: {
+      title: 'flowy'
+    }
+  },
   runtimeConfig: {
     jwtSecret: process.env.JWT_SECRET || 'development-secret-key-change-in-production',
     public: {

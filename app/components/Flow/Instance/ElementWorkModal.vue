@@ -5,7 +5,7 @@
       <div class="modal-content" @click="handleModalClick">
         <!-- Modal Header -->
         <div class="modal-header">
-          <h2>Work on {{ originalElementData.type?.charAt(0).toUpperCase() + originalElementData.type?.slice(1) || 'Element' }}</h2>
+          <h2>{{ isReadOnly ? 'View' : 'Work on' }} {{ originalElementData.type?.charAt(0).toUpperCase() + originalElementData.type?.slice(1) || 'Element' }}{{ isReadOnly ? ' (Read Only)' : '' }}</h2>
           <button @click="handleClose" class="close-button">
             <span class="close-icon">×</span>
           </button>
@@ -63,9 +63,9 @@
               <div v-if="elementData.type === 'action'" class="status-controls" @click.stop>
                 <!-- Main Status Button -->
                 <button 
-                  @click.stop="canModifyStatus ? (elementData.status === 'completed' || elementData.status === 'aborted' ? toggleStatusDropdown() : toggleStatus()) : null"
+                  @click.stop="canEditStatus ? (elementData.status === 'completed' || elementData.status === 'aborted' ? toggleStatusDropdown() : toggleStatus()) : null"
                   class="status-btn"
-                  :class="[`status-${elementData.status}`, { 'has-changes': elementData.status !== originalElementData.status, 'disabled': !canModifyStatus }]"
+                  :class="[`status-${elementData.status}`, { 'has-changes': elementData.status !== originalElementData.status, 'disabled': !canEditStatus }]"
                 >
                   <span class="status-icon">
                     <svg v-if="elementData.status === 'pending'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,7 +90,7 @@
 
                 <!-- Status Dropdown for completed/aborted -->
                 <div v-show="statusDropdownOpen && (elementData.status === 'completed' || elementData.status === 'aborted')" class="status-dropdown">
-                  <div v-if="canModifyStatus" class="status-dropdown-header">Change Status</div>
+                  <div v-if="canEditStatus" class="status-dropdown-header">Change Status</div>
                   <div v-else class="status-dropdown-restricted">
                     <div class="restricted-header">
                       <svg class="lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,11 +149,11 @@
               
               <!-- Comment Input (moved to top) -->
               <div class="chat-input-section" @click.stop>
-                <div v-if="!currentUser" class="chat-disabled">
+                <div v-if="!canAddComments" class="chat-disabled">
                   <svg class="warning-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                   </svg>
-                  <span>Please select a user in the navigation to comment</span>
+                  <span>{{ isReadOnly ? 'Comments are read-only for completed flows' : 'Please select a user in the navigation to comment' }}</span>
                 </div>
                 
                 <div v-else class="chat-input-container">
@@ -171,7 +171,7 @@
                   ></textarea>
                   <div class="send-button-group">
                     <button
-                      v-if="canCompleteOrAbort"
+                      v-if="canCompleteOrAbortReadOnly"
                       @click="toggleSendMode"
                       class="send-mode-btn"
                       type="button"
@@ -193,7 +193,7 @@
                       :disabled="!newComment.trim()"
                       class="send-btn"
                       type="button"
-                      :class="canCompleteOrAbort ? `action-${sendMode}` : 'action-send'"
+                      :class="canCompleteOrAbortReadOnly ? `action-${sendMode}` : 'action-send'"
                     >
                       <svg v-if="sendMode === 'send'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
@@ -264,7 +264,7 @@
         <div class="modal-footer" @click.stop>
           <div class="footer-left">
             <button 
-              v-if="!isNewElement && hasPendingChanges" 
+              v-if="!isNewElement && hasPendingChanges && canEditElement" 
               @click.stop="resetChanges" 
               type="button" 
               class="btn btn-reset"
@@ -274,9 +274,9 @@
           </div>
           <div class="footer-right">
             <button @click.stop="handleClose" type="button" class="btn btn-secondary">
-              Cancel
+              {{ isReadOnly ? 'Close' : 'Cancel' }}
             </button>
-            <button @click.stop="handleSave" type="button" class="btn btn-primary" :disabled="!isNewElement && !hasPendingChanges">
+            <button v-if="canEditElement" @click.stop="handleSave" type="button" class="btn btn-primary" :disabled="!isNewElement && !hasPendingChanges">
               {{ isNewElement ? 'Create Element' : (hasPendingChanges ? 'Save Changes' : 'No Changes') }}
             </button>
           </div>
@@ -293,6 +293,7 @@ import type { ElementComment } from '../../../../types/Element'
 interface Props {
   element?: any | null
   isNewElement?: boolean
+  isFlowCompleted?: boolean
 }
 
 interface Emits {
@@ -302,7 +303,8 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   element: null,
-  isNewElement: false
+  isNewElement: false,
+  isFlowCompleted: false
 })
 
 const emit = defineEmits<Emits>()
@@ -447,7 +449,29 @@ const canCompleteOrAbort = computed(() => {
 
 // Check if current user can delete comments (same permissions as modify status)
 const canDeleteComments = computed(() => {
-  return canModifyStatus.value
+  return canModifyStatus.value && !props.isFlowCompleted
+})
+
+// Check if the modal should be read-only (flow is completed)
+const isReadOnly = computed(() => {
+  return props.isFlowCompleted
+})
+
+// Disable all editing capabilities when flow is completed
+const canEditElement = computed(() => {
+  return !props.isFlowCompleted
+})
+
+const canEditStatus = computed(() => {
+  return canModifyStatus.value && !props.isFlowCompleted
+})
+
+const canAddComments = computed(() => {
+  return !props.isFlowCompleted && currentUser.value
+})
+
+const canCompleteOrAbortReadOnly = computed(() => {
+  return canCompleteOrAbort.value && !props.isFlowCompleted
 })
 
 const filteredElementStatuses = computed(() => {
@@ -487,7 +511,7 @@ const chatInput = ref<HTMLTextAreaElement | null>(null)
 const sendMode = ref<'send' | 'complete' | 'abort'>('send')
 
 // Watch for permission changes and reset send mode if needed
-watch(canCompleteOrAbort, (newVal) => {
+watch(canCompleteOrAbortReadOnly, (newVal) => {
   if (!newVal && (sendMode.value === 'complete' || sendMode.value === 'abort')) {
     sendMode.value = 'send'
   }
@@ -802,7 +826,7 @@ const getTeamInitial = (team: any) => {
 }
 
 const getPlaceholderText = () => {
-  if (!canCompleteOrAbort.value) {
+  if (!canCompleteOrAbortReadOnly.value) {
     return 'Type your update...'
   }
   
@@ -817,8 +841,8 @@ const getPlaceholderText = () => {
 }
 
 const getSendModeTooltip = () => {
-  if (!canCompleteOrAbort.value && (sendMode.value === 'complete' || sendMode.value === 'abort')) {
-    return 'Restricted: Only owner or team members can complete/abort'
+  if (!canCompleteOrAbortReadOnly.value && (sendMode.value === 'complete' || sendMode.value === 'abort')) {
+    return isReadOnly.value ? 'Flow is completed - read only mode' : 'Restricted: Only owner or team members can complete/abort'
   }
   
   switch (sendMode.value) {
@@ -904,7 +928,7 @@ const autoResize = () => {
 }
 
 const toggleSendMode = () => {
-  if (!canCompleteOrAbort.value) {
+  if (!canCompleteOrAbortReadOnly.value) {
     // If user can't complete or abort, only allow send mode
     sendMode.value = 'send'
     return
@@ -979,7 +1003,7 @@ const handleSendAction = () => {
   if (sendMode.value === 'send') {
     // Regular comment
     elementData.value.comments.push(baseComment)
-  } else if (sendMode.value === 'complete' && canCompleteOrAbort.value) {
+  } else if (sendMode.value === 'complete' && canCompleteOrAbortReadOnly.value) {
     // Complete with comment (only if authorized)
     elementData.value.comments.push({
       ...baseComment,
@@ -992,7 +1016,7 @@ const handleSendAction = () => {
     nextTick(() => {
       handleSave()
     })
-  } else if (sendMode.value === 'abort' && canCompleteOrAbort.value) {
+  } else if (sendMode.value === 'abort' && canCompleteOrAbortReadOnly.value) {
     // Abort with comment (only if authorized)
     elementData.value.comments.push({
       ...baseComment,
@@ -1004,7 +1028,7 @@ const handleSendAction = () => {
     nextTick(() => {
       handleSave()
     })
-  } else if ((sendMode.value === 'complete' || sendMode.value === 'abort') && !canCompleteOrAbort.value) {
+  } else if ((sendMode.value === 'complete' || sendMode.value === 'abort') && !canCompleteOrAbortReadOnly.value) {
     // Unauthorized attempt - just send as regular comment with a note
     elementData.value.comments.push({
       ...baseComment,

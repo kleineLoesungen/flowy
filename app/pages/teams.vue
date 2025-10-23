@@ -156,8 +156,12 @@ import type { User } from '../../types/User'
 
 // Page metadata
 definePageMeta({
-  title: 'Team Management',
   middleware: 'admin'
+})
+
+// Set page title
+useHead({
+  title: 'flowy | Teams'
 })
 
 // Reactive state

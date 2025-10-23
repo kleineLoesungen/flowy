@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
 import type { UserWithPassword } from '../../types/UserWithPassword'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Get user from storage
-    const storage = useFileStorage()
+    const storage = useDatabaseStorage()
     const user = await storage.getItem(`users:${decoded.userId}`) as UserWithPassword
     
     if (!user) {

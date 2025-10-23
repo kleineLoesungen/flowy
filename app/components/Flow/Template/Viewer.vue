@@ -242,6 +242,7 @@ import type { FlowTemplate } from '../../../../types/FlowTemplate'
 import type { User } from '../../../../types/User'
 import type { Team } from '../../../../types/Team'
 import { calculateFlowDuration, formatDurationRange, getDurationLabel } from '../../../../utils/flowDurationCalculator'
+import { useRelations } from '../../../composables/useRelations'
 import * as htmlToImage from 'html-to-image'
 
 // Share dropdown state and methods
@@ -281,11 +282,15 @@ const downloadCsv = () => {
   const successorsTypeMap = new Map()
   if (props.template.relations) {
     props.template.relations.forEach(rel => {
-      rel.fromElementIds.forEach(fromId => {
+      const fromIds = getFromElementIds(rel)
+      const toIds = getToElementIds(rel)
+      
+      fromIds.forEach((fromId: string) => {
         // Successors for fromId
         if (!successorsMap.has(fromId)) successorsMap.set(fromId, [])
         if (!successorsTypeMap.has(fromId)) successorsTypeMap.set(fromId, [])
-        rel.toElementIds.forEach(toId => {
+        
+        toIds.forEach((toId: string) => {
           successorsMap.get(fromId).push(toId)
           successorsTypeMap.get(fromId).push(rel.type)
           // Predecessors for toId
@@ -333,8 +338,21 @@ const downloadCsv = () => {
 // PNG export using html-to-image with edge-optimized configuration
 const vueFlowRef = ref()
 async function downloadPng() {
-  // Find the Vue Flow container
-  const container = vueFlowRef.value?.$el?.closest('.vue-flow-container') || vueFlowRef.value?.$el
+  // Ensure VueFlow ref is available
+  if (!vueFlowRef.value) {
+    console.warn('VueFlow ref not available')
+    return
+  }
+  
+  // Find the Vue Flow container with better error handling
+  let container = null
+  try {
+    container = vueFlowRef.value?.$el?.closest('.vue-flow-container') || vueFlowRef.value?.$el
+  } catch (error) {
+    console.error('Error accessing VueFlow container:', error)
+    return
+  }
+  
   if (!container) {
     alert('Flow container not found!')
     return
@@ -439,6 +457,9 @@ const emit = defineEmits<{
 // Reactive state
 const nodes = ref<Node[]>([])
 const edges = ref<Edge[]>([])
+
+// Initialize relations composable
+const { getFromElementIds, getToElementIds } = useRelations()
 
 // Highlight state
 const selectedTeamId = ref<string | null>(null)
@@ -666,6 +687,11 @@ const loadTemplateIntoViewer = (template: FlowTemplate) => {
     return
   }
 
+  // Ensure relations exist before processing
+  if (!template.relations || template.relations.length === 0) {
+    console.warn('Template has no relations')
+  }
+
   // Convert elements to nodes using smart layout algorithm
   const elements = template.elements
   const relations = template.relations || []
@@ -681,8 +707,11 @@ const loadTemplateIntoViewer = (template: FlowTemplate) => {
   })
 
   relations.forEach(rel => {
-    rel.fromElementIds.forEach((fromId: string) => {
-      rel.toElementIds.forEach((toId: string) => {
+    const fromIds = getFromElementIds(rel)
+    const toIds = getToElementIds(rel)
+    
+    fromIds.forEach((fromId: string) => {
+      toIds.forEach((toId: string) => {
         if (nodeMap.has(fromId) && nodeMap.has(toId)) {
           const outgoing = outgoingEdges.get(fromId) || []
           outgoing.push(toId)
@@ -790,8 +819,11 @@ const loadTemplateIntoViewer = (template: FlowTemplate) => {
   const elementIds = new Set(elements.map(el => el.id))
 
   relations.forEach(relation => {
-    relation.fromElementIds.forEach((fromId: string) => {
-      relation.toElementIds.forEach((toId: string) => {
+    const fromIds = getFromElementIds(relation)
+    const toIds = getToElementIds(relation)
+    
+    fromIds.forEach((fromId: string) => {
+      toIds.forEach((toId: string) => {
         if (elementIds.has(fromId) && elementIds.has(toId)) {
           // Use default handles
           let sourceHandle = 'bottom-source'
@@ -840,18 +872,26 @@ const loadTemplateIntoViewer = (template: FlowTemplate) => {
 
   // Update reactive data
   nextTick(() => {
-    nodes.value = elementNodes
-    edges.value = relationEdges
+    try {
+      nodes.value = elementNodes
+      edges.value = relationEdges
 
-    // Fit view to show all elements after a short delay to ensure rendering is complete
-    setTimeout(() => {
-      fitView({
-        padding: 0.1, // 10% padding around elements
-        duration: 800, // smooth animation
-        maxZoom: 1.5,  // don't zoom in too much
-        minZoom: 0.2   // don't zoom out too much
-      })
-    }, 100)
+      // Fit view to show all elements after a short delay to ensure rendering is complete
+      setTimeout(() => {
+        try {
+          fitView({
+            padding: 0.1, // 10% padding around elements
+            duration: 800, // smooth animation
+            maxZoom: 1.5,  // don't zoom in too much
+            minZoom: 0.2   // don't zoom out too much
+          })
+        } catch (error) {
+          console.error('Error fitting view:', error)
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Error updating nodes and edges:', error)
+    }
   })
 }
 

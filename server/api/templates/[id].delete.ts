@@ -1,8 +1,8 @@
 import type { FlowTemplate } from '../../../types/FlowTemplate'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     const templateId = getRouterParam(event, 'id')

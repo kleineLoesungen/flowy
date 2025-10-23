@@ -1,9 +1,9 @@
 import type { Team } from '../../../types/Team'
 import type { User } from '../../../types/User'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     const body = await readBody(event) as Omit<Team, 'id'>

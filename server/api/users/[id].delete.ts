@@ -1,10 +1,10 @@
 import type { User } from '../../../types/User'
 import type { Team } from '../../../types/Team'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 import jwt from 'jsonwebtoken'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     const userId = getRouterParam(event, 'id')
@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
     
     for (const teamKey of teamKeys) {
       const team = await storage.getItem(teamKey) as Team
-      if (team && team.userIds.includes(userId)) {
+      if (team && team.userIds && team.userIds.includes(userId)) {
         referencingTeams.push(team.name)
       }
     }

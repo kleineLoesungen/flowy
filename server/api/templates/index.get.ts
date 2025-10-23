@@ -1,8 +1,9 @@
 import type { FlowTemplate } from '../../../types/FlowTemplate'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { migrateLegacyRelations } from '../../utils/templates/migrateRelations'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     // Get all flow templates from storage
@@ -11,9 +12,13 @@ export default defineEventHandler(async (event) => {
     const flowTemplates: FlowTemplate[] = []
     
     for (const key of templates) {
-      const template = await storage.getItem(key)
+      let template = await storage.getItem(key) as FlowTemplate
       if (template) {
-        flowTemplates.push(template as FlowTemplate)
+        // Migrate legacy relations if needed
+        if (template.relations) {
+          template.relations = migrateLegacyRelations(template.relations as any)
+        }
+        flowTemplates.push(template)
       }
     }
     

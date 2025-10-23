@@ -1,8 +1,8 @@
 import type { User } from '../../../types/User'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 
 export default defineEventHandler(async (event) => {
-  const storage = useFileStorage()
+  const storage = useDatabaseStorage()
   
   try {
     const body = await readBody(event) as Omit<User, 'id'>
@@ -41,8 +41,7 @@ export default defineEventHandler(async (event) => {
       id: Date.now().toString(36) + Math.random().toString(36).substr(2),
       name: body.name.trim(),
       email: body.email.trim().toLowerCase(),
-      role: body.role,
-      teamIds: body.teamIds || []
+      role: body.role
     }
     
     // Store the user

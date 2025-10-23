@@ -55,6 +55,7 @@
                 <h3>
                   {{ user.name }}
                   <span v-if="isCurrentUser(user)" class="current-user-badge">You</span>
+                  <span v-if="!user.hasPassword" class="no-password-badge" title="No password set - user created by admin">No Password</span>
                 </h3>
                 <p>{{ user.email }}</p>
               </div>
@@ -103,6 +104,7 @@
                 <h3>
                   {{ user.name }}
                   <span v-if="isCurrentUser(user)" class="current-user-badge">You</span>
+                  <span v-if="!user.hasPassword" class="no-password-badge" title="No password set - user created by admin">No Password</span>
                 </h3>
                 <p>{{ user.email }}</p>
               </div>
@@ -246,8 +248,12 @@ import { useUser } from '~/composables/useUser'
 
 // Page metadata
 definePageMeta({
-  title: 'User Management',
   middleware: 'admin'
+})
+
+// Set page title
+useHead({
+  title: 'flowy | Users'
 })
 
 // Get current authenticated user
@@ -267,7 +273,6 @@ const userForm = ref<Omit<User, 'id'> & { password?: string }>({
   name: '',
   email: '',
   role: 'member',
-  teamIds: [],
   password: undefined
 })
 
@@ -359,7 +364,6 @@ const editUser = (user: User) => {
     name: user.name,
     email: user.email,
     role: user.role,
-    teamIds: user.teamIds || [],
     password: undefined
   }
   showEditModal.value = true
@@ -415,7 +419,6 @@ const closeModals = () => {
     name: '',
     email: '',
     role: 'member',
-    teamIds: [],
     password: undefined
   }
   // Reset password generation state
@@ -688,8 +691,24 @@ const deleteUser = async () => {
   align-items: center;
   margin-left: 0.5rem;
   padding: 0.25rem 0.5rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
+  background: transparent;
+  border: 1.5px solid #10b981;
+  color: #10b981;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.no-password-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: 1.5px solid #f59e0b;
+  color: #f59e0b;
   font-size: 0.75rem;
   font-weight: 600;
   border-radius: 12px;

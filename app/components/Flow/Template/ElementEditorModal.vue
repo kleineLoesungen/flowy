@@ -100,7 +100,19 @@
 
             <!-- Owner Team (only for action elements) -->
             <div v-if="elementData.type === 'action'" class="form-group">
-              <label for="element-owner-team">Owner Team</label>
+              <div class="form-label-with-helper">
+                <label for="element-owner-team">Owner Team</label>
+                <button 
+                  @click="openTeamAssignmentDialog('owner')"
+                  type="button"
+                  class="helper-btn"
+                  title="Open team assignment helper"
+                >
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                  </svg>
+                </button>
+              </div>
               <div class="searchable-dropdown">
                 <div 
                   class="dropdown-input" 
@@ -153,7 +165,19 @@
 
             <!-- Consulted Teams (only for action elements) -->
             <div v-if="elementData.type === 'action'" class="form-group">
-              <label>Consulted Teams</label>
+              <div class="form-label-with-helper">
+                <label>Consulted Teams</label>
+                <button 
+                  @click="openTeamAssignmentDialog('consulted')"
+                  type="button"
+                  class="helper-btn"
+                  title="Open team assignment helper"
+                >
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                  </svg>
+                </button>
+              </div>
               <div class="searchable-multi-dropdown">
                 <div 
                   class="dropdown-input multi" 
@@ -225,11 +249,23 @@
         </div>
       </div>
     </div>
+
+    <!-- Team Assignment Dialog -->
+    <TeamAssignmentDialog
+      v-if="teamAssignmentDialogOpen"
+      :mode="teamAssignmentMode"
+      :current-owner-team-id="elementData.ownerTeamId"
+      :current-consulted-team-ids="elementData.consultedTeamIds"
+      :title="teamAssignmentMode === 'owner' ? 'Assign Owner Team' : 'Assign Consulted Teams'"
+      @apply="handleTeamAssignment"
+      @close="closeTeamAssignmentDialog"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { ElementTemplate } from '../../../../types/ElementTemplate'
+import TeamAssignmentDialog from '../TeamAssignmentDialog.vue'
 
 interface Props {
   element?: ElementTemplate | null
@@ -271,6 +307,10 @@ const typeDropdownOpen = ref(false)
 const ownerSearchQuery = ref('')
 const consultedSearchQuery = ref('')
 const typeSearchQuery = ref('')
+
+// Team assignment dialog state
+const teamAssignmentDialogOpen = ref(false)
+const teamAssignmentMode = ref<'owner' | 'consulted'>('owner')
 
 // Element type options
 const elementTypes = ref([
@@ -456,6 +496,30 @@ const handleSave = () => {
 
 const handleClose = () => {
   emit('close')
+}
+
+// Team assignment dialog methods
+const openTeamAssignmentDialog = (mode: 'owner' | 'consulted') => {
+  teamAssignmentMode.value = mode
+  teamAssignmentDialogOpen.value = true
+  // Close other dropdowns
+  ownerDropdownOpen.value = false
+  consultedDropdownOpen.value = false
+  typeDropdownOpen.value = false
+}
+
+const closeTeamAssignmentDialog = () => {
+  teamAssignmentDialogOpen.value = false
+}
+
+const handleTeamAssignment = (data: { ownerTeamId?: string | null, consultedTeamIds?: string[] }) => {
+  if (data.ownerTeamId !== undefined) {
+    elementData.value.ownerTeamId = data.ownerTeamId
+  }
+  if (data.consultedTeamIds !== undefined) {
+    elementData.value.consultedTeamIds = data.consultedTeamIds
+  }
+  closeTeamAssignmentDialog()
 }
 
 // Handle click inside modal to close dropdowns when clicking outside dropdown areas
@@ -709,6 +773,41 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.9);
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Form Label with Helper Button */
+.form-label-with-helper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.helper-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.helper-btn:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  transform: scale(1.05);
+}
+
+.helper-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Searchable Dropdown Styles */

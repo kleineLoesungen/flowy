@@ -6,6 +6,10 @@
 .cache
 dist
 
+# Database files
+data/
+*.db
+
 # Node dependencies
 node_modules
 

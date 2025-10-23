@@ -3,7 +3,7 @@
         <!-- Step 1: Select Template -->
         <div v-if="currentStep === 1" class="step-content">
             <div class="step-header">
-                <h3>Create New Flow Instance</h3>
+                <h3>Create New Flow</h3>
                 <p>Step 1: Select a flow template</p>
             </div>
 
@@ -57,6 +57,7 @@
 
                 <div class="step-actions">
                     <button @click="$emit('cancel')" class="btn btn-secondary">Cancel</button>
+                    <button @click="createEmptyFlow" class="btn btn-secondary">Create Empty Flow</button>
                     <button @click="nextStep" :disabled="!selectedTemplate" class="btn btn-primary">
                         Next: Set Details
                     </button>
@@ -67,10 +68,14 @@
         <!-- Step 2: Set Flow Details -->
         <div v-if="currentStep === 2" class="step-content">
             <div class="step-header">
-                <h3>Create New Flow Instance</h3>
-                <p>Step 2: Set flow details</p>
-                <div class="selected-template">
-                    <span>Based on template: <strong>{{ selectedTemplate?.name }}</strong></span>
+                <h3>Create New Flow</h3>
+                <p v-if="selectedTemplate">Step 2: Set flow details</p>
+                <p v-else>Step 2: Set flow details for empty flow</p>
+                <div v-if="selectedTemplate" class="selected-template">
+                    <span>Based on template: <strong>{{ selectedTemplate.name }}</strong></span>
+                </div>
+                <div v-else class="selected-template">
+                    <span>Creating an <strong>empty flow</strong> - you can add elements later</span>
                 </div>
             </div>
 
@@ -92,6 +97,16 @@
                     <input id="start-date" v-model="flowData.startDate" type="date" required class="form-control" />
                 </div>
 
+                <div class="form-group toggle-group">
+                    <label class="toggle-label" title="Only team members assigned to elements can see this flow. Admins can always see all flows.">
+                        Private Flow
+                        <div class="toggle-switch">
+                            <input type="checkbox" v-model="flowData.hidden" class="toggle-input" />
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </label>
+                </div>
+
                 <div v-if="flowData.startDate && selectedTemplate" class="form-group duration-preview">
                     <label>Expected Duration & End Date</label>
                     <div class="duration-info">
@@ -111,7 +126,7 @@
                     <button type="button" @click="previousStep" class="btn btn-secondary">Back</button>
                     <button type="submit" :disabled="!flowData.name.trim() || !flowData.startDate"
                         class="btn btn-success">
-                        Create Flow Instance
+                        Create Flow
                     </button>
                 </div>
             </form>
@@ -124,10 +139,17 @@ import type { FlowTemplate } from '../../../../types/FlowTemplate'
 import type { Flow } from '../../../../types/Flow'
 import { calculateFlowDuration, formatDurationRange, getDurationLabel } from '../../../../utils/flowDurationCalculator'
 import { addWorkdays } from '../../../../utils/workdayCalculator'
+import { useRelations } from '../../../composables/useRelations'
+
+// Props
+const props = defineProps<{
+    preselectedTemplateId?: string | null
+}>()
 
 const emit = defineEmits<{
     created: []
     cancel: []
+    'flow-created': [Flow]
 }>()
 
 // Component state
@@ -135,11 +157,15 @@ const currentStep = ref(1)
 const selectedTemplate = ref<FlowTemplate | null>(null)
 const searchQuery = ref('')
 
+// Initialize relations composable
+const { getToElementIds } = useRelations()
+
 // Flow creation data
 const flowData = ref({
     name: '',
     description: '',
-    startDate: ''
+    startDate: '',
+    hidden: false
 })
 
 // Fetch templates
@@ -147,6 +173,26 @@ const { data: templatesData, pending: templatesLoading, error: templatesError } 
     await useFetch<{ data: FlowTemplate[] }>('/api/templates')
 
 const templates = computed(() => templatesData.value?.data || [])
+
+// Handle preselected template
+watch([templates, () => props.preselectedTemplateId], ([templatesArray, templateId], [oldTemplates, oldTemplateId]) => {
+    if (templateId && templatesArray.length > 0 && !selectedTemplate.value) {
+        const preselectedTemplate = templatesArray.find(t => t.id === templateId)
+        if (preselectedTemplate) {
+            selectedTemplate.value = preselectedTemplate
+            // Skip to step 2 with preselected template
+            currentStep.value = 2
+            // Pre-fill flow name with template name
+            if (!flowData.value.name) {
+                flowData.value.name = `${preselectedTemplate.name} - ${new Date().toLocaleDateString()}`
+            }
+            // Set default start date to today
+            if (!flowData.value.startDate) {
+                flowData.value.startDate = new Date().toISOString().split('T')[0] || ''
+            }
+        }
+    }
+}, { immediate: true })
 
 // Filtered templates based on search query
 const filteredTemplates = computed(() => {
@@ -200,62 +246,205 @@ const previousStep = () => {
     currentStep.value = 1
 }
 
+// Helper function to determine which elements should start immediately
+const determineStartingElements = (template: FlowTemplate | null): string[] => {
+    if (!template || !template.elements?.length) return []
+    
+    const startingElementIds: string[] = []
+    
+    // First priority: if there's a specific startingElementId defined, use that as the entry point
+    const entryElementId = template.startingElementId || 
+        // Fallback: find elements with no incoming relations (no dependencies)
+        template.elements.find(element => {
+            const hasIncomingRelations = template.relations?.some(relation => 
+                getToElementIds(relation).includes(element.id)
+            ) || false
+            return !hasIncomingRelations
+        })?.id
+    
+    if (!entryElementId) return []
+    
+    const entryElement = template.elements.find(e => e.id === entryElementId)
+    if (!entryElement) return []
+    
+    // If the entry element is an action, it starts immediately
+    if (entryElement.type === 'action') {
+        startingElementIds.push(entryElementId)
+    } else if (entryElement.type === 'state') {
+        // If entry element is a state, it starts immediately (completed state)
+        startingElementIds.push(entryElementId)
+        
+        // Find what comes after this state via relations
+        const nextElements = findNextElements(template, entryElementId)
+        startingElementIds.push(...nextElements)
+    }
+    
+    return [...new Set(startingElementIds)] // Remove duplicates
+}
+
+// Helper function to find elements that should start after a given element
+const findNextElements = (template: FlowTemplate, fromElementId: string): string[] => {
+    const nextElementIds: string[] = []
+    
+    // Find all relations that start from the given element
+    const outgoingRelations = template.relations?.filter(relation => {
+        return relation.connections?.some(conn => conn.fromElementId === fromElementId)
+    }) || []
+    
+    for (const relation of outgoingRelations) {
+        const targetElementIds = getToElementIds(relation)
+        
+        for (const targetId of targetElementIds) {
+            const targetElement = template.elements?.find(e => e.id === targetId)
+            if (!targetElement) continue
+            
+            if (relation.type === 'flow') {
+                // Direct flow: next element starts immediately
+                nextElementIds.push(targetId)
+                
+                // If target is also a state, recursively find what comes after it
+                if (targetElement.type === 'state') {
+                    nextElementIds.push(...findNextElements(template, targetId))
+                }
+            } else if (relation.type === 'or') {
+                // OR relation: all possible paths can start
+                nextElementIds.push(targetId)
+                
+                // If target is a state, find what comes after it
+                if (targetElement.type === 'state') {
+                    nextElementIds.push(...findNextElements(template, targetId))
+                }
+            } else if (relation.type === 'and') {
+                // AND relation: all branches must start simultaneously
+                nextElementIds.push(targetId)
+                
+                // If target is a state, find what comes after it
+                if (targetElement.type === 'state') {
+                    nextElementIds.push(...findNextElements(template, targetId))
+                }
+            }
+        }
+    }
+    
+    return nextElementIds
+}
+
 const createFlow = async () => {
-    if (!selectedTemplate.value || !flowData.value.name.trim() || !flowData.value.startDate) {
+    if (!flowData.value.name.trim() || !flowData.value.startDate) {
         return
     }
 
     try {
-        // Calculate flow duration using the utility function
-        const durationRange = calculateFlowDuration(selectedTemplate.value)
-        const flowDurationDays = durationRange.max
+        let newFlow: Flow
 
-        // Calculate overall flow end date using the flow duration
-        const startDate = new Date(flowData.value.startDate)
-        const overallEndDate = addWorkdays(startDate, flowDurationDays)
+        if (selectedTemplate.value) {
+            // Create flow from template
+            // Calculate flow duration using the utility function
+            const durationRange = calculateFlowDuration(selectedTemplate.value)
+            const flowDurationDays = durationRange.max
 
-        // Create flow instance from template with calculated dates
-        const newFlow: Flow = {
-            id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-            name: flowData.value.name.trim(),
-            description: flowData.value.description.trim() || null,
-            templateId: selectedTemplate.value.id, // Link to template
-            elements: selectedTemplate.value.elements.map(element => {
-                // Calculate expected end date for each element
-                const elementStartDate = new Date(startDate)
-                const elementEndDate = addWorkdays(elementStartDate, element.durationDays || 0)
+            // Calculate overall flow end date using the flow duration
+            const startDate = new Date(flowData.value.startDate)
+            const overallEndDate = addWorkdays(startDate, flowDurationDays)
 
-                return {
-                    id: element.id,
-                    name: element.name,
-                    description: element.description,
-                    ownerTeamId: element.ownerTeamId,
-                    consultedTeamIds: element.consultedTeamIds,
-                    completedAt: null,
-                    expectedEndedAt: elementEndDate.toISOString().split('T')[0] || null,
-                    type: element.type,
-                    status: 'pending' as const,
-                    comments: []
-                }
-            }),
-            relations: selectedTemplate.value.relations,
-            startingElementId: selectedTemplate.value.startingElementId || '', // Copy starting element from template
-            startedAt: flowData.value.startDate,
-            expectedEndDate: overallEndDate.toISOString().split('T')[0] || null, // Expected end date based on calculated schedule
-            completedAt: null,
-            layout: selectedTemplate.value.layout // Copy layout from template
+            // Determine which elements should start immediately
+            const startingElementIds = determineStartingElements(selectedTemplate.value)
+            console.log('Starting elements for flow:', startingElementIds)
+
+            // Create flow instance from template with calculated dates
+            newFlow = {
+                id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+                name: flowData.value.name.trim(),
+                description: flowData.value.description.trim() || null,
+                templateId: selectedTemplate.value.id, // Link to template
+                elements: selectedTemplate.value.elements.map(element => {
+                    // Calculate expected end date for each element
+                    const elementStartDate = new Date(startDate)
+                    const elementEndDate = addWorkdays(elementStartDate, element.durationDays || 0)
+
+                    // Check if this element should start immediately
+                    const shouldStartImmediately = startingElementIds.includes(element.id)
+
+                    // Determine status based on element type and starting conditions
+                    let elementStatus: 'pending' | 'in-progress' | 'completed' | 'aborted'
+                    if (shouldStartImmediately) {
+                        if (element.type === 'state') {
+                            // States that start immediately are considered completed
+                            elementStatus = 'completed'
+                        } else {
+                            // Actions that start immediately are in-progress
+                            elementStatus = 'in-progress'
+                        }
+                    } else {
+                        // Elements that don't start immediately are pending
+                        elementStatus = 'pending'
+                    }
+
+                    return {
+                        id: element.id,
+                        name: element.name,
+                        description: element.description || '',
+                        ownerTeamId: element.ownerTeamId,
+                        consultedTeamIds: element.consultedTeamIds || [],
+                        completedAt: elementStatus === 'completed' ? new Date().toISOString() : null,
+                        expectedEndedAt: elementEndDate.toISOString().split('T')[0] || null,
+                        type: element.type,
+                        status: elementStatus,
+                        comments: []
+                    }
+                }),
+                relations: selectedTemplate.value.relations,
+                startingElementId: selectedTemplate.value.startingElementId || '', // Copy starting element from template
+                startedAt: flowData.value.startDate,
+                expectedEndDate: overallEndDate.toISOString().split('T')[0] || null, // Expected end date based on calculated schedule
+                completedAt: null,
+                hidden: flowData.value.hidden,
+                layout: selectedTemplate.value.layout // Copy layout from template
+            }
+        } else {
+            // Create empty flow
+            newFlow = {
+                id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+                name: flowData.value.name.trim(),
+                description: flowData.value.description.trim() || null,
+                templateId: '', // No template
+                startedAt: flowData.value.startDate,
+                expectedEndDate: null,
+                completedAt: null,
+                elements: [],
+                relations: [],
+                startingElementId: '',
+                hidden: flowData.value.hidden,
+                layout: undefined
+            }
         }
 
         // Save the flow instance
-        await $fetch('/api/flows', {
+        const savedFlow = await $fetch('/api/flows', {
             method: 'POST',
             body: newFlow
         })
-
+        
         emit('created')
+        emit('flow-created', savedFlow || newFlow)
     } catch (error) {
         console.error('Error creating flow:', error)
         alert('Error creating flow. Please try again.')
+    }
+}
+
+const createEmptyFlow = () => {
+    // Clear selected template and go to step 2
+    selectedTemplate.value = null
+    currentStep.value = 2
+    
+    // Pre-fill flow name for empty flow
+    if (!flowData.value.name) {
+        flowData.value.name = `New Flow - ${new Date().toLocaleDateString()}`
+    }
+    // Set default start date to today
+    if (!flowData.value.startDate) {
+        flowData.value.startDate = new Date().toISOString().split('T')[0] || ''
     }
 }
 </script>
@@ -561,11 +750,93 @@ const createFlow = async () => {
     font-size: 0.9rem;
 }
 
+.toggle-group {
+    margin-bottom: 1.5rem;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 10px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.toggle-label:hover {
+    background: rgba(102, 126, 234, 0.05);
+    border-color: rgba(102, 126, 234, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+.toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.toggle-input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #cbd5e1;
+    border-radius: 24px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-input:checked + .toggle-slider {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+.toggle-input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.toggle-slider:hover {
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
 .step-actions {
     display: flex;
     gap: 1rem;
     justify-content: center;
     margin-top: 2rem;
+    flex-wrap: wrap;
 }
 
 .btn {

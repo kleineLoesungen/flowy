@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import type { UserWithPassword } from '../../types/UserWithPassword'
-import useFileStorage from '../../utils/useFileStorage'
+import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
 
 export default defineEventHandler(async (event) => {
   const { email, password } = await readBody(event)
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const storage = useFileStorage()
+    const storage = useDatabaseStorage()
     
     // Get all users from storage
     const userKeys = await storage.getKeys('users:')
