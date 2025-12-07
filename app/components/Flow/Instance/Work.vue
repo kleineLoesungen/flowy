@@ -291,9 +291,9 @@ import { StraightEdge } from '@vue-flow/core'
 import type { Node, Edge, Connection, NodeChange, EdgeChange, XYPosition } from '@vue-flow/core'
 import type { Flow } from '../../../../types/Flow'
 import type { Element } from '../../../../types/Element'
-import type { Relation } from '../../../../types/Relation'
-import type { User } from '../../../../types/User'
-import type { Team } from '../../../../types/Team'
+import type { Relation } from '../../../../types_old/Relation'
+import type { User } from '../../../../types_old/User'
+import type { Team } from '../../../../types_old/Team'
 import { useRelations } from '../../../composables/useRelations'
 
 // Props and emits

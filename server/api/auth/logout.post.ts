@@ -1,3 +1,16 @@
+/**
+ * Response data for logout
+ */
+interface LogoutResponse {
+  success: true
+  message: string
+}
+
+/**
+ * POST /api/auth/logout
+ * 
+ * Logout user and clear authentication token
+ */
 export default defineEventHandler(async (event) => {
   try {
     // Clear the authentication cookie

@@ -36,6 +36,14 @@ const router = useRouter()
 const templateId = route.params.id as string
 const elementId = route.params.eid as string
 
+// Authentication check - redirect if not logged in
+const { user, isAuthenticated } = useUser()
+
+// Redirect unauthenticated users to login
+if (!isAuthenticated.value) {
+  await navigateTo('/login')
+}
+
 // Check if this is a new element (elementId === 'new')
 const isNewElement = computed(() => elementId === 'new')
 

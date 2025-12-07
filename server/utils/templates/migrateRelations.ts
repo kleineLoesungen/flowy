@@ -1,4 +1,4 @@
-import type { Relation } from '../../../types/Relation'
+import type { Relation } from '../../../types_old/Relation'
 
 // Legacy relation format (for migration purposes)
 interface LegacyRelation {

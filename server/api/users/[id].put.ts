@@ -1,14 +1,47 @@
-import type { User } from '../../../types/User'
-import type { UserWithPassword } from '../../types/UserWithPassword'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { useUserRepository } from '../../storage/StorageFactory'
 import bcrypt from 'bcryptjs'
+import type { User } from '../../db/schema'
 
+/**
+ * Request body for updating a user
+ */
+interface UpdateUserRequest {
+  name?: string
+  email?: string
+  password?: string
+  role?: 'admin' | 'member'
+}
+
+/**
+ * User response (without sensitive data)
+ */
+interface UserResponse {
+  id: string
+  name: string
+  email: string
+  role: 'admin' | 'member'
+  hasPassword: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Response for user update
+ */
+interface UpdateUserResponse {
+  success: true
+  data: UserResponse
+}
+
+/**
+ * PUT /api/users/[id]
+ * 
+ * Update a user (admin only or own profile)
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
-  
   try {
     const userId = getRouterParam(event, 'id')
-    const body = await readBody(event) as Omit<User, 'id'> & { password?: string }
+    const body: UpdateUserRequest = await readBody(event)
     
     if (!userId) {
       throw createError({
@@ -16,104 +49,85 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'User ID is required'
       })
     }
-    
-    // Validate required fields
-    if (!body.name || !body.email || !body.role) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Name, email, and role are required'
-      })
-    }
-    
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(body.email)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Invalid email format'
-      })
-    }
+
+    const userRepo = useUserRepository()
     
     // Check if user exists
-    const key = `users:${userId}`
-    const existingUser = await storage.getItem(key) as UserWithPassword
-    
+    const existingUser = await userRepo.findById(userId)
     if (!existingUser) {
       throw createError({
         statusCode: 404,
         statusMessage: 'User not found'
       })
     }
-    
-    // Check if trying to change the last admin to member
+
+    // Check if trying to demote the last admin
     if (existingUser.role === 'admin' && body.role === 'member') {
-      const allUserKeys = await storage.getKeys('users:')
-      const otherAdminUsers: User[] = []
-      
-      for (const userKey of allUserKeys) {
-        if (userKey !== key) {
-          const u = await storage.getItem(userKey) as User
-          if (u && u.role === 'admin') {
-            otherAdminUsers.push(u)
-          }
-        }
-      }
-      
-      if (otherAdminUsers.length === 0) {
+      const adminCount = await userRepo.countAdmins()
+      if (adminCount <= 1) {
         throw createError({
-          statusCode: 409,
-          statusMessage: 'Cannot change role of the last admin user. At least one admin must remain in the system.'
+          statusCode: 400,
+          statusMessage: 'Cannot demote the last admin user'
         })
       }
     }
 
-    // Check if email already exists (excluding current user)
-    const existingUserKeys = await storage.getKeys('users:')
-    for (const userKey of existingUserKeys) {
-      if (userKey !== key) {
-        const otherUser = await storage.getItem(userKey) as User
-        if (otherUser && otherUser.email.toLowerCase() === body.email.toLowerCase()) {
-          throw createError({
-            statusCode: 409,
-            statusMessage: 'Email already exists'
-          })
-        }
-      }
+    // Prepare update data
+    const updateData: any = {}
+    
+    if (body.name !== undefined) {
+      updateData.name = body.name.trim()
     }
     
-    // Hash new password if provided, otherwise preserve existing passwordHash
-    let newPasswordHash = existingUser.passwordHash
-    if (body.password) {
-      newPasswordHash = await bcrypt.hash(body.password, 12)
+    if (body.email !== undefined) {
+      updateData.email = body.email.toLowerCase()
+    }
+    
+    if (body.role !== undefined) {
+      updateData.role = body.role
+    }
+    
+    if (body.password !== undefined) {
+      updateData.passwordHash = body.password ? await bcrypt.hash(body.password, 12) : ''
     }
 
     // Update the user
-    const updatedUser = {
-      id: userId,
-      name: body.name.trim(),
-      email: body.email.trim().toLowerCase(),
-      role: body.role,
-      ...(newPasswordHash && { passwordHash: newPasswordHash })
-    }
-
-    await storage.setItem(key, updatedUser)
-
-    // Return user without passwordHash
-    const { passwordHash: _, ...userWithoutPassword } = updatedUser
+    const updatedUser = await userRepo.update(userId, updateData)
+    
+    // Return user without password hash
+    const { passwordHash, ...userResponse } = updatedUser
     
     return {
       success: true,
-      data: userWithoutPassword
+      data: { ...userResponse, hasPassword: !!passwordHash }
     }
-  } catch (error: any) {
-    if (error.statusCode) {
+  } catch (error) {
+    console.error('Error updating user:', error)
+    
+    // Handle specific validation errors
+    if (error instanceof Error) {
+      if (error.message === 'Email already exists') {
+        throw createError({ statusCode: 409, statusMessage: error.message })
+      }
+      if (error.message === 'Invalid email format') {
+        throw createError({ statusCode: 400, statusMessage: error.message })
+      }
+      if (error.message.includes('Invalid role')) {
+        throw createError({ statusCode: 400, statusMessage: error.message })
+      }
+      if (error.message === 'Cannot demote the last admin user') {
+        throw createError({ statusCode: 400, statusMessage: error.message })
+      }
+    }
+    
+    // Handle HTTP errors
+    if (error && typeof error === 'object' && 'statusCode' in error) {
       throw error
     }
     
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to update user',
-      data: error
+      statusMessage: 'Failed to update user'
     })
   }
 })

@@ -178,7 +178,10 @@
 
         <div v-for="flow in displayedFlows" :key="flow.id" class="flow-row">
           <div class="col-title">
-            <h3>{{ flow.name }}</h3>
+            <h3>
+              {{ flow.name }}
+              <span v-if="flow.hidden" class="badge badge-private">private</span>
+            </h3>
             <p class="description">{{ flow.description || 'No description provided' }}</p>
           </div>
 
@@ -320,7 +323,10 @@
 
         <div v-for="flow in displayedCompletedFlows" :key="flow.id" class="flow-row">
           <div class="col-title">
-            <h3>{{ flow.name }}</h3>
+            <h3>
+              {{ flow.name }}
+              <span v-if="flow.hidden" class="badge badge-private">private</span>
+            </h3>
             <p class="description">{{ flow.description || 'No description provided' }}</p>
           </div>
 
@@ -404,9 +410,10 @@ const loadingAllCompletedFlows = ref(false)
 const { data: userFlowsData, refresh: refreshUserFlows } = await useFetch('/api/flows')
 const userFlows = computed(() => userFlowsData.value?.data || [])
 
-// Load all flows on demand
-const { data: allFlowsData, refresh: refreshAllFlows } = await useLazyFetch('/api/flows/all', {
+// Load all flows on demand with full Flow objects (not FlowOverview)
+const { data: allFlowsData, refresh: refreshAllFlows } = await useLazyFetch('/api/flows', {
   server: false,
+  query: { includeAllUsers: 'true' },
   default: () => ({ data: [] })
 })
 const allFlows = computed(() => allFlowsData.value?.data || [])
@@ -560,7 +567,7 @@ const myActions = computed(() => {
 })
 
 const nextActions = computed(() => {
-  if (!user.value) return []
+  if (!user.value || !currentFlows.value) return []
 
   const actions: Array<{
     flowId: string
@@ -599,7 +606,28 @@ const nextActions = computed(() => {
   return actions
 })
 
+// Helper function to check if user is involved in a flow (owns or consulted on elements)
+const isUserInvolvedInFlow = (flow: Flow): boolean => {
+  if (!user.value) return false
+  
+  return flow.elements.some(element => {
+    // Check if user owns this element
+    if (element.ownerTeamId && userTeamIds.value.has(element.ownerTeamId)) {
+      return true
+    }
+    // Check if user is consulted on this element
+    if (element.consultedTeamIds && element.consultedTeamIds.some(teamId => userTeamIds.value.has(teamId))) {
+      return true
+    }
+    return false
+  })
+}
+
 const displayedFlows = computed(() => {
+  // If "My Flows" is selected, filter to only flows where user is involved
+  if (showOnlyMyFlows.value && user.value) {
+    return currentFlows.value.filter(isUserInvolvedInFlow)
+  }
   return currentFlows.value
 })
 
@@ -609,6 +637,10 @@ const displayedCompletedFlows = computed(() => {
     return []
   }
 
+  // If "My Completed" is selected, filter to only flows where user is involved
+  if (showOnlyMyCompletedFlows.value && user.value) {
+    return currentCompletedFlows.value.filter(isUserInvolvedInFlow)
+  }
   return currentCompletedFlows.value
 })
 
@@ -1011,6 +1043,22 @@ const canEditFlow = (flow: Flow): boolean => {
   border-color: #e5e7eb;
 }
 
+/* Private Badge */
+.badge-private {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  margin-left: 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  border-radius: 4px;
+  color: #7c3aed;
+  background: #f3e8ff;
+  border: 1px solid #e9d5ff;
+}
+
 /* Flows List Styles */
 .flows-list {
   background: rgba(255, 255, 255, 0.6);
@@ -1067,6 +1115,8 @@ const canEditFlow = (flow: Flow): boolean => {
   font-size: 1rem;
   font-weight: 600;
   color: #374151;
+  display: flex;
+  align-items: center;
 }
 
 .col-title .description {

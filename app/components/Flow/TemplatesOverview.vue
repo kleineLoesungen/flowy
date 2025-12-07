@@ -40,7 +40,9 @@
         </div>
 
         <div class="button-filters">
-          <!-- Teams Filter Button -->
+          <!-- Note: Advanced filters (Teams, Users, Artefacts) are disabled in overview mode for performance.
+               For detailed filtering, please access individual template pages. Only text search is available here. -->
+          <!-- Teams Filter Button - Disabled in overview mode -->
           <div class="button-filter">
             <button class="filter-button" @click="toggleTeamsDropdown" :class="{ 'active': selectedTeams.length > 0 }">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -90,7 +92,7 @@
                 <div v-for="team in filteredTeams" :key="team.id" class="option-item"
                   @click.stop="toggleTeamFilter(team.id)">
                   <div class="option-checkbox">
-                    <input type="checkbox" :checked="selectedTeamIds.includes(team.id)" @click.stop />
+                    <input type="checkbox" :checked="selectedTeamIds.includes(team.id)" />
                   </div>
                   <div class="option-content">
                     <div class="option-name">{{ team.name }}</div>
@@ -155,7 +157,7 @@
                 <div v-for="user in filteredUsers" :key="user.id" class="option-item"
                   @click.stop="toggleUserFilter(user.id)">
                   <div class="option-checkbox">
-                    <input type="checkbox" :checked="selectedUserIds.includes(user.id)" @click.stop />
+                    <input type="checkbox" :checked="selectedUserIds.includes(user.id)" />
                   </div>
                   <div class="option-content">
                     <div class="option-name">{{ user.name || 'No Name' }}</div>
@@ -221,7 +223,7 @@
                 <div v-for="artefact in filteredArtefacts" :key="artefact" class="option-item"
                   @click.stop="toggleArtefactFilter(artefact)">
                   <div class="option-checkbox">
-                    <input type="checkbox" :checked="selectedArtefactNames.includes(artefact)" @click.stop />
+                    <input type="checkbox" :checked="selectedArtefactNames.includes(artefact)" />
                   </div>
                   <div class="option-content">
                     <div class="option-name">{{ artefact }}</div>
@@ -297,8 +299,8 @@
         </div>
 
         <div class="col-elements">
-          <span class="count">{{ template.elements.length }}</span>
-          <span class="label">{{ template.elements.length === 1 ? 'element' : 'elements' }}</span>
+          <span class="count">{{ template.elementCount }}</span>
+          <span class="label">{{ template.elementCount === 1 ? 'element' : 'elements' }}</span>
         </div>
 
         <div class="col-flows">
@@ -315,27 +317,42 @@
         <div class="col-duration">
           <div class="duration-info">
             <span class="duration-main">
-              {{ formatDurationRange(calculateFlowDuration(template)) }}
+              {{ template.duration.display }}
             </span>
             <span class="label">
-              {{ getDurationLabel(calculateFlowDuration(template)) }}
+              {{ template.duration.label }}
             </span>
           </div>
         </div>
         <div class="col-actions">
           <NuxtLink :to="`/templates/${template.id}`" class="btn btn-primary">View</NuxtLink>
-          <NuxtLink :to="`/flows/add?templateId=${template.id}`" class="btn btn-icon btn-success" title="Create new flow from this template">
+          <NuxtLink 
+            v-if="canCreateFlow"
+            :to="`/flows/add?templateId=${template.id}`" 
+            class="btn btn-icon btn-success" 
+            title="Create new flow from this template"
+          >
             <svg fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z"/>
             </svg>
           </NuxtLink>
-          <NuxtLink :to="`/templates/${template.id}/edit`" class="btn btn-icon btn-secondary" title="Edit template">
+          <NuxtLink 
+            v-if="canEdit"
+            :to="`/templates/${template.id}/edit`" 
+            class="btn btn-icon btn-secondary" 
+            title="Edit template"
+          >
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
             </svg>
           </NuxtLink>
-          <button @click="$emit('delete', template)" class="btn btn-icon btn-danger" title="Delete template">
+          <button 
+            v-if="canDelete" 
+            @click="$emit('delete', template)" 
+            class="btn btn-icon btn-danger" 
+            title="Delete template"
+          >
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
             </svg>
@@ -357,7 +374,12 @@
         </div>
         
         <div class="modal-body">
-          <div v-if="selectedTemplateFlows.length === 0" class="empty-flows">
+          <div v-if="loadingModalFlows" class="loading-flows">
+            <div class="loading-spinner"></div>
+            <p>Loading flows...</p>
+          </div>
+          
+          <div v-else-if="selectedTemplateFlows.length === 0" class="empty-flows">
             <p>No flows have been created from this template yet.</p>
           </div>
           
@@ -403,34 +425,72 @@
 </template>
 
 <script setup lang="ts">
-import type { FlowTemplate } from '../../../types/FlowTemplate'
-import type { Flow } from '../../../types/Flow'
-import type { User } from '../../../types/User'
-import type { Team } from '../../../types/Team'
-import {
-  calculateTotalDuration,
-  calculateFlowDuration,
-  formatDurationRange,
-  getDurationLabel
-} from '../../../utils/flowDurationCalculator'
+import type { FlowTemplate, FlowElement } from '~~/server/db/schema'
+
+// Optimized template overview interface
+interface TemplateOverview {
+  id: string
+  name: string
+  description?: string
+  elementCount: number
+  flowCount: number
+  duration: {
+    range: {
+      min: number
+      max: number
+    }
+    display: string
+    label: string
+  }
+}
+
+// Flow overview interface
+interface FlowOverview {
+  id: string
+  name: string
+  description?: string
+  templateId?: string
+  startedAt?: string
+  completedAt?: string
+  expectedEndDate?: string
+  hidden?: boolean
+}
 
 // Props
 const props = defineProps<{
-  templates: FlowTemplate[]
+  templates: TemplateOverview[]
+  canDelete?: boolean
+  canEdit?: boolean
+  canCreateFlow?: boolean
 }>()
+
+// Default props to true to maintain backwards compatibility
+const canDelete = computed(() => props.canDelete ?? true)
+const canEdit = computed(() => props.canEdit ?? true)
+const canCreateFlow = computed(() => props.canCreateFlow ?? true)
 
 // Emits
 defineEmits<{
-  delete: [template: FlowTemplate]
+  delete: [template: TemplateOverview]
 }>()
 
-// Load users, teams, and flows data
-const { data: usersData } = await useFetch('/api/users')
-const { data: teamsData } = await useFetch('/api/teams')
-const { data: flowsData } = await useFetch('/api/flows')
-const users = computed(() => usersData.value?.data || [])
-const teams = computed(() => teamsData.value?.data || [])
-const flows = computed(() => flowsData.value?.data || [])
+// Load users and teams data for filtering
+const { data: usersData, error: usersError } = await useFetch('/api/users')
+const { data: teamsData, error: teamsError } = await useFetch('/api/teams')
+const users = computed(() => {
+  if (usersError.value) {
+    console.warn('Failed to load users:', usersError.value)
+    return []
+  }
+  return usersData.value?.data || []
+})
+const teams = computed(() => {
+  if (teamsError.value) {
+    console.warn('Failed to load teams:', teamsError.value)
+    return []
+  }
+  return teamsData.value?.data || []
+})
 
 // Filter state
 const selectedTeamIds = ref<string[]>([])
@@ -457,26 +517,25 @@ const selectedUsers = computed(() => {
 
 const selectedArtefacts = computed(() => selectedArtefactNames.value)
 
-// Flow counts per template
+// Flow counts per template - use flowCount from template overview data
 const flowCountsByTemplate = computed(() => {
   const counts = new Map<string, number>()
-  flows.value.forEach(flow => {
-    if (flow.templateId) {
-      counts.set(flow.templateId, (counts.get(flow.templateId) || 0) + 1)
-    }
+  
+  props.templates.forEach(template => {
+    counts.set(template.id, template.flowCount)
   })
+  
   return counts
 })
 
 // Modal state
 const showFlowsModal = ref(false)
-const selectedTemplateForModal = ref<FlowTemplate | null>(null)
+const selectedTemplateForModal = ref<TemplateOverview | null>(null)
+const modalFlows = ref<FlowOverview[]>([])
+const loadingModalFlows = ref(false)
 
-// Get flows for selected template
-const selectedTemplateFlows = computed(() => {
-  if (!selectedTemplateForModal.value) return []
-  return flows.value.filter(flow => flow.templateId === selectedTemplateForModal.value?.id)
-})
+// Get flows for selected template - fetch when modal opens
+const selectedTemplateFlows = computed(() => modalFlows.value)
 
 const filteredTeams = computed(() => {
   if (!teamsSearchQuery.value) return teams.value
@@ -497,33 +556,47 @@ const filteredUsers = computed(() => {
 
 // Get all unique artefact names from templates
 const allArtefacts = computed(() => {
-  const artefactNames = new Set<string>()
-  props.templates.forEach(template => {
-    template.elements.forEach(element => {
-      if (element.type === 'artefact' && element.name) {
-        artefactNames.add(element.name)
-      }
-    })
+  if (!fullTemplates.value || fullTemplates.value.length === 0) {
+    return []
+  }
+  
+  const artefacts = new Set<string>()
+  
+  fullTemplates.value.forEach((template: FlowTemplate) => {
+    if (template.elements && Array.isArray(template.elements)) {
+      template.elements.forEach((element: FlowElement) => {
+        if (element && element.type === 'artefact' && element.name) {
+          artefacts.add(element.name)
+        }
+      })
+    }
   })
-  return Array.from(artefactNames).sort()
+  
+  return Array.from(artefacts).sort()
 })
 
 const filteredArtefacts = computed(() => {
-  if (!artefactsSearchQuery.value) return allArtefacts.value
-  const query = artefactsSearchQuery.value.toLowerCase()
-  return allArtefacts.value.filter(artefact =>
-    artefact.toLowerCase().includes(query)
-  )
+  return allArtefacts.value
 })
 
 const hasActiveFilters = computed(() => {
-  return selectedTeamIds.value.length > 0 ||
-    selectedUserIds.value.length > 0 ||
-    selectedArtefactNames.value.length > 0 ||
-    textSearchQuery.value.trim() !== ''
+  return textSearchQuery.value.trim() !== '' ||
+         selectedTeamIds.value.length > 0 ||
+         selectedUserIds.value.length > 0 ||
+         selectedArtefactNames.value.length > 0
 })
 
-// Main filtering logic
+// Fetch full template data for advanced filtering
+const { data: fullTemplatesData, error: templatesError } = await useFetch<{ data: FlowTemplate[] }>('/api/templates/all')
+const fullTemplates = computed(() => {
+  if (templatesError.value) {
+    console.warn('Failed to load full templates:', templatesError.value)
+    return []
+  }
+  return fullTemplatesData.value?.data || []
+})
+
+// Main filtering logic - now supports all filter types
 const filteredTemplates = computed(() => {
   let filtered = props.templates
 
@@ -536,87 +609,47 @@ const filteredTemplates = computed(() => {
     )
   }
 
-  // If no other filters are active, return text-filtered results
-  if (selectedTeamIds.value.length === 0 &&
-    selectedUserIds.value.length === 0 &&
-    selectedArtefactNames.value.length === 0) {
-    return filtered
+  // Team filter - need to check template elements for team ownership
+  if (selectedTeamIds.value.length > 0) {
+    filtered = filtered.filter(template => {
+      const fullTemplate = fullTemplates.value.find((ft: FlowTemplate) => ft.id === template.id)
+      if (!fullTemplate || !fullTemplate.elements) return false
+      
+      return fullTemplate.elements.some((element: FlowElement) => 
+        element.ownerTeamId && selectedTeamIds.value.includes(element.ownerTeamId)
+      )
+    })
   }
 
-  return filtered.filter(template => {
-    // Team filter (AND logic - template must have ALL selected teams assigned)
-    if (selectedTeamIds.value.length > 0) {
-      const templateTeamIds = new Set<string>()
-
-      // Collect all team IDs from template elements
-      template.elements.forEach(element => {
-        if (element.ownerTeamId) {
-          templateTeamIds.add(element.ownerTeamId)
-        }
-        if (element.consultedTeamIds) {
-          element.consultedTeamIds.forEach(teamId => templateTeamIds.add(teamId))
-        }
+  // User filter - need to check template elements for user ownership through teams
+  if (selectedUserIds.value.length > 0) {
+    filtered = filtered.filter(template => {
+      const fullTemplate = fullTemplates.value.find((ft: FlowTemplate) => ft.id === template.id)
+      if (!fullTemplate || !fullTemplate.elements) return false
+      
+      return fullTemplate.elements.some((element: FlowElement) => {
+        if (!element.ownerTeamId) return false
+        const team = teams.value.find((t: any) => t.id === element.ownerTeamId)
+        if (!team || !Array.isArray(team.users)) return false
+        
+        return team.users.some((user: any) => selectedUserIds.value.includes(user.id))
       })
+    })
+  }
 
-      // Check if template contains ALL selected teams
-      const hasAllTeams = selectedTeamIds.value.every(teamId =>
-        templateTeamIds.has(teamId)
+  // Artefact filter - check template elements for artefact types
+  if (selectedArtefactNames.value.length > 0) {
+    filtered = filtered.filter(template => {
+      const fullTemplate = fullTemplates.value.find((ft: FlowTemplate) => ft.id === template.id)
+      if (!fullTemplate || !fullTemplate.elements) return false
+      
+      return fullTemplate.elements.some((element: FlowElement) => 
+        element.type === 'artefact' && selectedArtefactNames.value.includes(element.name)
       )
+    })
+  }
 
-      if (!hasAllTeams) return false
-    }
-
-    // User filter (AND logic - template must have ALL selected users through team assignments)
-    if (selectedUserIds.value.length > 0) {
-      const templateUserIds = new Set<string>()
-
-      // Collect all user IDs from template elements via team assignments
-      template.elements.forEach(element => {
-        if (element.ownerTeamId) {
-          const ownerTeam = teams.value.find(t => t.id === element.ownerTeamId)
-          if (ownerTeam?.users) {
-            ownerTeam.users.forEach(user => templateUserIds.add(user.id))
-          }
-        }
-        if (element.consultedTeamIds) {
-          element.consultedTeamIds.forEach(teamId => {
-            const consultedTeam = teams.value.find(t => t.id === teamId)
-            if (consultedTeam?.users) {
-              consultedTeam.users.forEach(user => templateUserIds.add(user.id))
-            }
-          })
-        }
-      })
-
-      // Check if template contains ALL selected users (through team memberships)
-      const hasAllUsers = selectedUserIds.value.every(userId =>
-        templateUserIds.has(userId)
-      )
-
-      if (!hasAllUsers) return false
-    }
-
-    // Artefact filter (AND logic - template must have ALL selected artefacts)
-    if (selectedArtefactNames.value.length > 0) {
-      const templateArtefacts = new Set<string>()
-
-      // Collect all artefact names from template elements
-      template.elements.forEach(element => {
-        if (element.type === 'artefact' && element.name) {
-          templateArtefacts.add(element.name)
-        }
-      })
-
-      // Check if template contains ALL selected artefacts
-      const hasAllArtefacts = selectedArtefactNames.value.every(artefactName =>
-        templateArtefacts.has(artefactName)
-      )
-
-      if (!hasAllArtefacts) return false
-    }
-
-    return true
-  })
+  return filtered
 })
 
 // Methods
@@ -706,14 +739,30 @@ const clearAllFilters = () => {
   textSearchQuery.value = ''
 }
 
-const openFlowsModal = (template: FlowTemplate) => {
+const openFlowsModal = async (template: TemplateOverview) => {
   selectedTemplateForModal.value = template
   showFlowsModal.value = true
+  loadingModalFlows.value = true
+  modalFlows.value = []
+  
+  try {
+    // Fetch all flows and filter for this template
+    const { data } = await $fetch('/api/flows/all')
+    
+    // Filter flows for this template
+    modalFlows.value = (data || []).filter((flow: FlowOverview) => flow.templateId === template.id)
+  } catch (error) {
+    console.error('Error fetching flows for template:', error)
+    modalFlows.value = []
+  } finally {
+    loadingModalFlows.value = false
+  }
 }
 
 const closeFlowsModal = () => {
   showFlowsModal.value = false
   selectedTemplateForModal.value = null
+  modalFlows.value = []
 }
 
 // Format date for display
@@ -1644,6 +1693,30 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 0;
+}
+
+.loading-flows {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .empty-flows {

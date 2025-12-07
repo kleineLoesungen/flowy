@@ -1,4 +1,4 @@
-import type { User } from '../../types/User'
+import type { User } from "~~/server/db/schema"
 
 const user = ref<User | null>(null)
 const isAuthenticated = ref(false)
@@ -10,19 +10,22 @@ export const useUser = () => {
     try {
       const response = await $fetch<{
         success: boolean
-        user?: User
+        data?: {
+          user: User
+          token: string
+        }
         message: string
       }>('/api/auth/login', {
         method: 'POST',
         body: { email, password }
       })
 
-      if (response.success && response.user) {
-        user.value = response.user
+      if (response.success && response.data?.user) {
+        user.value = response.data.user
         isAuthenticated.value = true
         
         // Also set in localStorage for compatibility with existing code
-        localStorage.setItem('user', response.user.id)
+        localStorage.setItem('user', response.data.user.id)
         
         return { success: true, message: response.message }
       } else {
@@ -55,23 +58,6 @@ export const useUser = () => {
     }
   }
 
-  const register = async (name: string, email: string, password: string) => {
-    try {
-      const response = await $fetch<{
-        success: boolean
-        message: string
-      }>('/api/auth/register', {
-        method: 'POST',
-        body: { name, email, password }
-      })
-
-      return { success: response.success, message: response.message }
-    } catch (error: any) {
-      const message = error.data?.message || error.message || 'Failed to register user'
-      return { success: false, message }
-    }
-  }
-
   const checkAuth = async () => {
     if (typeof window === 'undefined') return
     
@@ -80,27 +66,38 @@ export const useUser = () => {
       
       const response = await $fetch<{
         success: boolean
+        data?: { user: User }
         user?: User | null
         message: string
       }>('/api/auth/me')
 
-      if (response.success && response.user) {
-        user.value = response.user
+      // Handle both response formats (data.user or direct user)
+      const userData = response.data?.user || response.user
+      
+      if (response.success && userData) {
+        user.value = userData
         isAuthenticated.value = true
         
         // Sync with localStorage
-        localStorage.setItem('user', response.user.id)
+        localStorage.setItem('user', userData.id)
       } else {
         user.value = null
         isAuthenticated.value = false
-        
-        // Clear localStorage if auth check fails
         localStorage.removeItem('user')
       }
-    } catch (error) {
-      user.value = null
-      isAuthenticated.value = false
-      localStorage.removeItem('user')
+    } catch (error: any) {
+      // 401 Unauthorized is expected when user is not logged in
+      if (error.statusCode === 401 || error.status === 401) {
+        user.value = null
+        isAuthenticated.value = false
+        localStorage.removeItem('user')
+      } else {
+        // Log unexpected errors only
+        console.error('Unexpected error during auth check:', error)
+        user.value = null
+        isAuthenticated.value = false
+        localStorage.removeItem('user')
+      }
     } finally {
       isLoading.value = false
     }
@@ -120,7 +117,6 @@ export const useUser = () => {
     // Methods
     login,
     logout,
-    register,
     checkAuth,
     refresh
   }

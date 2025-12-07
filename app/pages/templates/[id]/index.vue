@@ -18,7 +18,32 @@
 
     <!-- Template Content -->
     <div v-else-if="template" class="template-content">
-      <FlowTemplateViewer :template="template" @close="handleClose" />
+      <!-- Header with navigation and actions -->
+      <div class="template-header">
+        <div class="header-nav">
+          <NuxtLink to="/templates" class="back-button">
+            <span class="icon">←</span>
+            Back to Templates
+          </NuxtLink>
+          
+          <div class="header-actions">
+            <!-- Edit button for authenticated users only -->
+            <NuxtLink 
+              v-if="isAuthenticated"
+              :to="`/templates/${templateId}/edit`" 
+              class="btn btn-primary"
+            >
+              <span class="icon">✏️</span>
+              Edit Template
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+
+      <!-- Template Viewer -->
+      <div class="viewer-container">
+        <FlowTemplateViewer :template="template" @close="handleClose" />
+      </div>
     </div>
   </div>
 </template>
@@ -102,7 +127,7 @@
 </style>
 
 <script setup lang="ts">
-import type { FlowTemplate } from '../../../../types/FlowTemplate'
+import type { FlowTemplate } from '~~/server/db/schema'
 import { 
   calculateFlowDuration, 
   formatDurationRange, 
@@ -116,8 +141,11 @@ const route = useRoute()
 const router = useRouter()
 const templateId = route.params.id as string
 
+// Authentication check
+const { user, isAuthenticated } = useUser()
+
 // Check if we should start in edit mode (from query parameter)
-const isEditMode = ref(!!route.query.edit)
+const isEditMode = ref(!!route.query.edit && isAuthenticated.value)
 
 // Set page metadata
 useHead({
@@ -144,9 +172,18 @@ watchEffect(() => {
   }
 })
 
-// Watch for query changes to toggle edit mode
+// Watch for query changes to toggle edit mode (only if authenticated)
 watch(() => route.query.edit, (editParam) => {
-  isEditMode.value = !!editParam
+  isEditMode.value = !!editParam && isAuthenticated.value
+})
+
+// Watch authentication state changes
+watch(isAuthenticated, (newAuth) => {
+  if (!newAuth && isEditMode.value) {
+    // User logged out while editing - exit edit mode
+    isEditMode.value = false
+    router.push(`/templates/${templateId}`)
+  }
 })
 
 // Handle escape key to close editor
@@ -177,6 +214,11 @@ const handleClose = () => {
 }
 
 const enableEditMode = () => {
+  if (!isAuthenticated.value) {
+    // Redirect to login or show a message
+    router.push('/login')
+    return
+  }
   isEditMode.value = true
   // Update URL to reflect edit state
   router.push({ query: { ...route.query, edit: 'true' } })
@@ -257,6 +299,11 @@ const handleSave = async (updatedTemplate: FlowTemplate) => {
   overflow: hidden;
 }
 
+.viewer-container {
+  flex: 1;
+  overflow: hidden;
+}
+
 .template-header {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%);
   backdrop-filter: blur(20px);
@@ -295,6 +342,8 @@ const handleSave = async (updatedTemplate: FlowTemplate) => {
   display: flex;
   gap: 0.75rem;
 }
+
+
 
 .btn {
   display: flex;
@@ -419,6 +468,8 @@ const handleSave = async (updatedTemplate: FlowTemplate) => {
     gap: 1rem;
     align-items: stretch;
   }
+
+
 
   .template-info {
     padding: 1rem;

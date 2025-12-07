@@ -1,66 +1,95 @@
-import type { User } from '../../../types/User'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import type { NewUser, User } from '../../db/schema'
+import { useUserRepository } from '../../storage/StorageFactory'
+import bcrypt from 'bcryptjs'
 
+/**
+ * Request body for creating a user
+ */
+interface CreateUserRequest {
+  name: string
+  email: string
+  password?: string
+  passwordHash?: string
+  role?: 'admin' | 'member'
+}
+
+/**
+ * User response (without sensitive data)
+ */
+interface UserResponse {
+  id: string
+  name: string
+  email: string
+  role: 'admin' | 'member'
+  hasPassword: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Response for user creation
+ */
+interface CreateUserResponse {
+  success: true
+  data: UserResponse
+}
+
+/**
+ * POST /api/users
+ * 
+ * Create a new user (admin only)
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
-  
   try {
-    const body = await readBody(event) as Omit<User, 'id'>
-    
-    // Validate required fields
-    if (!body.name || !body.email || !body.role) {
+    const body: CreateUserRequest = await readBody(event)
+    const { name, email, password, passwordHash, role = 'member' } = body
+
+    // Validation
+    if (!name || !email) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Name, email, and role are required'
+        statusMessage: 'Name and email are required'
       })
     }
-    
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(body.email)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Invalid email format'
-      })
+
+    const userRepo = useUserRepository()
+
+    // Create user data - handle both password and passwordHash
+    const userData = {
+      name: name.trim(),
+      email: email.toLowerCase(),
+      passwordHash: passwordHash || (password ? await bcrypt.hash(password, 12) : ''),
+      role
     }
+
+    const user = await userRepo.create(userData)
     
-    // Check if email already exists
-    const existingUserKeys = await storage.getKeys('users:')
-    for (const key of existingUserKeys) {
-      const existingUser = await storage.getItem(key) as User
-      if (existingUser && existingUser.email.toLowerCase() === body.email.toLowerCase()) {
-        throw createError({
-          statusCode: 409,
-          statusMessage: 'Email already exists'
-        })
-      }
-    }
-    
-    // Create new user
-    const user: User = {
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-      name: body.name.trim(),
-      email: body.email.trim().toLowerCase(),
-      role: body.role
-    }
-    
-    // Store the user
-    const key = `users:${user.id}`
-    await storage.setItem(key, user)
+    // Return user without password hash
+    const { passwordHash: _, ...userResponse } = user
     
     return {
       success: true,
-      data: user
+      data: { ...userResponse, hasPassword: !!user.passwordHash }
     }
-  } catch (error: any) {
-    if (error.statusCode) {
-      throw error
+  } catch (error) {
+    console.error('Error creating user:', error)
+    
+    // Handle specific validation errors
+    if (error instanceof Error) {
+      if (error.message === 'Email already exists') {
+        throw createError({ statusCode: 409, statusMessage: error.message })
+      }
+      if (error.message === 'Invalid email format') {
+        throw createError({ statusCode: 400, statusMessage: error.message })
+      }
+      if (error.message.includes('Invalid role')) {
+        throw createError({ statusCode: 400, statusMessage: error.message })
+      }
     }
     
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to create user',
-      data: error
+      statusMessage: 'Failed to create user'
     })
   }
 })

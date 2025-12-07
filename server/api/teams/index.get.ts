@@ -1,55 +1,74 @@
-import type { Team } from '../../../types/Team'
-import type { User } from '../../../types/User'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import type { User } from '../../db/schema'
+import { useTeamRepository } from "../../storage/StorageFactory"
 
+/**
+ * User data in team responses (without sensitive data)
+ */
+interface TeamUser {
+  id: string
+  name: string
+  email: string
+  role: 'member' | 'admin'
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Team data with populated user information
+ */
+interface TeamResponse {
+  id: string
+  name: string
+  userIds: string[]
+  users: TeamUser[]
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Response for teams list
+ */
+interface TeamsListResponse {
+  success: true
+  data: TeamResponse[]
+}
+
+/**
+ * GET /api/teams
+ * 
+ * Get list of all teams with populated user data
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
-  
-  try {
-    // Get all teams from storage
-    const teamKeys = await storage.getKeys('teams:')
-    const teams: (Team & { users: User[] })[] = []
-    
-    // Get all users for population
-    const userKeys = await storage.getKeys('users:')
-    const allUsers: User[] = []
-    for (const userKey of userKeys) {
-      const user = await storage.getItem(userKey) as User
-      if (user) {
-        allUsers.push(user)
-      }
-    }
-    
-    // Create user lookup map
-    const userMap = new Map(allUsers.map(user => [user.id, user]))
-    
-    for (const key of teamKeys) {
-      const team = await storage.getItem(key) as Team
-      if (team) {
-        // Populate user details
-        const users = team.userIds
-          .map(userId => userMap.get(userId))
-          .filter(user => user !== undefined) as User[]
-        
-        teams.push({
-          ...team,
-          users
-        })
-      }
-    }
-    
+  const teamRepo = useTeamRepository()
+try {
+    // Get all teams with populated users
+    const teamsWithUsers = await teamRepo.findAllWithUsers()
+
+    // Clean up users to remove password hashes
+    const teams = teamsWithUsers.map(team => ({    
+      ...team,
+      users: team.users.map((user: User) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }))
+    }))
     // Sort teams by name
     teams.sort((a, b) => a.name.localeCompare(b.name))
-    
+
     return {
       success: true,
       data: teams
     }
   } catch (error: any) {
+    console.error('Teams API Error:', error)
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to fetch teams',
-      data: error
+      data: { message: error.message, stack: error.stack }
     })
   }
 })

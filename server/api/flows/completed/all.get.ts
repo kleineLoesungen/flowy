@@ -1,6 +1,18 @@
-import type { Flow } from '../../../../types/Flow'
-import { useDatabaseStorage } from '../../../utils/useDatabaseStorage'
+import type { Flow } from '../../../db/schema'
+import { useDatabaseStorage } from "../../../utils/FlowyStorage"
 
+/**
+ * Response for all completed flows
+ */
+interface AllCompletedFlowsResponse {
+  success: true
+  data: Flow[]
+}
+
+/**
+ * GET /api/flows/completed/all - Get all completed flows across all users
+ * @returns List of all completed flows in the system
+ */
 export default defineEventHandler(async (event) => {
   const storage = useDatabaseStorage()
 

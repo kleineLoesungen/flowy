@@ -1,13 +1,34 @@
-import type { Team } from '../../../types/Team'
-import type { User } from '../../../types/User'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import type { Team } from '../../db/schema'
+import { useTeamRepository, useUserRepository } from "../../storage/StorageFactory"
 
+/**
+ * Request body for updating a team
+ */
+interface UpdateTeamRequest {
+  name?: string
+  userIds?: string[]
+}
+
+/**
+ * Response for team update
+ */
+interface UpdateTeamResponse {
+  success: true
+  data: Team
+}
+
+/**
+ * PUT /api/teams/[id]
+ * 
+ * Update a team
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
+  const teamRepo = useTeamRepository()
+  const userRepo = useUserRepository()
   
   try {
     const teamId = getRouterParam(event, 'id')
-    const body = await readBody(event) as Omit<Team, 'id'>
+    const body: UpdateTeamRequest = await readBody(event)
     
     if (!teamId) {
       throw createError({
@@ -16,18 +37,8 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    // Validate required fields
-    if (!body.name) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Team name is required'
-      })
-    }
-    
     // Check if team exists
-    const key = `teams:${teamId}`
-    const existingTeam = await storage.getItem(key) as Team
-    
+    const existingTeam = await teamRepo.findById(teamId)
     if (!existingTeam) {
       throw createError({
         statusCode: 404,
@@ -35,49 +46,38 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    // Check if team name already exists (excluding current team)
-    const existingTeamKeys = await storage.getKeys('teams:')
-    for (const teamKey of existingTeamKeys) {
-      if (teamKey !== key) {
-        const otherTeam = await storage.getItem(teamKey) as Team
-        if (otherTeam && otherTeam.name.toLowerCase() === body.name.toLowerCase()) {
+    // Basic validation
+    if (body.name !== undefined) {
+      if (typeof body.name !== 'string') {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Team name must be a string'
+        })
+      }
+      body.name = body.name.trim()
+      if (!body.name) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Team name cannot be empty'
+        })
+      }
+    }
+
+    // Validate user IDs if provided
+    if (body.userIds && body.userIds.length > 0) {
+      for (const userId of body.userIds) {
+        const user = await userRepo.findById(userId)
+        if (!user) {
           throw createError({
-            statusCode: 409,
-            statusMessage: 'Team name already exists'
+            statusCode: 400,
+            statusMessage: `User with ID ${userId} not found`
           })
         }
       }
     }
     
-    // Validate user IDs if provided
-    if (body.userIds && body.userIds.length > 0) {
-      const userKeys = await storage.getKeys('users:')
-      const existingUserIds = new Set<string>()
-      
-      for (const userKey of userKeys) {
-        const user = await storage.getItem(userKey) as User
-        if (user) {
-          existingUserIds.add(user.id)
-        }
-      }
-      
-      const invalidUserIds = body.userIds.filter(userId => !existingUserIds.has(userId))
-      if (invalidUserIds.length > 0) {
-        throw createError({
-          statusCode: 400,
-          statusMessage: `Invalid user IDs: ${invalidUserIds.join(', ')}`
-        })
-      }
-    }
-    
-    // Update the team
-    const updatedTeam: Team = {
-      id: teamId,
-      name: body.name.trim(),
-      userIds: body.userIds || []
-    }
-    
-    await storage.setItem(key, updatedTeam)
+    // Update team using repository (handles validation including duplicate names)
+    const updatedTeam = await teamRepo.update(teamId, body)
     
     return {
       success: true,
@@ -88,10 +88,10 @@ export default defineEventHandler(async (event) => {
       throw error
     }
     
+    console.error('Error updating team:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to update team',
-      data: error
+      statusMessage: `Error updating team: ${error.message}`
     })
   }
 })

@@ -1,31 +1,64 @@
 # flowy
 
-// Flow Templates
-- TODO: style like flows? (badges)
-- TODO: FlowViewer: hover effect for element and list consulted users?
-- TODO: element type: 'key-value' on click -> overview of all key-values (copyable)
+## Restructure
+- Done
+  - users
+    - admin: register new user
+  - teams
+  - templates
+    - new
+    - view
+    - edit
+    - delete
+    - no logged in
+    - filter
+    - durcation calculation
+    - create flow
+    - update element in template
+  - login
+  - flow
+    - create flow from template
+    - create flow without template
+    - update flow
+    - delete flow
+    - complete flow
+- TODO:
+  - remove sqlit and postgresdb only
+  - templates
+    - add sorting
+    - check tests
+  - flow
+    - add sorting
+    - e2e tests?
 
-// Flow Comments
-- TODO: hashtag for grouping comments
-- TODO: @ for calling users
+- After all
+  - update tests/docs to working app
+  - remove not used parts
 
-// General
-- TODO: Editors: better support for relations
-  - "bigger" anchors for easier relation creation
-  - first relation = type flow
-  - second relation = ask user -> and || or (what is backwards/join?)
-- TODO: flow status/api: /flows, /flows/completed, /flows/archive
-- TODO: admin cron job definition for archive done flows (x weeks after completed - shift to flows:closed in a file, without comments)
+
+## PROD
+// Flow
+- TODO: artefact -> content (template define values?)
 
 // Flow 
 - TODO: styling of Editor differs from Work/TemplateEditor
 
 // General
+- TODO: test cases for backend
 - TODO: created user in admin panel have no password? label them (and offer no password option for existing users ?)
 - TODO: Testing ENV.connetionString
+- TODO: check relations with multi-ends
+------
+## After PROD
+
+- TODO: admin cron job definition for archive done flows (x weeks after completed - shift to flows:closed in a file, without comments)
 
 // Flow Templates
 - FIXME: template editor: auto layout
 
 // General
+- TODO: element type: 'key-value' on click -> overview of all key-values (copyable)
 - FIXME: remove unused parts
+
+// Flows
+- TODO: flow - completed > archive - /flows/archive (comments deleted)

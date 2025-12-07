@@ -1,5 +1,5 @@
 import type { FlowTemplate } from '../../../types/FlowTemplate'
-import type { Relation } from '../../../types/Relation'
+import type { Relation } from '../../../types_old/Relation'
 
 /**
  * Corrects the direction of connections in a template to ensure proper flow

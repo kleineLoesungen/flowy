@@ -151,8 +151,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Team } from '../../types/Team'
-import type { User } from '../../types/User'
+import type { Team } from '~~/server/db/schema'
+import type { User } from '~~/server/db/schema'
 
 // Page metadata
 definePageMeta({
@@ -171,7 +171,12 @@ const showDeleteModal = ref(false)
 const selectedTeam = ref<Team | null>(null)
 const teamToDelete = ref<Team | null>(null)
 
-const teamForm = ref<Omit<Team, 'id'>>({
+interface TeamFormData {
+  name: string
+  userIds: string[]
+}
+
+const teamForm = ref<TeamFormData>({
   name: '',
   userIds: []
 })

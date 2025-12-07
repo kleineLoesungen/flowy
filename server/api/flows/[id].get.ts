@@ -1,8 +1,21 @@
-import type { Flow } from '../../../types/Flow'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import type { Flow } from '../../db/schema'
+import { useFlowRepository } from "../../storage/StorageFactory"
 
+/**
+ * Response for getting a single flow
+ */
+interface FlowResponse {
+  success: true
+  data: Flow
+}
+
+/**
+ * GET /api/flows/[id] - Get a single flow by ID
+ * @param id - Flow ID to retrieve
+ * @returns The flow details
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
+  const flowRepo = useFlowRepository()
   const flowId = getRouterParam(event, 'id')
 
   if (!flowId) {
@@ -12,20 +25,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Get individual flow
-  try {
-    // Try organized structure first
-    const flow = await storage.getItem(`flows:${flowId}`) as Flow
-    if (flow) {
-      return { data: flow }
-    }
-  } catch (error) {
-    // Fall back to legacy format
-  }
-
-  // Fallback to legacy array format
-  const flows = (await storage.getItem('flows') as Flow[]) || []
-  const flow = flows.find(f => f.id === flowId)
+  // Get flow by ID using repository
+  const flow = await flowRepo.findById(flowId)
 
   if (!flow) {
     throw createError({

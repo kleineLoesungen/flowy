@@ -1,61 +1,87 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import type { UserWithPassword } from '../../types/UserWithPassword'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { useUserRepository } from '../../storage/StorageFactory'
 
+/**
+ * Request body for changing password
+ */
+interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
+}
+
+/**
+ * Response data for successful password change
+ */
+interface ChangePasswordResponse {
+  success: true
+  data: {
+    message: string
+  }
+}
+
+/**
+ * JWT token payload
+ */
+interface JwtPayload {
+  userId: string
+  email: string
+  role: 'admin' | 'member'
+}
+
+/**
+ * POST /api/auth/change-password
+ * 
+ * Change user's password (requires authentication)
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
-  
   try {
-    const body = await readBody(event) as {
-      currentPassword: string
-      newPassword: string
-    }
-    
-    // Get JWT token from cookies
+    // Get token from cookie for authentication
     const token = getCookie(event, 'auth-token')
     
     if (!token) {
       throw createError({
         statusCode: 401,
-        statusMessage: 'Authentication required. Please log in again.'
+        statusMessage: 'Authentication required'
       })
     }
-    
+
     // Verify JWT token
     const runtimeConfig = useRuntimeConfig()
     const secretKey = runtimeConfig.jwtSecret || 'default-secret-key'
     
-    let userId: string
+    let decoded: { userId: string }
+    
     try {
-      const decoded = jwt.verify(token, secretKey) as { userId: string }
-      userId = decoded.userId
-    } catch (error: any) {
+      decoded = jwt.verify(token, secretKey) as { userId: string }
+    } catch (jwtError) {
       throw createError({
         statusCode: 401,
-        statusMessage: 'Authentication token has expired. Please log in again.'
+        statusMessage: 'Invalid or expired token'
       })
     }
+
+    const { currentPassword, newPassword }: ChangePasswordRequest = await readBody(event)
     
-    // Validate required fields
-    if (!body.currentPassword || !body.newPassword) {
+    // Validation
+    if (!currentPassword || !newPassword) {
       throw createError({
         statusCode: 400,
         statusMessage: 'Current password and new password are required'
       })
     }
-    
-    // Validate new password length
-    if (body.newPassword.length < 6) {
+
+    if (newPassword.length < 6) {
       throw createError({
         statusCode: 400,
         statusMessage: 'New password must be at least 6 characters long'
       })
     }
+
+    const userRepo = useUserRepository()
     
-    // Get user from storage
-    const key = `users:${userId}`
-    const user = await storage.getItem(key) as UserWithPassword
+    // Get user from database
+    const user = await userRepo.findById(decoded.userId)
     
     if (!user) {
       throw createError({
@@ -63,17 +89,16 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'User not found'
       })
     }
-    
-    // Check if user has a password set
+
+    // Verify current password
     if (!user.passwordHash) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'No password set for this user'
+        statusMessage: 'No password is currently set for this user'
       })
     }
-    
-    // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(body.currentPassword, user.passwordHash)
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash)
     
     if (!isCurrentPasswordValid) {
       throw createError({
@@ -81,31 +106,30 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Current password is incorrect'
       })
     }
+
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12)
     
-    // Hash the new password
-    const newPasswordHash = await bcrypt.hash(body.newPassword, 12)
-    
-    // Update user with new password
-    const updatedUser = {
-      ...user,
-      passwordHash: newPasswordHash
-    }
-    
-    await storage.setItem(key, updatedUser)
-    
+    // Update user password
+    await userRepo.update(decoded.userId, {
+      passwordHash: hashedNewPassword
+    })
+
     return {
       success: true,
       message: 'Password changed successfully'
     }
-  } catch (error: any) {
-    if (error.statusCode) {
+  } catch (error) {
+    console.error('Change password error:', error)
+    
+    // Handle HTTP errors
+    if (error && typeof error === 'object' && 'statusCode' in error) {
       throw error
     }
     
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to change password',
-      data: error
+      statusMessage: 'Failed to change password'
     })
   }
 })

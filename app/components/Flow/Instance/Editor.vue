@@ -227,6 +227,19 @@
       </div>
     </div>
 
+    <!-- Dialog Component -->
+    <Dialog 
+      :show="showDialog"
+      :type="dialogConfig.type"
+      :title="dialogConfig.title"
+      :message="dialogConfig.message"
+      :icon="dialogConfig.icon"
+      :confirm-text="dialogConfig.confirmText"
+      :cancel-text="dialogConfig.cancelText"
+      @confirm="handleDialogConfirm"
+      @cancel="handleDialogCancel"
+      @close="handleDialogClose"
+    />
 
   </div>
 </template>
@@ -241,10 +254,11 @@ import type { FlowTemplate } from '../../../../types/FlowTemplate'
 import type { ElementTemplate } from '../../../../types/ElementTemplate'
 import type { Flow } from '../../../../types/Flow'
 import type { Element } from '../../../../types/Element'
-import type { Relation } from '../../../../types/Relation'
-import type { User } from '../../../../types/User'
-import type { Team } from '../../../../types/Team'
+import type { Relation } from '../../../../types_old/Relation'
+import type { User } from '../../../../types_old/User'
+import type { Team } from '../../../../types_old/Team'
 import { useRelations } from '../../../composables/useRelations'
+import Dialog from '../../UI/Dialog.vue'
 
 // Props and emits
 const props = defineProps<{
@@ -787,7 +801,7 @@ watch(() => [props.flow, props.isEditing] as const, ([flow, isEditing]) => {
     flowData.value.startedAt = flow.startedAt
     flowData.value.expectedEndDate = flow.expectedEndDate
     flowData.value.completedAt = flow.completedAt
-    flowData.value.hidden = flow.hidden || false
+    flowData.value.hidden = flow.hidden ?? false
     loadFlowIntoEditor(flow)
 
     // Save initial state after loading is complete
@@ -1602,10 +1616,62 @@ const convertToFlow = (): Flow => {
   return flow
 }
 
+// Dialog state
+const showDialog = ref(false)
+const dialogConfig = ref<{
+  type: 'info' | 'warning' | 'error' | 'confirm' | 'save-confirm'
+  title: string
+  message: string
+  icon?: 'info' | 'warning' | 'error' | 'save'
+  confirmText?: string
+  cancelText?: string
+  onConfirm?: () => void
+  onCancel?: () => void
+}>({
+  type: 'info',
+  title: '',
+  message: ''
+})
+
+const showDialogMessage = (config: typeof dialogConfig.value) => {
+  dialogConfig.value = { ...config }
+  showDialog.value = true
+}
+
+const handleDialogConfirm = () => {
+  showDialog.value = false
+  dialogConfig.value.onConfirm?.()
+}
+
+const handleDialogCancel = () => {
+  showDialog.value = false
+  dialogConfig.value.onCancel?.()
+}
+
+const handleDialogClose = () => {
+  showDialog.value = false
+}
+
 // Save flow
 const saveFlow = () => {
   if (!flowData.value.name.trim()) {
-    alert('Please enter a flow name in the field above')
+    showDialogMessage({
+      type: 'warning',
+      title: 'Missing Flow Name',
+      message: 'Please enter a flow name in the field above before saving.',
+      icon: 'warning'
+    })
+    return
+  }
+
+  // Validate: If elements exist, a starting element must be defined
+  if (reactiveNodes.value.length > 0 && !flowData.value.startingElementId) {
+    showDialogMessage({
+      type: 'warning',
+      title: 'Starting Element Required',
+      message: 'A starting element must be selected when elements exist in the flow.',
+      icon: 'warning'
+    })
     return
   }
 

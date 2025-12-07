@@ -1,6 +1,19 @@
-import type { Flow } from '../../../../types/Flow'
-import { useDatabaseStorage } from '../../../utils/useDatabaseStorage'
+import type { Flow } from '../../../db/schema'
+import { useDatabaseStorage } from "../../../utils/FlowyStorage"
 
+/**
+ * Response for flow reopen operation
+ */
+interface ReopenFlowResponse {
+  success: true
+  data: Flow
+}
+
+/**
+ * POST /api/flows/[id]/reopen - Reopen a completed flow
+ * @param id - Flow ID to reopen
+ * @returns The reopened flow with cleared completion date
+ */
 export default defineEventHandler(async (event) => {
   const flowId = getRouterParam(event, 'id')
   

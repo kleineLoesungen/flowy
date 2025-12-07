@@ -1,8 +1,39 @@
-import type { Flow } from '../../../types/Flow'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import type { Flow, FlowElement, FlowRelation, ElementLayout } from '../../db/schema'
+import { useFlowRepository } from "../../storage/StorageFactory"
+import { normalizeRelations } from "../../utils/relationNormalizer"
 
+/**
+ * Request body for updating a flow
+ */
+interface UpdateFlowRequest {
+  name?: string
+  description?: string | null
+  elements?: FlowElement[]
+  relations?: FlowRelation[]
+  startingElementId?: string
+  startedAt?: string | null
+  expectedEndDate?: string | null
+  completedAt?: string | null
+  hidden?: boolean
+  layout?: ElementLayout | null
+}
+
+/**
+ * Response for flow update
+ */
+interface UpdateFlowResponse {
+  success: true
+  data: Flow
+}
+
+/**
+ * PUT /api/flows/[id] - Update a flow by ID
+ * @param id - Flow ID to update
+ * @param body - Flow update data
+ * @returns The updated flow
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
+  const flowRepo = useFlowRepository()
   const flowId = getRouterParam(event, 'id')
 
   if (!flowId) {
@@ -12,83 +43,87 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Update flow
-  const body = await readBody(event)
-  
-  // Normalize elements according to their type requirements
-  if (body.elements) {
-    body.elements = body.elements.map((element: any) => {
-      const normalizedElement = { ...element }
-      
-      // Handle state and artefact elements - clear fields that should be null/empty
-      if (element.type === 'state' || element.type === 'artefact') {
-        normalizedElement.ownerTeamId = null
-        normalizedElement.consultedTeamIds = []
-        normalizedElement.completedAt = null
-        normalizedElement.expectedEndedAt = null
-        normalizedElement.status = 'completed' // Status should be completed for state and artefact
-      }
-      
-      return normalizedElement
-    })
-  }
-
   try {
-    // Try to get from organized structure first
-    const existingFlow = await storage.getItem(`flows:${flowId}`) as Flow
-    if (existingFlow) {
-      // Check if flow is completed - prevent any updates to completed flows
-      if (existingFlow.completedAt) {
-        throw createError({
-          statusCode: 403,
-          statusMessage: 'Cannot modify completed flows. Use reopen endpoint to make flow active again.'
-        })
-      }
-
-      const updatedFlow: Flow = {
-        ...existingFlow,
-        ...body,
-        id: flowId // Ensure ID doesn't change
-      }
-
-      await storage.setItem(`flows:${flowId}`, updatedFlow)
-      return { data: updatedFlow }
+    // Get existing flow
+    const existingFlow = await flowRepo.findById(flowId)
+    
+    if (!existingFlow) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Flow not found'
+      })
     }
-  } catch (error) {
-    // If it's our custom error, re-throw it
-    if (error && typeof error === 'object' && 'statusCode' in error && (error as any).statusCode === 403) {
+
+    // Check if flow is completed - prevent any updates to completed flows
+    if (existingFlow.completedAt) {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Cannot modify completed flows. Use reopen endpoint to make flow active again.'
+      })
+    }
+
+    // Update flow
+    const body = await readBody(event)
+    
+    // Normalize elements according to their type requirements
+    let normalizedElements = body.elements || existingFlow.elements
+    if (body.elements) {
+      normalizedElements = body.elements.map((element: any) => {
+        const normalizedElement = { ...element }
+        
+        // Ensure ownerTeamId is never undefined
+        if (normalizedElement.ownerTeamId === undefined) {
+          normalizedElement.ownerTeamId = null
+        }
+        
+        // Handle state and artefact elements - clear fields that should be null/empty
+        if (element.type === 'state' || element.type === 'artefact') {
+          normalizedElement.ownerTeamId = null
+          normalizedElement.consultedTeamIds = []
+          normalizedElement.completedAt = null
+          normalizedElement.expectedEndedAt = null
+          normalizedElement.status = 'completed' // Status should be completed for state and artefact
+        }
+        
+        return normalizedElement
+      })
+    }
+    
+    // Normalize relations if provided - group and correct direction
+    let normalizedRelations = body.relations !== undefined ? body.relations : existingFlow.relations
+    if (body.relations && body.relations.length > 0) {
+      normalizedRelations = normalizeRelations(
+        body.relations as any[], 
+        body.startingElementId || existingFlow.startingElementId || '',
+        normalizedElements.map((el: any) => ({ id: el.id, type: el.type, name: el.name }))
+      ) as FlowRelation[]
+    }
+
+    // Prepare update data
+    const updateData: Partial<Flow> = {
+      ...body,
+      elements: normalizedElements,
+      relations: normalizedRelations,
+      hidden: body.hidden ?? existingFlow.hidden
+    }
+
+    // Update flow using repository
+    const updatedFlow = await flowRepo.update(flowId, updateData)
+    
+    return { 
+      success: true,
+      data: updatedFlow 
+    }
+  } catch (error: any) {
+    // Re-throw HTTP errors
+    if (error.statusCode) {
       throw error
     }
-    // Fall back to legacy format for other errors
-  }
-
-  // Fallback to legacy array format
-  const flows = (await storage.getItem('flows') as Flow[]) || []
-  const flowIndex = flows.findIndex(flow => flow.id === flowId)
-
-  if (flowIndex === -1) {
+    
+    console.error('Error updating flow:', error)
     throw createError({
-      statusCode: 404,
-      statusMessage: 'Flow not found'
+      statusCode: 500,
+      statusMessage: `Error updating flow: ${error.message}`
     })
   }
-
-  // Check if flow is completed - prevent any updates to completed flows
-  if (flows[flowIndex].completedAt) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Cannot modify completed flows. Use reopen endpoint to make flow active again.'
-    })
-  }
-
-  const updatedFlow: Flow = {
-    ...flows[flowIndex],
-    ...body,
-    id: flowId // Ensure ID doesn't change
-  }
-
-  flows[flowIndex] = updatedFlow
-  await storage.setItem('flows', flows)
-
-  return { data: updatedFlow }
 })

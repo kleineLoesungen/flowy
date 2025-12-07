@@ -1,8 +1,39 @@
-import type { FlowTemplate } from '../../../types/FlowTemplate'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { useTemplateRepository, useUserRepository, useFlowRepository } from "../../storage/StorageFactory"
+import jwt from 'jsonwebtoken'
+
+/**
+ * Response for template deletion
+ */
+interface DeleteTemplateResponse {
+  success: true
+  message: string
+}
+
+/**
+ * DELETE /api/templates/[id] - Delete a template by ID
+ * @param id - Template ID to delete
+ * @returns Confirmation of deletion
+ */
+async function getCurrentUser(event: any) {
+  try {
+    const token = getCookie(event, 'auth-token')
+    if (!token) return null
+
+    const runtimeConfig = useRuntimeConfig()
+    const secretKey = runtimeConfig.jwtSecret || 'default-secret-key'
+    const decoded: any = jwt.verify(token, secretKey)
+
+    const userRepo = useUserRepository()
+    const user = await userRepo.findById(decoded.userId)
+    return user
+  } catch (error) {
+    return null
+  }
+}
 
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
+  const templateRepo = useTemplateRepository()
+  const flowRepo = useFlowRepository()
   
   try {
     const templateId = getRouterParam(event, 'id')
@@ -13,11 +44,18 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Template ID is required'
       })
     }
+
+    // Get current user for authorization
+    const currentUser = await getCurrentUser(event)
+    if (!currentUser) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized - Please log in'
+      })
+    }
     
     // Check if template exists
-    const key = `templates:${templateId}`
-    const existingTemplate = await storage.getItem(key) as FlowTemplate
-    
+    const existingTemplate = await templateRepo.findById(templateId)
     if (!existingTemplate) {
       throw createError({
         statusCode: 404,
@@ -25,8 +63,17 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    // Delete the template
-    await storage.removeItem(key)
+    // Check if template is being used by any flows
+    const relatedFlows = await flowRepo.findByTemplateId(templateId)
+    if (relatedFlows.length > 0) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: `Cannot delete template. It is being used by ${relatedFlows.length} flow(s). Please delete or update those flows first.`
+      })
+    }
+    
+    // Delete template using repository
+    await templateRepo.delete(templateId)
     
     return {
       success: true,
@@ -37,10 +84,10 @@ export default defineEventHandler(async (event) => {
       throw error
     }
     
+    console.error('Error deleting template:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to delete flow template',
-      data: error
+      statusMessage: `Error deleting template: ${error.message}`
     })
   }
 })

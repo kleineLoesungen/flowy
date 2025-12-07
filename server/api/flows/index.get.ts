@@ -1,8 +1,19 @@
-import type { Flow } from '../../../types/Flow'
-import type { Team } from '../../../types/Team'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import type { Flow } from '../../db/schema'
+import { useFlowRepository, useUserRepository, useTeamRepository } from "../../storage/StorageFactory"
 import jwt from 'jsonwebtoken'
 
+/**
+ * Response for flows list
+ */
+interface FlowsListResponse {
+  success: true
+  data: Flow[]
+}
+
+/**
+ * GET /api/flows - Get flows (public endpoint)
+ * @returns List of flows (all flows for public access, filtered by role if authenticated)
+ */
 async function getCurrentUser(event: any) {
   try {
     const token = getCookie(event, 'auth-token')
@@ -12,94 +23,72 @@ async function getCurrentUser(event: any) {
     const secretKey = runtimeConfig.jwtSecret || 'default-secret-key'
     const decoded: any = jwt.verify(token, secretKey)
 
-    const storage = useDatabaseStorage()
-    const user = await storage.getItem(`users:${decoded.userId}`)
+    const userRepo = useUserRepository()
+    const user = await userRepo.findById(decoded.userId)
     return user
   } catch (error) {
     return null
   }
 }
 
-async function getUserTeamIds(userId: string, storage: any): Promise<Set<string>> {
-  const teamIds = new Set<string>()
-  try {
-    const teamKeys = await storage.getKeys('teams:')
-    for (const key of teamKeys) {
-      const team = await storage.getItem(key) as Team
-      if (team && team.userIds && team.userIds.includes(userId)) {
-        teamIds.add(team.id)
-      }
-    }
-  } catch (error) {
-    console.error('Error getting user team IDs:', error)
-  }
-  return teamIds
-}
-
-function isFlowRelevantToUser(flow: Flow, userTeamIds: Set<string>, isAdmin: boolean): boolean {
-  // For "My Flows", we want to show only flows where user is personally involved
-  // Check if user owns or is consulted on any element
-  const hasPersonalInvolvement = flow.elements.some(element => {
-    // Check if user owns this element
-    if (element.ownerTeamId && userTeamIds.has(element.ownerTeamId)) {
-      return true
-    }
-    // Check if user is consulted on this element
-    if (element.consultedTeamIds && element.consultedTeamIds.some(teamId => userTeamIds.has(teamId))) {
-      return true
-    }
-    return false
-  })
-
-  // Return true only if user has personal involvement
-  return hasPersonalInvolvement
-}
-
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
-  const user = await getCurrentUser(event)
-
-  let allFlows: Flow[] = []
-
-  // Try to get flows from organized structure first
+  const flowRepo = useFlowRepository()
+  
   try {
-    const flowsKeys = await storage.getKeys('flows:')
+    // Get current user from JWT (optional for this endpoint)
+    const currentUser = await getCurrentUser(event)
 
-    for (const key of flowsKeys) {
-      const flow = await storage.getItem(key) as Flow
-      if (flow && !flow.completedAt) { // Only include open flows (not completed)
-        allFlows.push(flow)
-      }
+    // Get flows accessible to user
+    // If user is authenticated: admin sees all, member sees only flows for their teams
+    // If user is not authenticated: show all flows (public access)
+    let flows: Flow[]
+    if (!currentUser) {
+      // Public access - show only non-hidden, active (non-completed) flows
+      flows = await flowRepo.findActive()
+    } else if (currentUser.role === 'admin') {
+      // Admin sees all active (non-completed) flows, including hidden ones
+      const allFlows = await flowRepo.findAll()
+      flows = allFlows.filter(flow => !flow.completedAt)
+    } else {
+      // For non-admin users, find active flows where their teams are involved
+      // Include hidden flows if user is part of the involved teams
+      const teamRepo = useTeamRepository()
+      const userTeams = await teamRepo.findTeamsWithUser(currentUser.id)
+      const userTeamIds = userTeams.map(team => team.id)
+      
+      // Get all non-completed flows and filter by team involvement
+      const allFlows = await flowRepo.findAll()
+      flows = allFlows.filter(flow => {
+        // Exclude completed flows
+        if (flow.completedAt) return false
+        
+        // Check if user is involved in the flow
+        const isInvolved = flow.elements.some(element => 
+          (element.ownerTeamId && userTeamIds.includes(element.ownerTeamId)) ||
+          (element.consultedTeamIds && element.consultedTeamIds.some(teamId => userTeamIds.includes(teamId)))
+        )
+        
+        return isInvolved
+      })
     }
 
-    if (allFlows.length === 0) {
-      // Fall back to legacy format if organized structure doesn't exist
-      const flows = (await storage.getItem('flows') as Flow[]) || []
-      const flowsArray = Array.isArray(flows) ? flows : []
-      allFlows = flowsArray.filter(flow => !flow.completedAt)
+    // Sort flows by creation date (newest first)
+    flows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    return {
+      success: true,
+      data: flows
     }
-  } catch (error) {
-    console.log('Error accessing flows structure:', error)
-    // Fallback to legacy array format
-    const flows = (await storage.getItem('flows') as Flow[]) || []
-    const flowsArray = Array.isArray(flows) ? flows : []
-    allFlows = flowsArray.filter(flow => !flow.completedAt)
+  } catch (error: any) {
+    if (error.statusCode) {
+      throw error
+    }
+    
+    console.error('Flows API Error:', error)
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Failed to fetch flows',
+      data: { message: error.message, stack: error.stack }
+    })
   }
-
-  // If no user is logged in, return all non-hidden flows
-  if (!user) {
-    const publicFlows = allFlows.filter(flow => !flow.hidden)
-    return { data: publicFlows }
-  }
-
-  // Get user's team memberships
-  const userTeamIds = await getUserTeamIds(user.id, storage)
-  const isAdmin = user.role === 'admin'
-
-  // Filter flows based on user relevance
-  const relevantFlows = allFlows.filter(flow => 
-    isFlowRelevantToUser(flow, userTeamIds, isAdmin)
-  )
-
-  return { data: relevantFlows }
 })

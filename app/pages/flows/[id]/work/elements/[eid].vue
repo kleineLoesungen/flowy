@@ -61,7 +61,7 @@ const element = computed(() => {
 
 // Set page metadata
 useHead({
-  title: isNewElement.value ? 'Add Element' : 'Edit Element',
+  title: isNewElement.value ? 'Add Element' : 'Work on Element',
   meta: [
     { name: 'description', content: isNewElement.value ? 'Add a new element to the flow instance' : 'Edit flow instance element' }
   ]
@@ -330,7 +330,7 @@ const handleSave = async (updatedElement: any) => {
 
     // Save the updated flow
     await $fetch(`/api/flows/${flowId}`, {
-      method: 'PUT',
+      method: 'PUT' as const,
       body: updatedFlow
     })
 

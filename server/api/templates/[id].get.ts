@@ -1,9 +1,21 @@
-import type { FlowTemplate } from '../../../types/FlowTemplate'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
-import { migrateLegacyRelations } from '../../utils/templates/migrateRelations'
+import type { FlowTemplate } from '../../db/schema'
+import { useTemplateRepository } from "../../storage/StorageFactory"
 
+/**
+ * Response for template details
+ */
+interface TemplateDetailsResponse {
+  success: true
+  data: FlowTemplate
+}
+
+/**
+ * GET /api/templates/[id]
+ * 
+ * Get a specific template by ID
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
+  const templateRepo = useTemplateRepository()
   
   try {
     const templateId = getRouterParam(event, 'id')
@@ -15,8 +27,8 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    // Get the specific template from storage
-    let template = await storage.getItem(`templates:${templateId}`) as FlowTemplate
+    // Get the specific template from repository
+    const template = await templateRepo.findById(templateId)
     
     if (!template) {
       throw createError({
@@ -25,25 +37,20 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    // Migrate legacy relations if needed
-    if (template.relations) {
-      template.relations = migrateLegacyRelations(template.relations as any)
-    }
-    
     return {
+      success: true,
       data: template
     }
-  } catch (error) {
-    // If it's already a createError, re-throw it
-    if (error && typeof error === 'object' && 'statusCode' in error) {
+  } catch (error: any) {
+    if (error.statusCode) {
       throw error
     }
     
-    // Otherwise, wrap in a generic 500 error
+    console.error('Template API Error:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to fetch flow template',
-      data: error
+      statusMessage: 'Failed to fetch template',
+      data: { message: error.message, stack: error.stack }
     })
   }
 })

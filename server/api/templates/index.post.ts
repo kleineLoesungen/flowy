@@ -1,126 +1,135 @@
-import type { FlowTemplate } from '../../../types/FlowTemplate'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
-import { correctTemplateRelations } from '../../utils/templates/correctTemplateRelations'
-import { migrateLegacyRelations } from '../../utils/templates/migrateRelations'
+import type { FlowTemplate, NewFlowTemplate, FlowElement, FlowRelation, ElementLayout } from '../../db/schema'
+import { useTemplateRepository, useUserRepository } from "../../storage/StorageFactory"
+import { normalizeRelations } from "../../utils/relationNormalizer"
+import jwt from 'jsonwebtoken'
 
+/**
+ * Request body for creating a template
+ */
+interface CreateTemplateRequest {
+  name: string
+  description: string
+  elements?: FlowElement[]
+  relations?: FlowRelation[]
+  startingElementId?: string
+  layout?: ElementLayout
+}
+
+/**
+ * Response for template creation
+ */
+interface CreateTemplateResponse {
+  success: true
+  data: FlowTemplate
+}
+
+/**
+ * GET current authenticated user
+ */
+async function getCurrentUser(event: any) {
+  try {
+    const token = getCookie(event, 'auth-token')
+    if (!token) return null
+
+    const runtimeConfig = useRuntimeConfig()
+    const secretKey = runtimeConfig.jwtSecret || 'default-secret-key'
+    const decoded: any = jwt.verify(token, secretKey)
+
+    const userRepo = useUserRepository()
+    const user = await userRepo.findById(decoded.userId)
+    return user
+  } catch (error) {
+    return null
+  }
+}
+
+/**
+ * POST /api/templates
+ * 
+ * Create a new flow template
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
+  const templateRepo = useTemplateRepository()
   
   try {
-    const bodyData = await readBody(event) as FlowTemplate
-    
-    // Create a mutable copy to allow modifications
-    const body = { ...bodyData }
-    
-    // Generate ID if not provided
-    if (!body.id) {
-      body.id = Date.now().toString(36) + Math.random().toString(36).substr(2)
+    // Get current user for authorization
+    const currentUser = await getCurrentUser(event)
+    if (!currentUser) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Unauthorized - Please log in'
+      })
     }
+
+    const body: CreateTemplateRequest = await readBody(event)
     
-    // Validate required fields
-    if (!body.name || !body.description) {
+    // Basic validation
+    if (!body.name || typeof body.name !== 'string') {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Name and description are required'
+        statusMessage: 'Template name is required'
+      })
+    }
+    
+    if (!body.description || typeof body.description !== 'string') {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Template description is required'
       })
     }
     
     // Normalize element templates according to their type requirements
-    if (body.elements) {
-      body.elements = body.elements.map((element: any) => {
+    let normalizedElements = body.elements || []
+    if (normalizedElements.length > 0) {
+      normalizedElements = normalizedElements.map((element: any) => {
         const normalizedElement = { ...element }
         
         // Handle state and artefact elements - clear fields that should be null/empty
         if (element.type === 'state' || element.type === 'artefact') {
           normalizedElement.ownerTeamId = null
-          normalizedElement.durationDays = null
           normalizedElement.consultedTeamIds = []
+          normalizedElement.expectedDuration = null
         }
         
         return normalizedElement
       })
     }
-    
-    // Validate and auto-set starting element
-    if (body.elements && body.elements.length > 0) {
-      // If no starting element is defined but we have elements, set the first element as starting
-      if (!body.startingElementId) {
-        body.startingElementId = body.elements[0].id
-        console.log(`Auto-setting starting element to first element: ${body.startingElementId}`)
-      }
-      
-      // Check if starting element exists
-      const startingElementExists = body.elements.some(el => el.id === body.startingElementId)
-      if (!startingElementExists) {
-        // If the current startingElementId doesn't exist, set it to the first element
-        body.startingElementId = body.elements[0].id
-        console.log(`Starting element not found, auto-setting to first element: ${body.startingElementId}`)
-      }
-    } else {
-      // If no elements, clear the starting element ID
-      body.startingElementId = null
-    }
-    
-    // Migrate legacy relations to new format
-    if (body.relations) {
-      body.relations = migrateLegacyRelations(body.relations as any)
+
+    // Normalize relations - group and correct direction
+    let normalizedRelations = body.relations || []
+    if (normalizedRelations.length > 0) {
+      normalizedRelations = normalizeRelations(
+        normalizedRelations as any[],
+        body.startingElementId || '',
+        normalizedElements.map((el: any) => ({ id: el.id, type: el.type, name: el.name }))
+      ) as FlowRelation[]
     }
 
-    // Clean up orphaned relations
-    if (body.elements && body.relations) {
-      const existingElementIds = new Set(body.elements.map(el => el.id))
-      const originalRelationsCount = body.relations.length
-      
-      // Filter and clean relations
-      body.relations = body.relations
-        .map(relation => {
-          // Filter out connections with non-existent element IDs
-          const validConnections = relation.connections.filter(connection => 
-            existingElementIds.has(connection.fromElementId) && 
-            existingElementIds.has(connection.toElementId)
-          )
-          
-          // Return updated relation if it still has valid connections
-          if (validConnections.length > 0) {
-            return {
-              ...relation,
-              connections: validConnections
-            }
-          }
-          
-          // Return null for relations with no valid connections (will be filtered out)
-          return null
-        })
-        .filter(relation => relation !== null) // Remove null relations
-      
-      const cleanedRelationsCount = body.relations.length
-      const removedRelationsCount = originalRelationsCount - cleanedRelationsCount
-      
-      if (removedRelationsCount > 0) {
-        console.log(`Cleaned relations: removed ${removedRelationsCount} orphaned relations or connections (${cleanedRelationsCount} remaining)`)
-      }
+    const templateData = {
+      name: body.name.trim(),
+      description: body.description.trim(),
+      elements: normalizedElements,
+      relations: normalizedRelations,
+      startingElementId: body.startingElementId || '',
+      layout: body.layout || null
     }
-    
-    // Correct relation directions from starting element
-    const correctedTemplate = correctTemplateRelations(body)
-    
-    // Store the template
-    const key = `templates:${correctedTemplate.id}`
-    await storage.setItem(key, correctedTemplate)
+
+    // Create template using repository (handles validation)
+    const template = await templateRepo.create(templateData)
     
     return {
       success: true,
-      data: correctedTemplate
+      data: template
     }
   } catch (error: any) {
     if (error.statusCode) {
       throw error
     }
     
+    console.error('Error creating template:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to create flow template',
-      data: error
+      statusMessage: `Error creating template: ${error.message}`
     })
   }
 })

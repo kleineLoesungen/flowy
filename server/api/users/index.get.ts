@@ -1,40 +1,52 @@
-import type { User } from '../../../types/User'
-import type { UserWithPassword } from '../../types/UserWithPassword'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { useUserRepository } from '../../storage/StorageFactory'
+import type { User } from '../../db/schema'
 
+/**
+ * User response (without sensitive data)
+ */
+interface UserResponse {
+  id: string
+  name: string
+  email: string
+  role: 'admin' | 'member'
+  hasPassword: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Response for users list
+ */
+interface UsersListResponse {
+  success: true
+  data: UserResponse[]
+}
+
+/**
+ * GET /api/users
+ * 
+ * Get list of all users (admin only)
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
-  
   try {
-    // Get all users from storage
-    const userKeys = await storage.getKeys('users:')
-    const users: (User & { hasPassword: boolean })[] = []
+    const userRepo = useUserRepository()
     
-    for (const key of userKeys) {
-      const userData = await storage.getItem(key) as UserWithPassword
-      if (userData) {
-        // Remove passwordHash before returning to client, but include hasPassword flag
-        const { passwordHash, ...user } = userData
-        const userWithPasswordStatus = {
-          ...user,
-          hasPassword: passwordHash != null && passwordHash.trim() !== ''
-        }
-        users.push(userWithPasswordStatus)
-      }
-    }
+    // Get all users without password hash
+    const users = await userRepo.findAllPublic()
     
     // Sort users by name
-    users.sort((a, b) => a.name.localeCompare(b.name))
+    const sortedUsers = users.sort((a, b) => a.name.localeCompare(b.name))
     
     return {
       success: true,
-      data: users
+      data: sortedUsers
     }
-  } catch (error: any) {
+  } catch (error) {
+    console.error('Error fetching users:', error)
+    
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to fetch users',
-      data: error
+      statusMessage: 'Failed to fetch users'
     })
   }
 })

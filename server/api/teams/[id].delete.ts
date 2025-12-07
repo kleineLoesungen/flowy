@@ -1,8 +1,20 @@
-import type { Team } from '../../../types/Team'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { useTeamRepository } from "../../storage/StorageFactory"
 
+/**
+ * Response for team deletion
+ */
+interface DeleteTeamResponse {
+  success: true
+  message: string
+}
+
+/**
+ * DELETE /api/teams/[id]
+ * 
+ * Delete a team
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
+  const teamRepo = useTeamRepository()
   
   try {
     const teamId = getRouterParam(event, 'id')
@@ -15,18 +27,16 @@ export default defineEventHandler(async (event) => {
     }
     
     // Check if team exists
-    const teamKey = `teams:${teamId}`
-    const team = await storage.getItem(teamKey) as Team
-    
-    if (!team) {
+    const existingTeam = await teamRepo.findById(teamId)
+    if (!existingTeam) {
       throw createError({
         statusCode: 404,
         statusMessage: 'Team not found'
       })
     }
     
-    // Delete the team
-    await storage.removeItem(teamKey)
+    // Delete team using repository
+    await teamRepo.delete(teamId)
     
     return {
       success: true,
@@ -37,10 +47,10 @@ export default defineEventHandler(async (event) => {
       throw error
     }
     
+    console.error('Error deleting team:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to delete team',
-      data: error
+      statusMessage: `Error deleting team: ${error.message}`
     })
   }
 })

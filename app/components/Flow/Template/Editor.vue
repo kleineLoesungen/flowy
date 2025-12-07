@@ -18,7 +18,7 @@
         <button v-if="hasChanges" @click="resetChanges" class="btn btn-warning">
           Reset
         </button>
-        <button @click="$emit('cancel')" class="btn btn-secondary">
+        <button @click="handleClose" class="btn btn-secondary">
           Close
         </button>
       </div>
@@ -102,7 +102,7 @@
                 <h4>{{ data.name || 'Unnamed Element' }}</h4>
                 <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
                 <div class="element-meta">
-                  <span v-if="data.type" class="type-tag" :class="'type-' + data.type">
+                  <span v-if="data.type" class="meta-item type-icon" :class="'type-' + data.type">
                     <svg v-if="data.type === 'action'" width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M13 10h5l-6 6-6-6h5V3h2v7z" />
                     </svg>
@@ -113,31 +113,25 @@
                     <svg v-else width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" />
                     </svg>
-                    {{ data.type }}
                   </span>
-                  <span v-if="data.ownerTeamId" class="team-tag">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor"
-                      viewBox="0 0 16 16">
-                      <path
-                        d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
+                  <span v-if="data.ownerTeamId" class="meta-item owner-icon">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
                     </svg>
-                    {{ getTeamName(data.ownerTeamId) }}
                   </span>
-                  <span v-if="data.durationDays" class="duration">
+                  <span v-if="data.consultedTeamIds && data.consultedTeamIds.length > 0" class="meta-item consulted-count">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
+                    </svg>
+                    {{ data.consultedTeamIds.length }}
+                  </span>
+                  <span v-if="data.durationDays" class="meta-item duration-icon">
                     <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
                       <path
                         d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
                       <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
                     </svg>
-                    {{ data.durationDays }} day{{ data.durationDays === 1 ? '' : 's' }}
-                  </span>
-                  <span v-if="data.consultedTeamIds && data.consultedTeamIds.length > 0" class="consulted-teams">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor"
-                      viewBox="0 0 16 16">
-                      <path
-                        d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
-                    </svg>
-                    {{ data.consultedTeamIds.length }} teams
+                    {{ data.durationDays }}
                   </span>
                 </div>
               </div>
@@ -171,20 +165,20 @@
 
     <!-- Edge Type Modal -->
     <div v-if="showEdgeModal" class="modal-overlay" @click="closeEdgeModal">
-      <div class="edge-modal" @click.stop>
+      <div ref="edgeModal" class="edge-modal" @click.stop @keydown.enter="saveEdgeType" @keydown.esc="closeEdgeModal" tabindex="0">
         <h3>Configure Connection</h3>
         <div class="edge-form">
           <div class="form-group">
             <label>Connection Type</label>
-            <select v-model="currentEdgeType" class="form-control">
+            <select v-model="currentEdgeType" class="form-control" @keydown.enter="saveEdgeType">
               <template v-if="isArtefactConnection">
                 <option value="in">In (Data flows into Artefact)</option>
                 <option value="out">Out (Data flows from Artefact)</option>
               </template>
               <template v-else>
-                <option value="flow">Flow (Sequential)</option>
-                <option value="or">OR (Alternative)</option>
-                <option value="and">AND (Parallel)</option>
+                <option value="flow">Flow (Sequential execution)</option>
+                <option value="or">OR (Alternative path)</option>
+                <option value="and">AND (Parallel execution)</option>
               </template>
             </select>
           </div>
@@ -209,12 +203,31 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button @click="saveEdgeType" class="btn btn-primary">Save</button>
-          <button @click="closeEdgeModal" class="btn btn-secondary">Cancel</button>
+          <button @click="saveEdgeType" class="btn btn-primary">
+            Save
+            <span class="keyboard-hint">(Enter)</span>
+          </button>
+          <button @click="closeEdgeModal" class="btn btn-secondary">
+            Cancel
+            <span class="keyboard-hint">(Esc)</span>
+          </button>
         </div>
       </div>
     </div>
 
+    <!-- Dialog Component -->
+    <Dialog 
+      :show="showDialog"
+      :type="dialogConfig.type"
+      :title="dialogConfig.title"
+      :message="dialogConfig.message"
+      :icon="dialogConfig.icon"
+      :confirm-text="dialogConfig.confirmText"
+      :cancel-text="dialogConfig.cancelText"
+      @confirm="handleDialogConfirm"
+      @cancel="handleDialogCancel"
+      @close="handleDialogClose"
+    />
 
   </div>
 </template>
@@ -225,11 +238,50 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { StraightEdge } from '@vue-flow/core'
 import type { Node, Edge, Connection, NodeChange, EdgeChange, XYPosition } from '@vue-flow/core'
-import type { FlowTemplate } from '../../../../types/FlowTemplate'
-import type { ElementTemplate } from '../../../../types/ElementTemplate'
-import type { Relation } from '../../../../types/Relation'
-import type { User } from '../../../../types/User'
-import type { Team } from '../../../../types/Team'
+import Dialog from '../../UI/Dialog.vue'
+// Local type definitions for the component
+type ElementTemplate = {
+  id: string
+  name: string
+  description: string
+  ownerTeamId: string | null
+  durationDays: number | null
+  type: 'action' | 'state' | 'artefact'
+  consultedTeamIds: string[]
+}
+
+type Relation = {
+  id: string
+  type: 'flow' | 'or' | 'and' | 'in' | 'out'
+  connections: Array<{
+    fromElementId: string
+    toElementId: string
+    sourceHandle?: string
+    targetHandle?: string
+  }>
+}
+
+type FlowTemplate = {
+  id: string
+  name: string
+  description: string
+  elements: ElementTemplate[]
+  relations: Relation[]
+  startingElementId: string | null
+  layout?: { [elementId: string]: { x: number; y: number } } | null
+}
+
+type User = {
+  id: string
+  name: string
+  email: string
+}
+
+type Team = {
+  id: string
+  name: string
+  users: User[]
+}
 
 // Props and emits
 const props = defineProps<{
@@ -345,6 +397,7 @@ const isArtefactConnection = computed(() => {
 const showEdgeModal = ref(false)
 const currentEdgeType = ref<'flow' | 'or' | 'and' | 'in' | 'out'>('flow')
 const pendingConnection = ref<Connection | null>(null)
+const edgeModal = ref<HTMLElement | null>(null)
 
 // No longer needed - using simple select
 
@@ -381,6 +434,23 @@ const fetchTeams = async () => {
 onMounted(() => {
   fetchUsers()
   fetchTeams()
+  
+  // Add beforeunload protection for unsaved changes
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (hasChanges.value) {
+      event.preventDefault()
+      const message = 'You have unsaved changes to your template. Are you sure you want to leave?'
+      event.returnValue = message
+      return message
+    }
+  }
+  
+  window.addEventListener('beforeunload', handleBeforeUnload)
+  
+  // Cleanup on unmount
+  onUnmounted(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload)
+  })
 })
 
 // Helper functions to get display names
@@ -784,6 +854,15 @@ watch(() => [props.template, props.isEditing] as const, ([template, isEditing]) 
     })
   }
 }, { immediate: true })
+
+// Watch for modal opening to focus it
+watch(showEdgeModal, (isOpen) => {
+  if (isOpen) {
+    nextTick(() => {
+      edgeModal.value?.focus()
+    })
+  }
+})
 
 // Helper function for element names
 const getElementName = (elementId: string): string => {
@@ -1317,18 +1396,50 @@ const onConnect = (connection: Connection) => {
   const sourceType = sourceNode.data.type || 'action'
   const targetType = targetNode.data.type || 'action'
 
-  // Set default edge type based on element types
+  // Always ask user for relation type - store connection for modal
+  pendingConnection.value = connection
+  
+  // Set default edge type based on connection context
   if (sourceType === 'artefact' || targetType === 'artefact') {
-    // If source is artefact, default to 'out'
-    // If target is artefact, default to 'in'
+    // Artefact connections default to appropriate direction
     currentEdgeType.value = sourceType === 'artefact' ? 'out' : 'in'
   } else {
-    // Non-artefact elements default to 'flow'
+    // Action/state connections default to 'flow'
     currentEdgeType.value = 'flow'
   }
-
-  pendingConnection.value = connection
+  
+  // Always show the modal to let user choose
   showEdgeModal.value = true
+}
+
+// Helper function to create edge directly without modal
+const createEdgeDirectly = (connection: Connection) => {
+  const newEdge: Edge = {
+    id: generateId(),
+    source: connection.source!,
+    target: connection.target!,
+    sourceHandle: connection.sourceHandle,
+    targetHandle: connection.targetHandle,
+    type: 'straight',
+    data: { relationType: currentEdgeType.value },
+    label: currentEdgeType.value.toUpperCase(),
+    labelStyle: {
+      fontSize: '11px',
+      fontWeight: '600',
+      color: '#64748b',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      letterSpacing: '0.5px',
+    },
+    labelBgStyle: {
+      fill: '#ffffff',
+      stroke: '#cbd5e1',
+      strokeWidth: 1,
+      fillOpacity: 0.9,
+    } as any,
+    style: getEdgeStyle(currentEdgeType.value),
+    updatable: false
+  }
+  edges.value.push(newEdge)
 }
 
 const saveEdgeType = () => {
@@ -1345,14 +1456,57 @@ const saveEdgeType = () => {
 
       // Validation: artefacts can only use 'in'/'out', others cannot use 'in'/'out'
       if (isArtefactInvolved && !isArtefactRelationType) {
-        alert('Artefact elements can only use "In" or "Out" relation types.')
+        showDialogMessage({
+          type: 'warning',
+          title: 'Invalid Connection Type',
+          message: 'Artefact elements can only use "In" or "Out" relation types.',
+          icon: 'warning'
+        })
         return
       }
 
       if (!isArtefactInvolved && isArtefactRelationType) {
-        alert('Only artefact elements can use "In" and "Out" relation types.')
+        showDialogMessage({
+          type: 'warning',
+          title: 'Invalid Connection Type',
+          message: 'Only artefact elements can use "In" and "Out" relation types.',
+          icon: 'warning'
+        })
         return
       }
+    }
+
+    // Implement anchor-based grouping for OR/AND relations
+    if (currentEdgeType.value === 'or' || currentEdgeType.value === 'and') {
+      const newSource = pendingConnection.value.source!
+      const newTarget = pendingConnection.value.target!
+      const newSourceHandle = pendingConnection.value.sourceHandle || 'default'
+      const newTargetHandle = pendingConnection.value.targetHandle || 'default'
+      
+      // Find edges with same anchors (sourceHandle/targetHandle) and same source/target
+      const relatedEdges = edges.value.filter(edge => {
+        // Only consider OR/AND edges, not flow/in/out edges
+        if (!edge.data?.relationType || 
+            (edge.data.relationType !== 'or' && edge.data.relationType !== 'and')) {
+          return false
+        }
+        
+        const edgeSourceHandle = edge.sourceHandle || 'default'
+        const edgeTargetHandle = edge.targetHandle || 'default'
+        
+        // Group only edges with same source, target, and anchor points
+        return edge.source === newSource && 
+               edge.target === newTarget &&
+               edgeSourceHandle === newSourceHandle &&
+               edgeTargetHandle === newTargetHandle
+      })
+      
+      // Update all related edges with same anchors to use the same relation type
+      relatedEdges.forEach(edge => {
+        edge.data = { relationType: currentEdgeType.value }
+        edge.label = currentEdgeType.value.toUpperCase()
+        edge.style = getEdgeStyle(currentEdgeType.value)
+      })
     }
 
     const newEdge: Edge = {
@@ -1450,6 +1604,7 @@ const resetChanges = () => {
 }
 
 // No cleanup needed for simple select dropdown
+// Backend handles relation normalization (grouping and direction correction)
 
 // Convert visual editor data back to template format
 const convertToTemplate = (): FlowTemplate => {
@@ -1468,49 +1623,16 @@ const convertToTemplate = (): FlowTemplate => {
     }
   })
 
-  // Group edges by source and type, but preserve handle information
-  const relationGroups = new Map<string, {
-    fromElementIds: string[],
-    toElementIds: string[],
-    type: 'flow' | 'or' | 'and' | 'in' | 'out',
-    connections: Array<{
-      fromElementId: string;
-      toElementId: string;
-      sourceHandle?: string;
-      targetHandle?: string;
-    }>
-  }>()
-
-  edges.value.forEach(edge => {
-    const type = (edge.data?.relationType || 'flow') as 'flow' | 'or' | 'and' | 'in' | 'out'
-    const groupKey = `${edge.source}-${type}`
-
-    if (!relationGroups.has(groupKey)) {
-      relationGroups.set(groupKey, {
-        fromElementIds: [edge.source],
-        toElementIds: [],
-        type,
-        connections: []
-      })
-    }
-
-    const group = relationGroups.get(groupKey)!
-    group.toElementIds.push(edge.target)
-    group.connections.push({
+  // Convert edges to relations - backend will handle grouping and direction correction
+  const relations: Relation[] = edges.value.map(edge => ({
+    id: generateId(),
+    type: (edge.data?.relationType || 'flow') as 'flow' | 'or' | 'and' | 'in' | 'out',
+    connections: [{
       fromElementId: edge.source,
       toElementId: edge.target,
       sourceHandle: edge.sourceHandle || undefined,
       targetHandle: edge.targetHandle || undefined
-    })
-  })
-
-  // Convert grouped relations to final format with preserved handle info
-  const relations: Relation[] = Array.from(relationGroups.values()).map(group => ({
-    id: generateId(),
-    fromElementIds: group.fromElementIds,
-    toElementIds: group.toElementIds,
-    type: group.type,
-    connections: group.connections
+    }]
   }))
 
   // Create layout object from current node positions
@@ -1535,10 +1657,62 @@ const convertToTemplate = (): FlowTemplate => {
   return template
 }
 
+// Dialog state
+const showDialog = ref(false)
+const dialogConfig = ref<{
+  type: 'info' | 'warning' | 'error' | 'confirm' | 'save-confirm'
+  title: string
+  message: string
+  icon?: 'info' | 'warning' | 'error' | 'save'
+  confirmText?: string
+  cancelText?: string
+  onConfirm?: () => void
+  onCancel?: () => void
+}>({
+  type: 'info',
+  title: '',
+  message: ''
+})
+
+const showDialogMessage = (config: typeof dialogConfig.value) => {
+  dialogConfig.value = { ...config }
+  showDialog.value = true
+}
+
+const handleDialogConfirm = () => {
+  showDialog.value = false
+  dialogConfig.value.onConfirm?.()
+}
+
+const handleDialogCancel = () => {
+  showDialog.value = false
+  dialogConfig.value.onCancel?.()
+}
+
+const handleDialogClose = () => {
+  showDialog.value = false
+}
+
 // Save flow
 const saveTemplate = () => {
   if (!templateData.value.name.trim()) {
-    alert('Please enter a flow name in the field above')
+    showDialogMessage({
+      type: 'warning',
+      title: 'Missing Template Name',
+      message: 'Please enter a flow name in the field above before saving.',
+      icon: 'warning'
+    })
+    return
+  }
+
+  // Validate: If elements exist, a starting element must be defined
+  if (reactiveNodes.value.length > 0 && !templateData.value.startingElementId) {
+    showDialogMessage({
+      type: 'warning',
+      title: 'Starting Element Required',
+      message: 'A starting element must be selected when elements exist in the template.',
+      icon: 'warning'
+    })
     return
   }
 
@@ -1550,9 +1724,92 @@ const saveTemplate = () => {
     nextTick(() => {
       saveInitialState()
     })
+    
+    // Show success message
+    showDialogMessage({
+      type: 'info',
+      title: 'Template Saved',
+      message: 'Your template has been saved successfully.',
+      icon: 'save'
+    })
   } catch (error) {
     console.error('Error converting flow:', error)
-    alert('Error creating flow. Please check the console for details.')
+    showDialogMessage({
+      type: 'error',
+      title: 'Save Error',
+      message: 'Error creating flow. Please check the console for details.',
+      icon: 'error'
+    })
+  }
+}
+
+// Handle close with unsaved changes check
+const handleClose = () => {
+  if (hasChanges.value) {
+    showDialogMessage({
+      type: 'save-confirm',
+      title: 'Unsaved Changes',
+      message: 'You have unsaved changes. Do you want to save before closing?',
+      icon: 'save',
+      confirmText: 'Save & Close',
+      cancelText: 'Discard Changes',
+      onConfirm: () => {
+        // Try to save first
+        if (!templateData.value.name.trim()) {
+          showDialogMessage({
+            type: 'warning',
+            title: 'Missing Template Name',
+            message: 'Please enter a flow name before saving.',
+            icon: 'warning'
+          })
+          return
+        }
+        
+        // Validate: If elements exist, a starting element must be defined
+        if (reactiveNodes.value.length > 0 && !templateData.value.startingElementId) {
+          showDialogMessage({
+            type: 'warning',
+            title: 'Starting Element Required',
+            message: 'A starting element must be selected when elements exist in the template.',
+            icon: 'warning'
+          })
+          return
+        }
+        
+        try {
+          const template = convertToTemplate()
+          emit('save', template)
+          // After successful save, close
+          emit('cancel')
+        } catch (error) {
+          console.error('Error saving flow:', error)
+          showDialogMessage({
+            type: 'error',
+            title: 'Save Error',
+            message: 'Error saving flow. Please check the console for details.',
+            icon: 'error'
+          })
+          return
+        }
+      },
+      onCancel: () => {
+        // User chose not to save, confirm they want to lose changes
+        showDialogMessage({
+          type: 'confirm',
+          title: 'Discard Changes?',
+          message: 'Are you sure you want to discard all unsaved changes? This action cannot be undone.',
+          icon: 'warning',
+          confirmText: 'Discard',
+          cancelText: 'Keep Editing',
+          onConfirm: () => {
+            emit('cancel')
+          }
+        })
+      }
+    })
+  } else {
+    // No changes, safe to close
+    emit('cancel')
   }
 }
 </script>
@@ -2070,9 +2327,88 @@ const saveTemplate = () => {
 
 .element-meta {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.25rem;
   margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.comment-count {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.status-icon.status-pending {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.status-icon.status-in-progress {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.status-icon.status-completed {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.1) 100%);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.status-icon.status-aborted {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.owner-icon {
+  background: rgba(168, 85, 247, 0.1);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.consulted-count {
+  background: rgba(168, 85, 247, 0.1);
+  color: #9333ea;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.type-icon.type-action {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.1) 100%);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.type-icon.type-state {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(2, 132, 199, 0.1) 100%);
+  color: #0284c7;
+  border: 1px solid rgba(14, 165, 233, 0.2);
+}
+
+.type-icon.type-artefact {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(180, 83, 9, 0.1) 100%);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.duration-icon {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  color: #667eea;
+  border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
 .owner-tag,
@@ -2082,9 +2418,9 @@ const saveTemplate = () => {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.7rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 8px;
+  font-size: 0.65rem;
   font-weight: 500;
   line-height: 1;
 }
@@ -2117,9 +2453,9 @@ const saveTemplate = () => {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.7rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 8px;
+  font-size: 0.65rem;
   font-weight: 500;
   line-height: 1;
 }
@@ -2518,5 +2854,36 @@ const saveTemplate = () => {
   ry: 4px !important;
 }
 
+/* Edge auto-info styles */
+.edge-auto-info {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+}
+
+.info-note {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #0369a1;
+  line-height: 1.4;
+}
+
+.info-note svg {
+  flex-shrink: 0;
+  color: #0284c7;
+}
+
+/* Keyboard hint styling */
+.keyboard-hint {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-left: 0.5rem;
+  font-weight: normal;
+}
 
 </style>

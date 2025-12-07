@@ -1,4 +1,4 @@
-import type { Relation } from '../../types/Relation'
+import type { Relation } from '../../types_old/Relation'
 
 /**
  * Composable for working with relations in the new connections-only format

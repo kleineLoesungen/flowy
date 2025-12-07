@@ -209,6 +209,34 @@
                 </div>
               </div>
               
+              <!-- Comments Header with View Toggle -->
+              <div class="comments-header">
+                <h4>Updates</h4>
+                <div class="view-toggle" v-if="extractedHashtags.length > 0 || commentsWithoutHashtags.length > 0">
+                  <button 
+                    @click="viewMode = 'chronological'" 
+                    :class="{ active: viewMode === 'chronological' }"
+                    class="toggle-btn"
+                  >
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Timeline
+                  </button>
+                  <button 
+                    v-if="extractedHashtags.length > 0 || commentsWithoutHashtags.length > 0"
+                    @click="viewMode = 'hashtag'" 
+                    :class="{ active: viewMode === 'hashtag' }"
+                    class="toggle-btn"
+                  >
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+                    </svg>
+                    Groups ({{ extractedHashtags.length + (commentsWithoutHashtags.length > 0 ? 1 : 0) }})
+                  </button>
+                </div>
+              </div>
+              
               <!-- Comments List -->
               <div class="chat-messages" ref="chatMessages">
                 <div v-if="elementData.comments.length === 0" class="no-comments">
@@ -218,43 +246,119 @@
                   <p>No updates yet. Start the conversation!</p>
                 </div>
                 
-                <div v-for="(comment, index) in sortedComments" :key="`comment-${index}-${comment.timestamp}`" class="chat-message">
-                  <div class="message-avatar">
-                    {{ getUserInitial(getUserById(comment.userId)) }}
-                  </div>
-                  <div class="message-content">
-                    <div class="message-header">
-                      <span class="message-author">{{ getUserName(getUserById(comment.userId)) }}</span>
-                      <span class="message-time">{{ formatTime(comment.timestamp) }}</span>
-                      <span v-if="comment.statusTag" class="status-tag" :class="`status-tag-${comment.statusTag}`">
-                        <svg v-if="comment.statusTag === 'pending'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <svg v-else-if="comment.statusTag === 'in-progress'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
-                        <svg v-else-if="comment.statusTag === 'completed'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <svg v-else-if="comment.statusTag === 'aborted'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        {{ comment.statusTag.charAt(0).toUpperCase() + comment.statusTag.slice(1).replace('-', ' ') }}
-                      </span>
-                      <button
-                        v-if="canDeleteComments"
-                        @click.stop="deleteComment(index)"
-                        class="delete-comment-btn"
-                        title="Delete comment"
-                      >
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                      </button>
+                <!-- Chronological View -->
+                <template v-if="viewMode === 'chronological'">
+                  <div v-for="(comment, index) in sortedComments" :key="`comment-${index}-${comment.timestamp}`" class="chat-message">
+                    <div class="message-avatar">
+                      {{ getUserInitial(getUserById(comment.userId)) }}
                     </div>
-                    <div class="message-text">{{ comment.comment }}</div>
+                    <div class="message-content">
+                      <div class="message-header">
+                        <span class="message-author">{{ getUserName(getUserById(comment.userId)) }}</span>
+                        <span class="message-time">{{ formatTime(comment.timestamp) }}</span>
+                        <span v-if="comment.statusTag" class="status-tag" :class="`status-tag-${comment.statusTag}`">
+                          <svg v-if="comment.statusTag === 'pending'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                          <svg v-else-if="comment.statusTag === 'in-progress'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                          </svg>
+                          <svg v-else-if="comment.statusTag === 'completed'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                          <svg v-else-if="comment.statusTag === 'aborted'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                          {{ comment.statusTag.charAt(0).toUpperCase() + comment.statusTag.slice(1).replace('-', ' ') }}
+                        </span>
+                        <button
+                          v-if="canDeleteComments"
+                          @click.stop="deleteComment(index)"
+                          class="delete-comment-btn"
+                          title="Delete comment"
+                        >
+                          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="message-text" v-html="renderCommentWithHashtags(comment.comment)"></div>
+                    </div>
                   </div>
-                </div>
+                </template>
+                
+                <!-- Hashtag Grouped View -->
+                <template v-else-if="viewMode === 'hashtag'">
+                  <!-- Hashtag Groups -->
+                  <div v-for="hashtag in extractedHashtags" :key="hashtag" class="hashtag-group">
+                    <div class="hashtag-header">
+                      <span class="hashtag-title">{{ hashtag }}</span>
+                      <span class="hashtag-count">({{ commentsByHashtag[hashtag]?.length || 0 }})</span>
+                    </div>
+                    <div v-for="(comment, index) in commentsByHashtag[hashtag]" :key="`hashtag-${hashtag}-${index}-${comment.timestamp}`" class="chat-message hashtag-comment">
+                      <div class="message-avatar">
+                        {{ getUserInitial(getUserById(comment.userId)) }}
+                      </div>
+                      <div class="message-content">
+                        <div class="message-header">
+                          <span class="message-author">{{ getUserName(getUserById(comment.userId)) }}</span>
+                          <span class="message-time">{{ formatTime(comment.timestamp) }}</span>
+                          <span v-if="comment.statusTag" class="status-tag" :class="`status-tag-${comment.statusTag}`">
+                            <svg v-if="comment.statusTag === 'pending'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <svg v-else-if="comment.statusTag === 'in-progress'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                            <svg v-else-if="comment.statusTag === 'completed'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <svg v-else-if="comment.statusTag === 'aborted'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            {{ comment.statusTag.charAt(0).toUpperCase() + comment.statusTag.slice(1).replace('-', ' ') }}
+                          </span>
+                        </div>
+                        <div class="message-text" v-html="renderCommentWithHashtags(comment.comment)"></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- No Tags Group (within hashtag view) -->
+                  <div v-if="commentsWithoutHashtags.length > 0" class="hashtag-group">
+                    <div class="no-tags-header">
+                      <span class="no-tags-title">Comments without hashtags</span>
+                      <span class="no-tags-count">({{ commentsWithoutHashtags.length }})</span>
+                    </div>
+                    <div v-for="(comment, index) in commentsWithoutHashtags" :key="`no-tags-in-hashtag-${index}-${comment.timestamp}`" class="chat-message hashtag-comment">
+                      <div class="message-avatar">
+                        {{ getUserInitial(getUserById(comment.userId)) }}
+                      </div>
+                      <div class="message-content">
+                        <div class="message-header">
+                          <span class="message-author">{{ getUserName(getUserById(comment.userId)) }}</span>
+                          <span class="message-time">{{ formatTime(comment.timestamp) }}</span>
+                          <span v-if="comment.statusTag" class="status-tag" :class="`status-tag-${comment.statusTag}`">
+                            <svg v-if="comment.statusTag === 'pending'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <svg v-else-if="comment.statusTag === 'in-progress'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                            <svg v-else-if="comment.statusTag === 'completed'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <svg v-else-if="comment.statusTag === 'aborted'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            {{ comment.statusTag.charAt(0).toUpperCase() + comment.statusTag.slice(1).replace('-', ' ') }}
+                          </span>
+                        </div>
+                        <div class="message-text" v-html="renderCommentWithHashtags(comment.comment)"></div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -504,11 +608,65 @@ const sortedComments = computed(() => {
   return [...elementData.value.comments].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 })
 
+// Hashtag extraction and grouping
+const hashtagPattern = /#[a-zA-Z0-9_-]+/g
+
+const extractedHashtags = computed(() => {
+  const hashtags = new Set<string>()
+  elementData.value.comments.forEach(comment => {
+    const matches = comment.comment.match(/#[a-zA-Z0-9_-]+/g)
+    if (matches) {
+      matches.forEach(tag => hashtags.add(tag.toLowerCase()))
+    }
+  })
+  return Array.from(hashtags).sort()
+})
+
+const commentsByHashtag = computed(() => {
+  const grouped: Record<string, any[]> = {}
+  
+  // Initialize with all hashtags
+  extractedHashtags.value.forEach(tag => {
+    grouped[tag] = []
+  })
+  
+  // Group comments by hashtags
+  elementData.value.comments.forEach(comment => {
+    const matches = comment.comment.match(/#[a-zA-Z0-9_-]+/g)
+    if (matches) {
+      matches.forEach(match => {
+        const tag = match.toLowerCase()
+        if (grouped[tag] && !grouped[tag].includes(comment)) {
+          grouped[tag].push(comment)
+        }
+      })
+    }
+  })
+  
+  // Sort comments within each group by timestamp (newest first)
+  Object.keys(grouped).forEach(tag => {
+    if (grouped[tag]) {
+      grouped[tag].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    }
+  })
+  
+  return grouped
+})
+
+// Comments without hashtags
+const commentsWithoutHashtags = computed(() => {
+  return elementData.value.comments.filter(comment => {
+    const matches = comment.comment.match(/#[a-zA-Z0-9_-]+/g)
+    return !matches || matches.length === 0
+  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+})
+
 // Chat data
 const newComment = ref('')
 const chatMessages = ref<HTMLElement | null>(null)
 const chatInput = ref<HTMLTextAreaElement | null>(null)
 const sendMode = ref<'send' | 'complete' | 'abort'>('send')
+const viewMode = ref<'chronological' | 'hashtag'>('chronological')
 
 // Watch for permission changes and reset send mode if needed
 watch(canCompleteOrAbortReadOnly, (newVal) => {
@@ -884,6 +1042,15 @@ const formatExpectedEndDate = (timestamp: string | null): string => {
   return `${day}.${month}.${year}`
 }
 
+// Render comment text with highlighted hashtags
+const renderCommentWithHashtags = (commentText: string) => {
+  if (!commentText) return commentText
+  
+  return commentText.replace(/#[a-zA-Z0-9_-]+/g, (match) => {
+    return `<span class="hashtag" data-tag="${match.toLowerCase()}">${match}</span>`
+  })
+}
+
 const addComment = () => {
   if (!newComment.value.trim() || !currentUser.value) return
 
@@ -959,7 +1126,7 @@ const createStatusChangeComment = (fromStatus: string, toStatus: string) => {
     userId: currentUser.value.id,
     userName: currentUser.value.name || currentUser.value.email,
     userEmail: currentUser.value.email,
-    comment: `Changed status from ${statusLabels[fromStatus as keyof typeof statusLabels]} to ${statusLabels[toStatus as keyof typeof statusLabels]}`,
+    comment: `Changed #status from ${statusLabels[fromStatus as keyof typeof statusLabels]} to ${statusLabels[toStatus as keyof typeof statusLabels]}`,
     timestamp: new Date().toISOString()
   }
   
@@ -2307,5 +2474,161 @@ onUnmounted(() => {
 .send-btn.restricted {
   background: #d1d5db !important;
   cursor: not-allowed !important;
+}
+
+/* Comments Header Styles */
+.comments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.comments-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.toggle-btn:hover {
+  color: #374151;
+  background: #e5e7eb;
+}
+
+.toggle-btn.active {
+  background: white;
+  color: #3b82f6;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Hashtag Styles - Using :deep() to apply to v-html content */
+.message-text :deep(.hashtag) {
+  color: #3b82f6 !important;
+  background: #eff6ff !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  cursor: default !important;
+  text-decoration: none !important;
+  display: inline-block !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  pointer-events: none !important;
+}
+
+.message-text :deep(.hashtag::selection) {
+  background: transparent !important;
+}
+
+.message-text :deep(.hashtag::-moz-selection) {
+  background: transparent !important;
+}
+
+/* Hashtag Group Styles */
+.hashtag-group {
+  margin-bottom: 24px;
+}
+
+.hashtag-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-left: 3px solid #3b82f6;
+  border-radius: 0 6px 6px 0;
+}
+
+.hashtag-title {
+  font-weight: 600;
+  color: #3b82f6;
+  font-size: 14px;
+}
+
+.hashtag-count {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.hashtag-comment {
+  margin-left: 16px;
+  margin-bottom: 12px;
+  border-left: 2px solid #e5e7eb;
+  padding-left: 12px;
+}
+
+.hashtag-comment:last-child {
+  margin-bottom: 0;
+}
+
+/* No Tags View Styles */
+.no-tags-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #f1f5f9;
+  border-left: 3px solid #64748b;
+  border-radius: 0 6px 6px 0;
+}
+
+.no-tags-title {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.no-tags-count {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.no-tags-comment {
+  margin-bottom: 12px;
+  border-left: 2px solid #e2e8f0;
+  padding-left: 12px;
+}
+
+.no-tags-comment:last-child {
+  margin-bottom: 0;
 }
 </style>

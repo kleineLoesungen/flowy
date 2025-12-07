@@ -9,14 +9,30 @@
             Error loading templates: {{ error }}
         </div>
 
-        <div v-else class="templates-container">
-            <FlowTemplatesOverview :templates="templates" @delete="confirmDelete" />
-            <div class="template-actions">
-                <button @click="showAddModal = true" class="btn btn-primary">
-                    <span class="icon">+</span>
-                    Template
-                </button>
-            </div>
+        <!-- Header -->
+        <div class="header">
+            <h1>Templates</h1>
+            <button 
+                v-if="isAuthenticated" 
+                @click="showAddModal = true" 
+                class="btn btn-primary"
+            >
+                + Add Template
+            </button>
+        </div>
+
+        <div class="templates-container">
+            
+            <!-- Templates Overview -->
+            <FlowTemplatesOverview 
+                :templates="templates" 
+                :can-delete="isAuthenticated"
+                :can-edit="isAuthenticated"
+                :can-create-flow="isAuthenticated"
+                @delete="confirmDelete" 
+            />
+            
+
         </div>
 
         <!-- Add Template Modal (Simple) -->
@@ -59,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import type { FlowTemplate } from '../../../types/FlowTemplate'
+// Remove this import as it's not needed
 
 // Explicitly import components to ensure they're available
 import FlowTemplatesOverview from '~/components/Flow/TemplatesOverview.vue'
@@ -69,10 +85,13 @@ useHead({
     title: 'flowy | Templates'
 })
 
+// Get user authentication status
+const { user } = useUser()
+
 // Reactive data
 const showAddModal = ref(false)
 const showDeleteModal = ref(false)
-const templateToDelete = ref<FlowTemplate | null>(null)
+const templateToDelete = ref<TemplateOverview | null>(null)
 
 // New flow form data
 const newTemplateData = ref({
@@ -80,13 +99,39 @@ const newTemplateData = ref({
     description: ''
 })
 
+// Template overview interface (matches API response)
+interface TemplateOverview {
+  id: string
+  name: string
+  description?: string
+  elementCount: number
+  flowCount: number
+  duration: {
+    range: {
+      min: number
+      max: number
+    }
+    display: string
+    label: string
+  }
+}
+
 // Fetch templates
-const { data: templatesData, pending, error, refresh } = await useFetch<{ data: FlowTemplate[] }>('/api/templates')
+const { data: templatesData, pending, error, refresh } = await useFetch<{ data: TemplateOverview[] }>('/api/templates')
 
 const templates = computed(() => templatesData.value?.data || [])
 
+// Check if user is authenticated
+const isAuthenticated = computed(() => !!user.value)
+const isAdmin = computed(() => user.value?.role === 'admin')
+
 // Methods
-const confirmDelete = (template: FlowTemplate) => {
+const confirmDelete = (template: TemplateOverview) => {
+    // Only allow deletion if user is authenticated
+    if (!isAuthenticated.value) {
+        return
+    }
+    
     templateToDelete.value = template
     showDeleteModal.value = true
 }
@@ -103,6 +148,12 @@ const closeModals = () => {
 }
 
 const handleAddTemplate = async () => {
+    // Only allow template creation if user is authenticated
+    if (!isAuthenticated.value) {
+        alert('You must be logged in to create templates.')
+        return
+    }
+    
     if (!newTemplateData.value.name.trim()) {
         alert('Please enter a template name')
         return
@@ -132,7 +183,8 @@ const handleAddTemplate = async () => {
 }
 
 const deleteTemplate = async () => {
-    if (!templateToDelete.value) return
+    // Only allow deletion if user is authenticated
+    if (!isAuthenticated.value || !templateToDelete.value) return
 
     try {
         await $fetch(`/api/templates/${templateToDelete.value.id}`, {
@@ -155,6 +207,29 @@ const deleteTemplate = async () => {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     min-height: 100vh;
     position: relative;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+    padding: 2rem;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .page-header {
@@ -262,12 +337,11 @@ const deleteTemplate = async () => {
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.template-actions {
-    margin-top: 2rem;
-    display: flex;
-    justify-content: flex-end;
-    padding: 0 0.5rem;
-}
+
+
+
+
+/* Removed template-actions as button is now in header */
 
 .modal-overlay {
     position: fixed;
@@ -372,5 +446,18 @@ const deleteTemplate = async () => {
     gap: 1rem;
     justify-content: center;
     margin-top: 2rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .templates-page {
+        padding: 1rem;
+    }
+    
+    .header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
 }
 </style>

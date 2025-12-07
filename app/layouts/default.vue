@@ -64,13 +64,6 @@
                   </svg>
                   <span>Login</span>
                 </div>
-                <div class="dropdown-option" @click="showRegister">
-                  <svg class="option-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                  </svg>
-                  <span>Register</span>
-                </div>
               </div>
             </div>
           </div>
@@ -129,49 +122,11 @@
               placeholder="Enter your password" :disabled="isSubmitting" />
           </div>
           <div v-if="loginError" class="error-message">{{ loginError }}</div>
+          <div v-if="loginSuccess" class="success-message">{{ loginSuccess }}</div>
           <div class="form-actions">
             <button type="button" @click="closeModal" :disabled="isSubmitting">Cancel</button>
             <button type="submit" :disabled="isSubmitting" class="primary">
               {{ isSubmitting ? 'Logging in...' : 'Login' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Register Modal -->
-    <div v-if="showPasswordModal" class="modal-overlay" @click="closeModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>Register User</h3>
-          <button @click="closeModal" class="close-button">×</button>
-        </div>
-        <form @submit.prevent="handleRegister" class="auth-form">
-          <div class="form-group">
-            <label for="register-name">Name</label>
-            <input id="register-name" v-model="passwordForm.name" type="text" required
-              placeholder="Enter your full name" :disabled="isSubmitting" />
-          </div>
-          <div class="form-group">
-            <label for="register-email">Email</label>
-            <input id="register-email" v-model="passwordForm.email" type="email" required placeholder="Enter your email"
-              :disabled="isSubmitting" />
-          </div>
-          <div class="form-group">
-            <label for="password-new">New Password</label>
-            <input id="password-new" v-model="passwordForm.password" type="password" required
-              placeholder="Enter new password (min. 6 chars)" :disabled="isSubmitting" />
-          </div>
-          <div class="form-group">
-            <label for="password-confirm">Confirm Password</label>
-            <input id="password-confirm" v-model="passwordForm.confirmPassword" type="password" required
-              placeholder="Confirm new password" :disabled="isSubmitting" />
-          </div>
-          <div v-if="passwordError" class="error-message">{{ passwordError }}</div>
-          <div class="form-actions">
-            <button type="button" @click="closeModal" :disabled="isSubmitting">Cancel</button>
-            <button type="submit" :disabled="isSubmitting" class="primary">
-              {{ isSubmitting ? 'Registering...' : 'Register' }}
             </button>
           </div>
         </form>
@@ -219,18 +174,16 @@
 import { useUser } from '~/composables/useUser'
 
 // Authentication state  
-const { user, isAuthenticated, isLoading, login, logout, register, checkAuth } = useUser()
+const { user, isAuthenticated, isLoading, login, logout, checkAuth } = useUser()
 
 // UI state
 const userDropdownOpen = ref(false)
 const showLoginModal = ref(false)
-const showPasswordModal = ref(false)
 const showChangePasswordModal = ref(false)
 const loginForm = reactive({ email: '', password: '' })
-const passwordForm = reactive({ name: '', email: '', password: '', confirmPassword: '' })
 const changePasswordForm = reactive({ currentPassword: '', newPassword: '', confirmNewPassword: '' })
 const loginError = ref('')
-const passwordError = ref('')
+const loginSuccess = ref('')
 const changePasswordError = ref('')
 const isSubmitting = ref(false)
 
@@ -264,16 +217,7 @@ const showLogin = () => {
   loginForm.email = ''
   loginForm.password = ''
   loginError.value = ''
-  userDropdownOpen.value = false
-}
-
-const showRegister = () => {
-  showPasswordModal.value = true
-  passwordForm.name = ''
-  passwordForm.email = ''
-  passwordForm.password = ''
-  passwordForm.confirmPassword = ''
-  passwordError.value = ''
+  loginSuccess.value = ''
   userDropdownOpen.value = false
 }
 
@@ -299,85 +243,35 @@ const handleLogin = async () => {
 
   isSubmitting.value = true
   loginError.value = ''
+  loginSuccess.value = ''
 
-  const result = await login(loginForm.email, loginForm.password)
-
-  if (result.success) {
-    showLoginModal.value = false
-    loginForm.email = ''
-    loginForm.password = ''
-  } else {
-    loginError.value = result.message
-  }
-
-  isSubmitting.value = false
-}
-
-const handleRegister = async () => {
-  if (!passwordForm.name || !passwordForm.email || !passwordForm.password || !passwordForm.confirmPassword) {
-    passwordError.value = 'All fields are required'
-    return
-  }
-
-  if (passwordForm.password !== passwordForm.confirmPassword) {
-    passwordError.value = 'Passwords do not match'
-    return
-  }
-
-  if (passwordForm.password.length < 6) {
-    passwordError.value = 'Password must be at least 6 characters long'
-    return
-  }
-
-  if (typeof register !== 'function') {
-    passwordError.value = 'Registration function not available. Please refresh the page.'
-    console.error('register is not a function:', typeof register, register)
-    return
-  }
-
-  isSubmitting.value = true
-  passwordError.value = ''
-
-  let result
   try {
-    result = await register(passwordForm.name, passwordForm.email, passwordForm.password)
-  } catch (error) {
-    // Fallback: call the API directly if composable fails
-    try {
-      const response = await $fetch('/api/auth/register', {
-        method: 'POST',
-        body: {
-          name: passwordForm.name,
-          email: passwordForm.email,
-          password: passwordForm.password
-        }
-      })
-      result = { success: response.success, message: response.message }
-    } catch (apiError: any) {
-      result = {
-        success: false,
-        message: apiError.data?.message || apiError.message || 'Registration failed'
-      }
+    const result = await login(loginForm.email, loginForm.password)
+
+    if (result && result.success) {
+      // Show success message briefly before closing
+      loginSuccess.value = 'Login successful!'
+      loginError.value = ''
+      
+      // Close modal and refresh page immediately 
+      setTimeout(() => {
+        showLoginModal.value = false
+        loginForm.email = ''
+        loginForm.password = ''
+        loginSuccess.value = ''
+        
+        // Simple page reload to ensure everything updates
+        window.location.reload()
+      }, 800)
+    } else {
+      // Error: show error message but keep modal open
+      loginError.value = result?.message || 'Login failed'
+      loginSuccess.value = ''
     }
-  }
-
-  if (result.success) {
-    showPasswordModal.value = false
-
-    // Save credentials before clearing form
-    const email = passwordForm.email
-    const password = passwordForm.password
-
-    // Clear form
-    passwordForm.name = ''
-    passwordForm.email = ''
-    passwordForm.password = ''
-    passwordForm.confirmPassword = ''
-
-    // Automatically try to login with saved credentials
-    await login(email, password)
-  } else {
-    passwordError.value = result.message
+  } catch (error: any) {
+    console.error('Login error:', error)
+    loginError.value = error.message || 'Login failed'
+    loginSuccess.value = ''
   }
 
   isSubmitting.value = false
@@ -446,10 +340,9 @@ const handleLogout = async () => {
 
 const closeModal = () => {
   showLoginModal.value = false
-  showPasswordModal.value = false
   showChangePasswordModal.value = false
   loginError.value = ''
-  passwordError.value = ''
+  loginSuccess.value = ''
   changePasswordError.value = ''
 }
 
@@ -823,6 +716,15 @@ onUnmounted(() => {
   margin-bottom: 1rem;
   padding: 0.5rem;
   background: rgba(239, 68, 68, 0.1);
+  border-radius: 6px;
+}
+
+.success-message {
+  color: #10b981;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: rgba(16, 185, 129, 0.1);
   border-radius: 6px;
 }
 

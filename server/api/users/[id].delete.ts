@@ -1,11 +1,29 @@
-import type { User } from '../../../types/User'
-import type { Team } from '../../../types/Team'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { useUserRepository, useTeamRepository } from '../../storage/StorageFactory'
 import jwt from 'jsonwebtoken'
 
+/**
+ * Response for user deletion
+ */
+interface DeleteUserResponse {
+  success: true
+  message: string
+}
+
+/**
+ * JWT token payload for current user verification
+ */
+interface JwtPayload {
+  userId: string
+  email: string
+  role: 'admin' | 'member'
+}
+
+/**
+ * DELETE /api/users/[id]
+ * 
+ * Delete a user (admin only)
+ */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
-  
   try {
     const userId = getRouterParam(event, 'id')
     
@@ -16,10 +34,11 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    // Check if user exists
-    const userKey = `users:${userId}`
-    const user = await storage.getItem(userKey) as User
+    const userRepo = useUserRepository()
+    const teamRepo = useTeamRepository()
     
+    // Check if user exists
+    const user = await userRepo.findById(userId)
     if (!user) {
       throw createError({
         statusCode: 404,
@@ -43,64 +62,51 @@ export default defineEventHandler(async (event) => {
         }
       } catch (jwtError) {
         // If JWT is invalid, we'll let the deletion proceed (this means no one is authenticated)
-        // This covers API calls made without proper authentication
       }
     }
     
     // Check if this is an admin user and if deleting would leave no admins
     if (user.role === 'admin') {
-      const allUserKeys = await storage.getKeys('users:')
-      const adminUsers: User[] = []
-      
-      for (const userKey of allUserKeys) {
-        const u = await storage.getItem(userKey) as User
-        if (u && u.role === 'admin' && u.id !== userId) {
-          adminUsers.push(u)
-        }
-      }
-      
-      if (adminUsers.length === 0) {
+      const adminCount = await userRepo.countAdmins()
+      if (adminCount <= 1) {
         throw createError({
-          statusCode: 409,
-          statusMessage: 'Cannot delete the last admin user. At least one admin must remain in the system.'
+          statusCode: 400,
+          statusMessage: 'Cannot delete the last admin user'
         })
       }
     }
     
-    // Check if user is referenced in any teams
-    const teamKeys = await storage.getKeys('teams:')
-    const referencingTeams: string[] = []
-    
-    for (const teamKey of teamKeys) {
-      const team = await storage.getItem(teamKey) as Team
-      if (team && team.userIds && team.userIds.includes(userId)) {
-        referencingTeams.push(team.name)
-      }
-    }
-    
-    if (referencingTeams.length > 0) {
-      throw createError({
-        statusCode: 409,
-        statusMessage: `Cannot delete user. User is a member of teams: ${referencingTeams.join(', ')}`
-      })
+    // Remove user from all teams
+    const userTeams = await teamRepo.findTeamsWithUser(userId)
+    for (const team of userTeams) {
+      await teamRepo.removeUserFromTeam(team.id, userId)
     }
     
     // Delete the user
-    await storage.removeItem(userKey)
+    const deleted = await userRepo.delete(userId)
+    
+    if (!deleted) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Failed to delete user'
+      })
+    }
     
     return {
       success: true,
       message: 'User deleted successfully'
     }
-  } catch (error: any) {
-    if (error.statusCode) {
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    
+    // Handle HTTP errors
+    if (error && typeof error === 'object' && 'statusCode' in error) {
       throw error
     }
     
     throw createError({
       statusCode: 500,
-      statusMessage: 'Failed to delete user',
-      data: error
+      statusMessage: 'Failed to delete user'
     })
   }
 })

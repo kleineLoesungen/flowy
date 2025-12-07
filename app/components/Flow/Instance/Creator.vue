@@ -46,8 +46,7 @@
                         :class="{ 'selected': selectedTemplate?.id === template.id }" @click="selectTemplate(template)">
                         <div class="template-header">
                             <h4>{{ template.name }}</h4>
-                            <span class="stat duration-stat">≈ {{ calculateTemplateDuration(template) }} {{
-                                getDurationLabel(calculateFlowDuration(template)) }}</span>
+                            <span class="stat duration-stat">≈ {{ template.duration.display }} {{ template.duration.label }}</span>
                         </div>
                         <p v-if="template.description" class="template-description">
                             {{ template.description }}
@@ -112,8 +111,9 @@
                     <div class="duration-info">
                         <div class="duration-item">
                             <span class="duration-label">Estimated Duration:</span>
-                            <span class="duration-value">{{ calculateTemplateDuration(selectedTemplate) }} {{
+                            <span class="duration-value" v-if="selectedTemplate.elements">{{ calculateTemplateDuration(selectedTemplate) }} {{
                                 getDurationLabel(calculateFlowDuration(selectedTemplate)) }}</span>
+                            <span class="duration-value" v-else>No duration data available</span>
                         </div>
                         <div class="duration-item">
                             <span class="duration-label">Expected End Date:</span>
@@ -135,10 +135,28 @@
 </template>
 
 <script setup lang="ts">
-import type { FlowTemplate } from '../../../../types/FlowTemplate'
-import type { Flow } from '../../../../types/Flow'
-import { calculateFlowDuration, formatDurationRange, getDurationLabel } from '../../../../utils/flowDurationCalculator'
+import type { FlowTemplate, Flow } from '../../../../server/db/schema'
+import {
+    calculateFlowDuration,
+    formatDurationRange,
+    getDurationLabel,
+    type DurationRange
+} from '../../../../utils/flowDurationCalculator'
 import { addWorkdays } from '../../../../utils/workdayCalculator'
+
+// Template overview interface for the list
+interface TemplateOverview {
+  id: string
+  name: string
+  description?: string
+  elementCount: number
+  flowCount: number
+  duration: {
+    range: DurationRange
+    display: string
+    label: string
+  }
+}
 import { useRelations } from '../../../composables/useRelations'
 
 // Props
@@ -168,27 +186,56 @@ const flowData = ref({
     hidden: false
 })
 
-// Fetch templates
+// Fetch template overviews for the list
 const { data: templatesData, pending: templatesLoading, error: templatesError } =
-    await useFetch<{ data: FlowTemplate[] }>('/api/templates')
+    await useFetch<{ data: TemplateOverview[] }>('/api/templates')
 
 const templates = computed(() => templatesData.value?.data || [])
 
+// State for the fully loaded template
+const fullTemplate = ref<FlowTemplate | null>(null)
+const loadingFullTemplate = ref(false)
+
+// Define selectTemplate function before the watch that uses it
+const selectTemplate = async (templateOverview: TemplateOverview) => {
+    try {
+        loadingFullTemplate.value = true
+        
+        // Fetch the full template with elements
+        const { data } = await $fetch<{ data: FlowTemplate }>(`/api/templates/${templateOverview.id}`)
+        
+        if (data) {
+            fullTemplate.value = data
+            selectedTemplate.value = data
+        }
+    } catch (error) {
+        console.error('Error loading full template:', error)
+        alert('Error loading template details. Please try again.')
+    } finally {
+        loadingFullTemplate.value = false
+    }
+}
+
 // Handle preselected template
-watch([templates, () => props.preselectedTemplateId], ([templatesArray, templateId], [oldTemplates, oldTemplateId]) => {
+watch([templates, () => props.preselectedTemplateId], async ([templatesArray, templateId], [oldTemplates, oldTemplateId]) => {
     if (templateId && templatesArray.length > 0 && !selectedTemplate.value) {
-        const preselectedTemplate = templatesArray.find(t => t.id === templateId)
-        if (preselectedTemplate) {
-            selectedTemplate.value = preselectedTemplate
-            // Skip to step 2 with preselected template
-            currentStep.value = 2
-            // Pre-fill flow name with template name
-            if (!flowData.value.name) {
-                flowData.value.name = `${preselectedTemplate.name} - ${new Date().toLocaleDateString()}`
-            }
-            // Set default start date to today
-            if (!flowData.value.startDate) {
-                flowData.value.startDate = new Date().toISOString().split('T')[0] || ''
+        const preselectedTemplateOverview = templatesArray.find(t => t.id === templateId)
+        if (preselectedTemplateOverview) {
+            // Load the full template
+            await selectTemplate(preselectedTemplateOverview)
+            
+            if (selectedTemplate.value) {
+                const template = selectedTemplate.value as FlowTemplate
+                // Skip to step 2 with preselected template
+                currentStep.value = 2
+                // Pre-fill flow name with template name
+                if (!flowData.value.name) {
+                    flowData.value.name = `${template.name} - ${new Date().toLocaleDateString()}`
+                }
+                // Set default start date to today
+                if (!flowData.value.startDate) {
+                    flowData.value.startDate = new Date().toISOString().split('T')[0] || ''
+                }
             }
         }
     }
@@ -207,16 +254,23 @@ const filteredTemplates = computed(() => {
     )
 })
 
-// Duration calculation for display in template selection
-const calculateTemplateDuration = (template: FlowTemplate): string => {
-    const durationRange = calculateFlowDuration(template)
-    return formatDurationRange(durationRange)
+// Duration calculation for display (now handles both overview and full templates)
+const calculateTemplateDuration = (template: TemplateOverview | FlowTemplate): string => {
+    // If it's a template overview, use the precomputed duration
+    if ('duration' in template && template.duration) {
+        return template.duration.display
+    }
+    
+    // If it's a full template, calculate on the fly
+    if ('elements' in template && template.elements) {
+        const durationRange = calculateFlowDuration(template)
+        return formatDurationRange(durationRange)
+    }
+    
+    return '0'
 }
 
-// Methods
-const selectTemplate = (template: FlowTemplate) => {
-    selectedTemplate.value = template
-}
+// Methods (selectTemplate is defined above before the watch)
 
 const getExpectedEndDate = (): string => {
     if (!flowData.value.startDate || !selectedTemplate.value) return ''
@@ -255,8 +309,8 @@ const determineStartingElements = (template: FlowTemplate | null): string[] => {
     // First priority: if there's a specific startingElementId defined, use that as the entry point
     const entryElementId = template.startingElementId || 
         // Fallback: find elements with no incoming relations (no dependencies)
-        template.elements.find(element => {
-            const hasIncomingRelations = template.relations?.some(relation => 
+        template.elements.find((element: any) => {
+            const hasIncomingRelations = template.relations?.some((relation: any) => 
                 getToElementIds(relation).includes(element.id)
             ) || false
             return !hasIncomingRelations
@@ -264,7 +318,7 @@ const determineStartingElements = (template: FlowTemplate | null): string[] => {
     
     if (!entryElementId) return []
     
-    const entryElement = template.elements.find(e => e.id === entryElementId)
+    const entryElement = template.elements.find((e: any) => e.id === entryElementId)
     if (!entryElement) return []
     
     // If the entry element is an action, it starts immediately
@@ -284,18 +338,20 @@ const determineStartingElements = (template: FlowTemplate | null): string[] => {
 
 // Helper function to find elements that should start after a given element
 const findNextElements = (template: FlowTemplate, fromElementId: string): string[] => {
+    if (!template || !template.elements?.length) return []
+    
     const nextElementIds: string[] = []
     
     // Find all relations that start from the given element
-    const outgoingRelations = template.relations?.filter(relation => {
-        return relation.connections?.some(conn => conn.fromElementId === fromElementId)
+    const outgoingRelations = template.relations?.filter((relation: any) => {
+        return relation.connections?.some((conn: any) => conn.fromElementId === fromElementId)
     }) || []
     
     for (const relation of outgoingRelations) {
         const targetElementIds = getToElementIds(relation)
         
         for (const targetId of targetElementIds) {
-            const targetElement = template.elements?.find(e => e.id === targetId)
+            const targetElement = template.elements?.find((e: any) => e.id === targetId)
             if (!targetElement) continue
             
             if (relation.type === 'flow') {
@@ -338,6 +394,11 @@ const createFlow = async () => {
         let newFlow: Flow
 
         if (selectedTemplate.value) {
+            // Ensure template has elements before proceeding
+            if (!selectedTemplate.value.elements || selectedTemplate.value.elements.length === 0) {
+                throw new Error('Selected template has no elements. Cannot create flow from empty template.')
+            }
+            
             // Create flow from template
             // Calculate flow duration using the utility function
             const durationRange = calculateFlowDuration(selectedTemplate.value)
@@ -357,7 +418,7 @@ const createFlow = async () => {
                 name: flowData.value.name.trim(),
                 description: flowData.value.description.trim() || null,
                 templateId: selectedTemplate.value.id, // Link to template
-                elements: selectedTemplate.value.elements.map(element => {
+                elements: (selectedTemplate.value.elements || []).map((element: any) => {
                     // Calculate expected end date for each element
                     const elementStartDate = new Date(startDate)
                     const elementEndDate = addWorkdays(elementStartDate, element.durationDays || 0)
@@ -384,7 +445,7 @@ const createFlow = async () => {
                         id: element.id,
                         name: element.name,
                         description: element.description || '',
-                        ownerTeamId: element.ownerTeamId,
+                        ownerTeamId: element.ownerTeamId || null,
                         consultedTeamIds: element.consultedTeamIds || [],
                         completedAt: elementStatus === 'completed' ? new Date().toISOString() : null,
                         expectedEndedAt: elementEndDate.toISOString().split('T')[0] || null,
@@ -399,7 +460,9 @@ const createFlow = async () => {
                 expectedEndDate: overallEndDate.toISOString().split('T')[0] || null, // Expected end date based on calculated schedule
                 completedAt: null,
                 hidden: flowData.value.hidden,
-                layout: selectedTemplate.value.layout // Copy layout from template
+                layout: selectedTemplate.value.layout, // Copy layout from template
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             }
         } else {
             // Create empty flow
@@ -415,18 +478,23 @@ const createFlow = async () => {
                 relations: [],
                 startingElementId: '',
                 hidden: flowData.value.hidden,
-                layout: undefined
+                layout: null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             }
         }
 
         // Save the flow instance
-        const savedFlow = await $fetch('/api/flows', {
+        const response = await $fetch('/api/flows', {
             method: 'POST',
             body: newFlow
         })
         
+        // Extract the created flow from the response
+        const savedFlow = response?.data || newFlow
+        
         emit('created')
-        emit('flow-created', savedFlow || newFlow)
+        emit('flow-created', savedFlow)
     } catch (error) {
         console.error('Error creating flow:', error)
         alert('Error creating flow. Please try again.')

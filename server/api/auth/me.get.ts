@@ -1,68 +1,94 @@
 import jwt from 'jsonwebtoken'
-import type { UserWithPassword } from '../../types/UserWithPassword'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import { useUserRepository } from '../../storage/StorageFactory'
+import type { User } from '../../db/schema'
 
+/**
+ * Response data for user profile
+ */
+interface MeResponse {
+  success: true
+  data: {
+    user: Omit<User, 'passwordHash'> & { hasPassword: boolean }
+  }
+}
+
+/**
+ * JWT token payload
+ */
+interface JwtPayload {
+  userId: string
+  email: string
+  role: 'admin' | 'member'
+}
+
+/**
+ * GET /api/auth/me
+ * 
+ * Get current user information
+ */
 export default defineEventHandler(async (event) => {
   try {
-    // Get the auth token from cookies
+    // Get token from cookie
     const token = getCookie(event, 'auth-token')
     
     if (!token) {
-      return {
-        success: false,
-        user: null,
-        message: 'Not authenticated'
-      }
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'No authentication token provided'
+      })
     }
 
-    // Verify the JWT token
+    // Verify JWT token
     const runtimeConfig = useRuntimeConfig()
     const secretKey = runtimeConfig.jwtSecret || 'default-secret-key'
     
-    let decoded: any
+    let decoded: { userId: string; email: string; role: string }
+    
     try {
-      decoded = jwt.verify(token, secretKey)
+      decoded = jwt.verify(token, secretKey) as { userId: string; email: string; role: string }
     } catch (jwtError) {
-      // Token is invalid or expired
-      setCookie(event, 'auth-token', '', {
-        httpOnly: true,
-        secure: runtimeConfig.public.nodeEnv === 'production',
-        sameSite: 'strict',
-        expires: new Date(0)
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Invalid or expired token'
       })
-      
-      return {
-        success: false,
-        user: null,
-        message: 'Invalid or expired token'
-      }
     }
 
-    // Get user from storage
-    const storage = useDatabaseStorage()
-    const user = await storage.getItem(`users:${decoded.userId}`) as UserWithPassword
+    // Get user from database to ensure they still exist and get latest data
+    const userRepo = useUserRepository()
+    const user = await userRepo.findById(decoded.userId)
     
     if (!user) {
-      return {
-        success: false,
-        user: null,
-        message: 'User not found'
-      }
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'User not found'
+      })
     }
 
     // Return user data without password hash
-    const { passwordHash, ...userWithoutPassword } = user
-    
+    const { passwordHash, ...userResponse } = user
+
     return {
       success: true,
-      user: userWithoutPassword,
-      message: 'Authenticated'
+      data: {
+        user: { ...userResponse, hasPassword: !!passwordHash },
+        tokenValid: true
+      }
     }
-  } catch (error: any) {
-    return {
-      success: false,
-      user: null,
-      message: 'Authentication check failed'
+  } catch (error) {
+    // Handle HTTP errors
+    if (error && typeof error === 'object' && 'statusCode' in error) {
+      // Only log unexpected server errors, not expected authentication errors (401)
+      if (error.statusCode !== 401) {
+        console.error('Auth verification error:', error)
+      }
+      throw error
     }
+    
+    // Log unexpected errors
+    console.error('Auth verification error:', error)
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Authentication verification failed'
+    })
   }
 })

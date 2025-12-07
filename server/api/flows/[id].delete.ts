@@ -1,6 +1,19 @@
-import type { Flow } from '../../../types/Flow'
-import { useDatabaseStorage } from '../../utils/useDatabaseStorage'
+import type { Flow } from '../../db/schema'
+import { useDatabaseStorage } from "../../utils/FlowyStorage"
 
+/**
+ * Response for flow deletion
+ */
+interface DeleteFlowResponse {
+  success: true
+  message: string
+}
+
+/**
+ * DELETE /api/flows/[id] - Delete a flow by ID
+ * @param id - Flow ID to delete
+ * @returns Confirmation of deletion
+ */
 export default defineEventHandler(async (event) => {
   const storage = useDatabaseStorage()
   const flowId = getRouterParam(event, 'id')

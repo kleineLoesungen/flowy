@@ -1,8 +1,19 @@
-import type { Flow } from '../../../../types/Flow'
-import type { Team } from '../../../../types/Team'
-import { useDatabaseStorage } from '../../../utils/useDatabaseStorage'
+import type { Flow, Team } from '../../../db/schema'
+import { useDatabaseStorage } from "../../../utils/FlowyStorage"
 import jwt from 'jsonwebtoken'
 
+/**
+ * Response for completed flows
+ */
+interface CompletedFlowsResponse {
+  success: true
+  data: Flow[]
+}
+
+/**
+ * GET /api/flows/completed - Get all completed flows for current user
+ * @returns List of completed flows accessible to the current user
+ */
 async function getCurrentUser(event: any) {
   try {
     const token = getCookie(event, 'auth-token')

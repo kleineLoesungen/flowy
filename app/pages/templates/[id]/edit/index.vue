@@ -24,13 +24,52 @@
 </template>
 
 <script setup lang="ts">
-import type { FlowTemplate } from '../../../../../types/FlowTemplate'
 import TemplateForm from '~/components/Flow/Template/Form.vue'
+
+// Use the same local type definition as the Editor
+type ElementTemplate = {
+  id: string
+  name: string
+  description: string
+  ownerTeamId: string | null
+  durationDays: number | null
+  type: 'action' | 'state' | 'artefact'
+  consultedTeamIds: string[]
+}
+
+type Relation = {
+  id: string
+  type: 'flow' | 'or' | 'and' | 'in' | 'out'
+  connections: Array<{
+    fromElementId: string
+    toElementId: string
+    sourceHandle?: string
+    targetHandle?: string
+  }>
+}
+
+type FlowTemplate = {
+  id: string
+  name: string
+  description: string
+  elements: ElementTemplate[]
+  relations: Relation[]
+  startingElementId: string | null
+  layout?: { [elementId: string]: { x: number; y: number } } | null
+}
 
 // Get the template ID from the route
 const route = useRoute()
 const router = useRouter()
 const templateId = route.params.id
+
+// Authentication check - redirect if not logged in
+const { user, isAuthenticated } = useUser()
+
+// Redirect unauthenticated users to login
+if (!isAuthenticated.value) {
+  await navigateTo('/login')
+}
 
 // Set page metadata
 useHead({
@@ -43,7 +82,33 @@ useHead({
 // Fetch the specific template
 const { data: templateData, pending, error, refresh } = await useFetch(`/api/templates/${templateId}`)
 
-const template = computed(() => templateData.value?.data || null)
+const template = computed(() => {
+  const apiTemplate = templateData.value?.data
+  if (!apiTemplate) return null
+  
+  // Transform API response to match local FlowTemplate type
+  return {
+    id: apiTemplate.id,
+    name: apiTemplate.name,
+    description: apiTemplate.description,
+    elements: apiTemplate.elements.map((el: any) => ({
+      id: el.id,
+      name: el.name,
+      description: el.description,
+      ownerTeamId: el.ownerTeamId,
+      durationDays: el.durationDays,
+      type: el.type,
+      consultedTeamIds: el.consultedTeamIds || []
+    })) as ElementTemplate[],
+    relations: apiTemplate.relations.map((rel: any) => ({
+      id: rel.id,
+      type: rel.type,
+      connections: rel.connections || []
+    })) as Relation[],
+    startingElementId: apiTemplate.startingElementId,
+    layout: apiTemplate.layout
+  } as FlowTemplate
+})
 
 // Update page title when template loads
 watchEffect(() => {
@@ -59,7 +124,7 @@ watchEffect(() => {
 
 // Methods
 const handleCancel = () => {
-  // Navigate back
+  // Navigate back - the template editor will handle unsaved changes confirmation
   router.push('/templates')
 }
 
