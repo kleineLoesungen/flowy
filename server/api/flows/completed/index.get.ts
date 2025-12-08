@@ -1,5 +1,5 @@
 import type { Flow, Team } from '../../../db/schema'
-import { useDatabaseStorage } from "../../../utils/FlowyStorage"
+import { useFlowRepository, useUserRepository, useTeamRepository } from "../../../storage/StorageFactory"
 import jwt from 'jsonwebtoken'
 
 /**
@@ -23,24 +23,20 @@ async function getCurrentUser(event: any) {
     const secretKey = runtimeConfig.jwtSecret || 'default-secret-key'
     const decoded: any = jwt.verify(token, secretKey)
 
-    const storage = useDatabaseStorage()
-    const user = await storage.getItem(`users:${decoded.userId}`)
+    const userRepo = useUserRepository()
+    const user = await userRepo.findById(decoded.userId)
     return user
   } catch (error) {
     return null
   }
 }
 
-async function getUserTeamIds(userId: string, storage: any): Promise<Set<string>> {
+async function getUserTeamIds(userId: string): Promise<Set<string>> {
   const teamIds = new Set<string>()
   try {
-    const teamKeys = await storage.getKeys('teams:')
-    for (const key of teamKeys) {
-      const team = await storage.getItem(key) as Team
-      if (team && team.userIds && team.userIds.includes(userId)) {
-        teamIds.add(team.id)
-      }
-    }
+    const teamRepo = useTeamRepository()
+    const teams = await teamRepo.findTeamsWithUser(userId)
+    teams.forEach(team => teamIds.add(team.id))
   } catch (error) {
     console.error('Error getting user team IDs:', error)
   }
@@ -67,55 +63,39 @@ function isFlowRelevantToUser(flow: Flow, userTeamIds: Set<string>, isAdmin: boo
 }
 
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
+  const flowRepo = useFlowRepository()
   const user = await getCurrentUser(event)
 
-  let allFlows: Flow[] = []
-
-  // Try to get flows from organized structure first
   try {
-    const flowsKeys = await storage.getKeys('flows:')
+    // Get all flows from repository
+    const allFlows = await flowRepo.findAll()
+    
+    // Filter to only completed flows
+    const completedFlows = allFlows.filter(flow => flow.completedAt)
 
-    for (const key of flowsKeys) {
-      const flow = await storage.getItem(key) as Flow
-      if (flow && flow.completedAt) { // Only include completed flows
-        allFlows.push(flow)
-      }
+    // If no user is logged in, return all non-hidden completed flows
+    if (!user) {
+      const publicFlows = completedFlows.filter(flow => !flow.hidden)
+      // Sort by completion date (most recent first)
+      publicFlows.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
+      return { data: publicFlows }
     }
 
-    if (allFlows.length === 0) {
-      // Fall back to legacy format if organized structure doesn't exist
-      const flows = (await storage.getItem('flows') as Flow[]) || []
-      const flowsArray = Array.isArray(flows) ? flows : []
-      allFlows = flowsArray.filter(flow => flow.completedAt)
-    }
-  } catch (error) {
-    console.log('Error accessing flows structure:', error)
-    // Fallback to legacy array format
-    const flows = (await storage.getItem('flows') as Flow[]) || []
-    const flowsArray = Array.isArray(flows) ? flows : []
-    allFlows = flowsArray.filter(flow => flow.completedAt)
-  }
+    // Get user's team memberships
+    const userTeamIds = await getUserTeamIds(user.id)
+    const isAdmin = user.role === 'admin'
 
-  // If no user is logged in, return all non-hidden completed flows
-  if (!user) {
-    const publicFlows = allFlows.filter(flow => !flow.hidden)
+    // Filter flows based on user relevance
+    const relevantFlows = completedFlows.filter(flow => 
+      isFlowRelevantToUser(flow, userTeamIds, isAdmin)
+    )
+
     // Sort by completion date (most recent first)
-    publicFlows.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
-    return { data: publicFlows }
+    relevantFlows.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
+
+    return { data: relevantFlows }
+  } catch (error) {
+    console.error('Error fetching completed flows:', error)
+    return { data: [] }
   }
-
-  // Get user's team memberships
-  const userTeamIds = await getUserTeamIds(user.id, storage)
-  const isAdmin = user.role === 'admin'
-
-  // Filter flows based on user relevance
-  const relevantFlows = allFlows.filter(flow => 
-    isFlowRelevantToUser(flow, userTeamIds, isAdmin)
-  )
-
-  // Sort by completion date (most recent first)
-  relevantFlows.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
-
-  return { data: relevantFlows }
 })

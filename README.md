@@ -23,7 +23,6 @@
     - delete flow
     - complete flow
 - TODO:
-  - remove sqlit and postgresdb only
   - templates
     - add sorting
     - check tests

@@ -10,14 +10,14 @@ export interface DatabaseAdapter {
 }
 
 export interface DatabaseConfig {
-  type: 'sqlite' | 'postgres'
+  type: 'postgres'
   connectionString?: string
-  path?: string
   host?: string
   port?: number
   database?: string
   username?: string
   password?: string
+  schema?: string
   options?: Record<string, any>
 }
 

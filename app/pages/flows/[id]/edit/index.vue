@@ -30,8 +30,6 @@
       </div>
       <h3>Flow Not Found</h3>
       <p>The flow with ID "{{ flowId }}" was not found.</p>
-      <p>Debug info:</p>
-      <pre>{{ { flowData: flowData, flow: flow, pending, error } }}</pre>
       <button @click="$router.push('/flows')" class="btn btn-primary">
         Go to Flows
       </button>

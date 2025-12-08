@@ -55,13 +55,32 @@ export default defineEventHandler(async (event) => {
     const userRepo = useUserRepository()
     
     // Find user by email
-    const user = await userRepo.findByEmail(email)
+    let user = await userRepo.findByEmail(email)
+    let isFirstUser = false
     
+    // If no user exists with this email, check if this is the first user
     if (!user) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: 'Invalid email or password'
-      })
+      const allUsers = await userRepo.findAll()
+      
+      // If no users exist at all, create the first user as admin
+      if (allUsers.length === 0) {
+        const hashedPassword = await bcrypt.hash(password, 10)
+        
+        user = await userRepo.create({
+          name: email.split('@')[0] || 'Admin',
+          email: email,
+          passwordHash: hashedPassword,
+          role: 'admin'
+        })
+        
+        isFirstUser = true
+        console.log(`✅ First user created as admin: ${email}`)
+      } else {
+        throw createError({
+          statusCode: 401,
+          statusMessage: 'Invalid email or password'
+        })
+      }
     }
 
     // Check if user has a password set
@@ -72,14 +91,16 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.passwordHash)
-    
-    if (!isValidPassword) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: 'Invalid email or password'
-      })
+    // Verify password (skip for newly created first admin)
+    if (!isFirstUser) {
+      const isValidPassword = await bcrypt.compare(password, user.passwordHash)
+      
+      if (!isValidPassword) {
+        throw createError({
+          statusCode: 401,
+          statusMessage: 'Invalid email or password'
+        })
+      }
     }
 
     // Generate JWT token

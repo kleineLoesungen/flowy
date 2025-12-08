@@ -1,5 +1,5 @@
 import type { Flow } from '../../../db/schema'
-import { useDatabaseStorage } from "../../../utils/FlowyStorage"
+import { useFlowRepository } from "../../../storage/StorageFactory"
 
 /**
  * Response for all completed flows
@@ -14,37 +14,21 @@ interface AllCompletedFlowsResponse {
  * @returns List of all completed flows in the system
  */
 export default defineEventHandler(async (event) => {
-  const storage = useDatabaseStorage()
+  const flowRepo = useFlowRepository()
 
-  // Try to get flows from organized structure first
   try {
-    const flowsKeys = await storage.getKeys('flows:')
-    const flows: Flow[] = []
-
-    for (const key of flowsKeys) {
-      const flow = await storage.getItem(key) as Flow
-      if (flow && flow.completedAt) { // Only include completed flows
-        flows.push(flow)
-      }
-    }
-
-    if (flows.length > 0) {
-      // Sort by completion date (most recent first)
-      flows.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
-      return { data: flows }
-    }
+    // Get all flows from repository
+    const allFlows = await flowRepo.findAll()
+    
+    // Filter to only completed flows
+    const completedFlows = allFlows.filter(flow => flow.completedAt)
+    
+    // Sort by completion date (most recent first)
+    completedFlows.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
+    
+    return { data: completedFlows }
   } catch (error) {
-    // Fall back to legacy format if organized structure doesn't exist
-    console.log('Error accessing organized flows structure:', error)
+    console.error('Error fetching completed flows:', error)
+    return { data: [] }
   }
-
-  // Fallback to legacy array format
-  const flows = (await storage.getItem('flows') as Flow[]) || []
-  // Ensure flows is an array
-  const flowsArray = Array.isArray(flows) ? flows : []
-  // Filter to only completed flows
-  const completedFlows = flowsArray.filter(flow => flow.completedAt)
-  // Sort by completion date (most recent first)
-  completedFlows.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
-  return { data: completedFlows }
 })

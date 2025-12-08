@@ -87,10 +87,10 @@ export default defineEventHandler(async (event) => {
     }
     
     if (body.description !== undefined) {
-      if (typeof body.description !== 'string' || !body.description.trim()) {
+      if (typeof body.description !== 'string') {
         throw createError({
           statusCode: 400,
-          statusMessage: 'Template description must be a non-empty string'
+          statusMessage: 'Template description must be a string'
         })
       }
       body.description = body.description.trim()

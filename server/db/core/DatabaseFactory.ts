@@ -1,10 +1,8 @@
 import { DatabaseAdapter, DatabaseConfig } from './DatabaseAdapter'
-import { SQLiteAdapter } from '../adapters/SQLiteAdapter'
 import { PostgreSQLAdapter } from '../adapters/PostgreSQLAdapter'
 
 export class DatabaseFactory {
   private static adapters = new Map<string, new (config: DatabaseConfig) => DatabaseAdapter>([
-    ['sqlite', SQLiteAdapter],
     ['postgres', PostgreSQLAdapter],
     ['postgresql', PostgreSQLAdapter], // Alias for postgres
   ])
@@ -52,10 +50,28 @@ export class DatabaseFactory {
       return this.parseConnectionString(process.env.DATABASE_URL)
     }
     
-    // Default to SQLite
-    return {
-      type: 'sqlite',
-      path: process.env.SQLITE_DB_PATH || './data/flowy.db'
+    // Check for individual PostgreSQL environment variables
+    const dbHost = process.env.DB_HOST
+    const dbPort = process.env.DB_PORT
+    const dbName = process.env.DB_NAME
+    const dbUser = process.env.DB_USER
+    const dbPass = process.env.DB_PASS
+    const dbSchema = process.env.DB_SCHEMA
+    
+    if (dbHost && dbName && dbUser) {
+      return {
+        type: 'postgres',
+        host: dbHost,
+        port: dbPort ? parseInt(dbPort) : 5432,
+        database: dbName,
+        username: dbUser,
+        password: dbPass,
+        schema: dbSchema,
+        options: dbSchema ? { searchPath: dbSchema } : undefined
+      }
     }
+    
+    // PostgreSQL is required
+    throw new Error('PostgreSQL configuration required. Please set DB_HOST, DB_NAME, and DB_USER environment variables or provide a DATABASE_URL.')
   }
 }

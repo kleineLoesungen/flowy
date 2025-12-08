@@ -747,10 +747,10 @@ const openFlowsModal = async (template: TemplateOverview) => {
   
   try {
     // Fetch all flows and filter for this template
-    const { data } = await $fetch('/api/flows/all')
+    const response = await $fetch<{ data: FlowOverview[] }>('/api/flows/all')
     
     // Filter flows for this template
-    modalFlows.value = (data || []).filter((flow: FlowOverview) => flow.templateId === template.id)
+    modalFlows.value = (response.data || []).filter((flow: FlowOverview) => flow.templateId === template.id)
   } catch (error) {
     console.error('Error fetching flows for template:', error)
     modalFlows.value = []

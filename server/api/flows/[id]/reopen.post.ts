@@ -1,5 +1,5 @@
 import type { Flow } from '../../../db/schema'
-import { useDatabaseStorage } from "../../../utils/FlowyStorage"
+import { useFlowRepository } from "../../../storage/StorageFactory"
 
 /**
  * Response for flow reopen operation
@@ -24,24 +24,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const storage = useDatabaseStorage()
+  const flowRepo = useFlowRepository()
 
   try {
-    // Try to get flow from organized structure first
-    let flow: Flow | null = null
-    
-    try {
-      flow = await storage.getItem(`flows:${flowId}`) as Flow
-    } catch (error) {
-      // Fall back to legacy format if organized structure doesn't exist
-      console.log('Error accessing organized flow structure, trying legacy format:', error)
-    }
-
-    // Fallback to legacy array format
-    if (!flow) {
-      const flows = (await storage.getItem('flows') as Flow[]) || []
-      flow = flows.find(f => f.id === flowId) || null
-    }
+    // Get the flow from repository
+    const flow = await flowRepo.findById(flowId)
 
     if (!flow) {
       throw createError({
@@ -58,31 +45,22 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Remove the completion date to reopen the flow
-    flow.completedAt = null
-
-    // Save the updated flow back to storage
-    try {
-      // Try organized structure first
-      await storage.setItem(`flows:${flowId}`, flow)
-    } catch (error) {
-      // Fall back to legacy format
-      const flows = (await storage.getItem('flows') as Flow[]) || []
-      const flowIndex = flows.findIndex(f => f.id === flowId)
-      
-      if (flowIndex !== -1) {
-        flows[flowIndex] = flow
-        await storage.setItem('flows', flows)
-      }
-    }
+    // Update the flow to remove completion date
+    const updatedFlow = await flowRepo.update(flowId, {
+      completedAt: null
+    })
 
     return {
       success: true,
-      message: 'Flow reopened successfully',
-      data: flow
+      data: updatedFlow
     }
-
-  } catch (error) {
+  } catch (error: any) {
+    // Re-throw HTTP errors
+    if (error.statusCode) {
+      throw error
+    }
+    
+    // Log and wrap other errors
     console.error('Error reopening flow:', error)
     throw createError({
       statusCode: 500,

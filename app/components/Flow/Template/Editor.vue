@@ -656,19 +656,11 @@ const loadTemplateIntoEditor = (template: FlowTemplate) => {
 
   // Check if we have saved layout positions
   const savedLayout = template.layout
-  console.log('[DEBUG] Template layout loading:', {
-    templateName: template.name,
-    hasLayout: !!savedLayout,
-    layoutKeys: savedLayout ? Object.keys(savedLayout) : [],
-    layout: savedLayout
-  })
 
   if (savedLayout) {
     // Use saved positions
-    console.log('[DEBUG] Using saved layout positions')
     elements.forEach(element => {
       const savedPosition = savedLayout[element.id]
-      console.log(`[DEBUG] Element ${element.id}: savedPosition =`, savedPosition)
       elementNodes.push({
         id: element.id,
         type: 'element',

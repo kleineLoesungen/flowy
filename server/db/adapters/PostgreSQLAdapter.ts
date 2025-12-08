@@ -23,6 +23,11 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
       ...this.config.options
     })
     await this.client.connect()
+    
+    // Set schema if specified
+    if (this.config.schema) {
+      await this.client.query(`SET search_path TO ${this.config.schema}`)
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -69,6 +74,17 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
 
   async migrate(migrationsPath: string): Promise<void> {
     try {
+      // Create schema if it doesn't exist
+      if (this.config.schema) {
+        try {
+          await this.client!.query(`CREATE SCHEMA IF NOT EXISTS ${this.config.schema}`)
+          await this.client!.query(`SET search_path TO ${this.config.schema}`)
+          console.log(`✅ Schema "${this.config.schema}" created/verified`)
+        } catch (schemaError) {
+          console.warn(`Warning creating schema:`, schemaError.message)
+        }
+      }
+      
       // Use drizzle migrations if available, fallback to SQL files
       const drizzleMigrationPath = path.join(migrationsPath, 'postgres')
       
@@ -88,10 +104,10 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
           return
         }
       } catch (drizzleError) {
-        console.warn('Drizzle migration failed, falling back to SQL files:', drizzleError)
+        console.warn('Drizzle migration failed, falling back to SQL files:', drizzleError.message)
       }
       
-      // Fallback to SQL file execution
+      // Fallback to SQL file execution - migrationsPath is already pointing to postgres folder
       const files = await fs.readdir(migrationsPath)
       const sqlFiles = files.filter(file => file.endsWith('.sql')).sort()
       

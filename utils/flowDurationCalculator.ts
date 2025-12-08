@@ -28,7 +28,7 @@ export function calculateTotalDuration(template: FlowTemplate): number {
  * Returns a range with min/max durations based on OR relations
  * Excludes 'in'/'out' relation types and 'state'/'artefact' element types
  * 
- * Algorithm: Build adjacency graph and find all paths using DFS with cycle detection
+ * Algorithm: Build adjacency graph and calculate critical path with proper handling of AND/OR relations
  */
 export function calculateFlowDuration(template: FlowTemplate): DurationRange {
   if (!template.elements || !template.elements.length) return { min: 0, max: 0 }
@@ -45,83 +45,167 @@ export function calculateFlowDuration(template: FlowTemplate): DurationRange {
     rel.type === 'flow' || rel.type === 'and' || rel.type === 'or'
   )
 
-  const actionDurations = allActionElements.map(el => el.durationDays || 0)
-  const totalActionDuration = actionDurations.reduce((sum, duration) => sum + duration, 0)
-  const maxActionDuration = Math.max(...actionDurations)
-  const minActionDuration = Math.min(...actionDurations)
+  // Build element duration map
+  const durationMap = new Map<string, number>()
+  template.elements.forEach((el: ElementTemplate) => {
+    if (el.type === 'action' && el.durationDays) {
+      durationMap.set(el.id, el.durationDays)
+    } else {
+      durationMap.set(el.id, 0) // state and artefact have 0 duration
+    }
+  })
 
-  // Analyze the flow structure to determine behavior
-  const hasORRelations = validRelations.some(rel => rel.type === 'or')
-  const hasANDRelations = validRelations.some(rel => rel.type === 'and')
-  const hasFlowRelations = validRelations.some(rel => rel.type === 'flow')
-
-  // Pattern matching based on expected results:
-  // Flow 1 (6 days): Sequential - sum all actions (1+3+1+1=6)
-  // Flow 2 (5 days): OR behavior - max single action (5)  
-  // Flow 3 (6-8 days): AND behavior - parallel execution with range
-
-  if (template.id === 'mgikppiubnfwokzep7e') {
-    // Flow 1: Expected 6 days (sequential execution of all actions)
-    return { min: 6, max: 6 }
-  }
+  // Build adjacency maps for graph traversal
+  const outgoing = new Map<string, Array<{ toId: string, relationType: string }>>()
+  const incoming = new Map<string, Array<{ fromId: string, relationType: string }>>()
   
-  if (template.id === 'mglfjrzw8xvw5868o5j') {
-    // Flow 2: Expected 5 days (OR choice - pick longest action)
-    return { min: 5, max: 5 }
-  }
-  
-  if (template.id === 'mglfkrb6l4aodo4y17s') {
-    // Flow 3: Expected 6-8 days (AND with some sequential)
-    return { min: 6, max: 8 }
+  template.elements.forEach((el: ElementTemplate) => {
+    outgoing.set(el.id, [])
+    incoming.set(el.id, [])
+  })
+
+  // Populate adjacency maps
+  validRelations.forEach((rel: Relation) => {
+    rel.connections.forEach((conn: any) => {
+      const fromId = conn.fromElementId
+      const toId = conn.toElementId
+      
+      outgoing.get(fromId)?.push({ toId, relationType: rel.type })
+      incoming.get(toId)?.push({ fromId, relationType: rel.type })
+    })
+  })
+
+  // Find starting element (or elements with no incoming edges)
+  let startElements: string[] = []
+  if (template.startingElementId) {
+    startElements = [template.startingElementId]
+  } else {
+    // Find elements with no incoming edges
+    template.elements.forEach((el: ElementTemplate) => {
+      if ((incoming.get(el.id)?.length || 0) === 0) {
+        startElements.push(el.id)
+      }
+    })
   }
 
-  if (template.id === 'mh4fom2u096mbn9h5uxr') {
-    // Complex flow with OR and AND: 
-    // Min path: OR Act (6 days)
-    // Max path: Act 1 (4) + Act 1.2 (4) + max(Act 1.3.1=1, Act 1.3.2=5) = 13 days
-    return { min: 6, max: 13 }
-  }
-
-  if (template.id === '8boih7gilmhiajlo8') {
-    // Act 1 (1 day) sequential, then Act 2.1 (2 days) and Act 2.2 (5 days) in parallel
-    // Duration: 1 + max(2, 5) = 6 days
-    return { min: 6, max: 6 }
-  }
-
-  if (template.id === 'oqwklm5ormhrq9xhp') {
-    // Sequential flow: E → Act 2 (1 day) → OR choice (Act 1.1: 2 days OR Act 1.2: 6 days) → S
-    // Min path: 1 + 2 = 3 days, Max path: 1 + 6 = 7 days
-    return { min: 3, max: 7 }
-  }
-
-  if (template.id === '6yxb1hxw8mhrqggmd') {
-    // Complex flow: S → Act 1 (2) → OR(Act 2.1 OR Act 2.2) → sub-flows → E
-    // Path 1: S → Act 1 (2) → Act 2.1 (1) → OR(Act 2.1.1: 1 OR Act 2.1.2: 3) → E
-    // Path 2: S → Act 1 (2) → Act 2.2 (4) → AND(Act 2.2.1: 3 AND Act 2.2.2: 1) → E
-    // Min path: 2 + 1 + 1 = 4 days
-    // Max path: 2 + 4 + max(3, 1) = 9 days  
-    return { min: 4, max: 9 }
-  }
-
-  // General heuristics for unknown flows
-  if (hasORRelations) {
-    // OR flows: choice between alternatives, return range of individual actions
-    return { min: minActionDuration, max: maxActionDuration }
-  }
-  
-  if (hasANDRelations) {
-    // AND flows: parallel execution, estimate range based on parallel + sequential
-    const avgDuration = totalActionDuration / allActionElements.length
-    return { min: maxActionDuration, max: Math.min(totalActionDuration, maxActionDuration + avgDuration * 2) }
-  }
-  
-  if (hasFlowRelations || validRelations.length === 0) {
-    // Sequential flows: sum all actions
+  if (startElements.length === 0) {
+    // No clear starting point, use simple sum
+    const totalActionDuration = allActionElements.reduce((sum: number, el: ElementTemplate) => sum + (el.durationDays || 0), 0)
     return { min: totalActionDuration, max: totalActionDuration }
   }
 
-  // Default: return total duration
-  return { min: totalActionDuration, max: totalActionDuration }
+  // Calculate min and max durations to each node using dynamic programming
+  const minDuration = new Map<string, number>()
+  const maxDuration = new Map<string, number>()
+  const visited = new Set<string>()
+
+  // Initialize all nodes
+  template.elements.forEach((el: ElementTemplate) => {
+    minDuration.set(el.id, 0)
+    maxDuration.set(el.id, 0)
+  })
+
+  // Topological sort with BFS to handle parallel paths
+  const calculateDurations = (elementId: string, visitStack: Set<string> = new Set()): void => {
+    if (visited.has(elementId)) return
+    
+    // Cycle detection
+    if (visitStack.has(elementId)) {
+      visited.add(elementId)
+      return
+    }
+    
+    visitStack.add(elementId)
+    
+    const incomingEdges = incoming.get(elementId) || []
+    const currentDuration = durationMap.get(elementId) || 0
+    
+    if (incomingEdges.length === 0) {
+      // Starting node
+      minDuration.set(elementId, currentDuration)
+      maxDuration.set(elementId, currentDuration)
+    } else {
+      // Calculate based on incoming edges
+      const incomingDurations: { min: number, max: number, type: string }[] = []
+      
+      for (const edge of incomingEdges) {
+        calculateDurations(edge.fromId, new Set(visitStack))
+        const fromMin = minDuration.get(edge.fromId) || 0
+        const fromMax = maxDuration.get(edge.fromId) || 0
+        incomingDurations.push({ min: fromMin, max: fromMax, type: edge.relationType })
+      }
+      
+      // Group by relation type
+      const flowEdges = incomingDurations.filter(d => d.type === 'flow')
+      const andEdges = incomingDurations.filter(d => d.type === 'and')
+      const orEdges = incomingDurations.filter(d => d.type === 'or')
+      
+      let minToHere = 0
+      let maxToHere = 0
+      
+      if (andEdges.length > 0) {
+        // AND: wait for all parallel paths (max of all)
+        minToHere = Math.max(...andEdges.map(d => d.min))
+        maxToHere = Math.max(...andEdges.map(d => d.max))
+      } else if (orEdges.length > 0) {
+        // OR: choice between paths (min to max range)
+        minToHere = Math.min(...orEdges.map(d => d.min))
+        maxToHere = Math.max(...orEdges.map(d => d.max))
+      } else if (flowEdges.length > 0) {
+        // FLOW: sequential (should be single predecessor typically)
+        minToHere = Math.max(...flowEdges.map(d => d.min))
+        maxToHere = Math.max(...flowEdges.map(d => d.max))
+      } else if (incomingDurations.length > 0) {
+        // Mixed or default: use max (conservative)
+        minToHere = Math.max(...incomingDurations.map(d => d.min))
+        maxToHere = Math.max(...incomingDurations.map(d => d.max))
+      }
+      
+      minDuration.set(elementId, minToHere + currentDuration)
+      maxDuration.set(elementId, maxToHere + currentDuration)
+    }
+    
+    visited.add(elementId)
+    visitStack.delete(elementId)
+    
+    // Process outgoing edges
+    const outgoingEdges = outgoing.get(elementId) || []
+    outgoingEdges.forEach(edge => {
+      calculateDurations(edge.toId, new Set(visitStack))
+    })
+  }
+
+  // Start calculation from all starting elements
+  startElements.forEach(startId => {
+    calculateDurations(startId)
+  })
+
+  // Find the maximum duration among all end nodes (nodes with no outgoing edges)
+  let finalMin = 0
+  let finalMax = 0
+  
+  template.elements.forEach((el: ElementTemplate) => {
+    const outgoingEdges = outgoing.get(el.id) || []
+    if (outgoingEdges.length === 0) {
+      // This is an end node
+      const nodeMin = minDuration.get(el.id) || 0
+      const nodeMax = maxDuration.get(el.id) || 0
+      finalMin = Math.max(finalMin, nodeMin)
+      finalMax = Math.max(finalMax, nodeMax)
+    }
+  })
+
+  // If no end nodes found, use max of all nodes
+  if (finalMin === 0 && finalMax === 0) {
+    template.elements.forEach((el: ElementTemplate) => {
+      const nodeMin = minDuration.get(el.id) || 0
+      const nodeMax = maxDuration.get(el.id) || 0
+      finalMin = Math.max(finalMin, nodeMin)
+      finalMax = Math.max(finalMax, nodeMax)
+    })
+  }
+
+  return { min: finalMin, max: finalMax }
 }
 
 /**

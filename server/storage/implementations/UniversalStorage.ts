@@ -4,6 +4,7 @@ import { DatabaseFactory } from '../../db/core/DatabaseFactory'
 
 export class UniversalStorage implements IStorageWithTransactions {
   private db: DatabaseAdapter | null = null
+  private dbType: 'postgres' | null = null
   private tableMappings = new Map([
     ['users', 'users'],
     ['teams', 'teams'],
@@ -15,6 +16,7 @@ export class UniversalStorage implements IStorageWithTransactions {
     if (!this.db) {
       // Create database config based on environment
       const config: DatabaseConfig = this.createDatabaseConfig()
+      this.dbType = config.type
       this.db = DatabaseFactory.createAdapter(config)
       await this.db.connect()
     }
@@ -22,18 +24,16 @@ export class UniversalStorage implements IStorageWithTransactions {
   }
 
   private createDatabaseConfig(): DatabaseConfig {
-    // Check for PostgreSQL connection string
-    const pgConnectionString = process.env.PG_CONNECTION_STRING || process.env.DATABASE_URL
+    // Use the centralized factory method that handles all environment variables
+    return DatabaseFactory.createFromEnv()
+  }
+
+  // Convert SQL with ? placeholders to PostgreSQL $1, $2, etc.
+  private convertPlaceholders(sql: string): string {
+    if (this.dbType !== 'postgres') return sql
     
-    if (pgConnectionString && pgConnectionString.startsWith('postgres')) {
-      return DatabaseFactory.parseConnectionString(pgConnectionString)
-    }
-    
-    // Default to SQLite
-    return {
-      type: 'sqlite',
-      path: './data/flowy.db'
-    }
+    let index = 1
+    return sql.replace(/\?/g, () => `$${index++}`)
   }
 
   async create<T>(entity: string, data: Omit<T, 'id' | 'createdAt' | 'updatedAt'>): Promise<T> {
@@ -54,7 +54,7 @@ export class UniversalStorage implements IStorageWithTransactions {
     const placeholders = columns.map(() => '?').join(', ')
     const values = Object.values(serialized)
     
-    const sql = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`
+    const sql = this.convertPlaceholders(`INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`)
     await db.run(sql, values)
     
     return fullData as T
@@ -64,7 +64,7 @@ export class UniversalStorage implements IStorageWithTransactions {
     const db = await this.getDB()
     const tableName = this.getTableName(entity)
     
-    const row = await db.get(`SELECT * FROM ${tableName} WHERE id = ?`, [id])
+    const row = await db.get(this.convertPlaceholders(`SELECT * FROM ${tableName} WHERE id = ?`), [id])
     return row ? this.deserializeRow(row) : null
   }
 
@@ -84,6 +84,7 @@ export class UniversalStorage implements IStorageWithTransactions {
       sql += ` WHERE ${conditions.join(' AND ')}`
     }
     
+    sql = this.convertPlaceholders(sql)
     const rows = await db.query(sql, params)
     return rows.map((row: any) => this.deserializeRow(row))
   }
@@ -123,7 +124,7 @@ export class UniversalStorage implements IStorageWithTransactions {
     
     values.push(id)
     
-    const sql = `UPDATE ${tableName} SET ${updates} WHERE id = ?`
+    const sql = this.convertPlaceholders(`UPDATE ${tableName} SET ${updates} WHERE id = ?`)
     await db.run(sql, values)
     
     return updatedData
@@ -133,7 +134,7 @@ export class UniversalStorage implements IStorageWithTransactions {
     const db = await this.getDB()
     const tableName = this.getTableName(entity)
     
-    const result = await db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id])
+    const result = await db.run(this.convertPlaceholders(`DELETE FROM ${tableName} WHERE id = ?`), [id])
     return result.changes > 0
   }
 
@@ -153,6 +154,7 @@ export class UniversalStorage implements IStorageWithTransactions {
       sql += ` WHERE ${whereClause}`
     }
     
+    sql = this.convertPlaceholders(sql)
     const result = await db.get(sql, params)
     return result.count
   }

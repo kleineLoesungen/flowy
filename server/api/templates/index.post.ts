@@ -71,12 +71,10 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    if (!body.description || typeof body.description !== 'string') {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Template description is required'
-      })
-    }
+    // Description is optional, but should be a string if provided
+    const description = body.description && typeof body.description === 'string' 
+      ? body.description 
+      : ''
     
     // Normalize element templates according to their type requirements
     let normalizedElements = body.elements || []
@@ -107,7 +105,7 @@ export default defineEventHandler(async (event) => {
 
     const templateData = {
       name: body.name.trim(),
-      description: body.description.trim(),
+      description: description.trim(),
       elements: normalizedElements,
       relations: normalizedRelations,
       startingElementId: body.startingElementId || '',

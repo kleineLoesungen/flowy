@@ -105,7 +105,7 @@ export const flowTemplates = isPostgres
   ? pgTable('flow_templates', {
       id: pgText('id').primaryKey(),
       name: pgText('name').notNull(),
-      description: pgText('description').notNull(),
+      description: pgText('description'),
       elements: jsonb('elements').$type<FlowElement[]>().notNull().default([]),
       relations: jsonb('relations').$type<FlowRelation[]>().notNull().default([]),
       startingElementId: pgText('starting_element_id'),
@@ -116,7 +116,7 @@ export const flowTemplates = isPostgres
   : sqliteTable('flow_templates', {
       id: text('id').primaryKey(),
       name: text('name').notNull(),
-      description: text('description').notNull(),
+      description: text('description'),
       elements: text('elements', { mode: 'json' }).$type<FlowElement[]>().notNull().default([]),
       relations: text('relations', { mode: 'json' }).$type<FlowRelation[]>().notNull().default([]),
       startingElementId: text('starting_element_id'),
