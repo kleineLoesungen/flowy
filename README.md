@@ -23,11 +23,12 @@
     - delete flow
     - complete flow
 - TODO:
+  - FIXME: NEXT
+    - mail notification
   - templates
-    - add sorting
     - check tests
   - flow
-    - add sorting
+    - in list of actions: badge with days until expected day. if <0 in red. same day in yellow, otherwise grey
     - e2e tests?
 
 - After all

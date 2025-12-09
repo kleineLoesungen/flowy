@@ -1,11 +1,11 @@
-import { Client } from 'pg'
+import { Pool, PoolClient } from 'pg'
 import { DatabaseAdapter, DatabaseConfig } from '../core/DatabaseAdapter'
 import { promises as fs } from 'fs'
 import path from 'path'
 
 export class PostgreSQLAdapter implements DatabaseAdapter {
   type = 'postgres'
-  private client: Client | null = null
+  private pool: Pool | null = null
   private config: DatabaseConfig
 
   constructor(config: DatabaseConfig) {
@@ -13,39 +13,57 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   async connect(): Promise<void> {
-    this.client = new Client({
+    const poolConfig: any = {
       connectionString: this.config.connectionString,
       host: this.config.host,
       port: this.config.port,
       database: this.config.database,
       user: this.config.username,
       password: this.config.password,
+      // Connection pool settings
+      max: 20, // maximum pool size
+      idleTimeoutMillis: 30000, // close idle clients after 30 seconds
+      connectionTimeoutMillis: 10000, // return an error after 10 seconds if connection cannot be established
       ...this.config.options
-    })
-    await this.client.connect()
+    }
     
-    // Set schema if specified
+    // Set search_path if schema is specified
     if (this.config.schema) {
-      await this.client.query(`SET search_path TO ${this.config.schema}`)
+      poolConfig.options = `-c search_path=${this.config.schema},public`
+    }
+    
+    this.pool = new Pool(poolConfig)
+    
+    // Handle pool errors
+    this.pool.on('error', (err) => {
+      console.error('Unexpected error on idle PostgreSQL client', err)
+    })
+    
+    // Test connection
+    const client = await this.pool.connect()
+    try {
+      await client.query('SELECT 1')
+    } finally {
+      client.release()
     }
   }
 
   async disconnect(): Promise<void> {
-    if (this.client) {
-      await this.client.end()
-      this.client = null
+    if (this.pool) {
+      await this.pool.end()
+      this.pool = null
     }
   }
 
   async query(sql: string, params: any[] = []): Promise<any[]> {
-    if (!this.client) throw new Error('Database not connected')
-    const result = await this.client.query(sql, params)
+    if (!this.pool) throw new Error('Database not connected')
+    const result = await this.pool.query(sql, params)
     return result.rows
   }
 
   async run(sql: string, params: any[] = []): Promise<{ changes: number; lastInsertRowid?: number }> {
-    if (!this.client) throw new Error('Database not connected')
-    const result = await this.client.query(sql, params)
+    if (!this.pool) throw new Error('Database not connected')
+    const result = await this.pool.query(sql, params)
     return {
       changes: result.rowCount || 0,
       lastInsertRowid: undefined // PostgreSQL doesn't have this concept
@@ -53,61 +71,47 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   async get(sql: string, params: any[] = []): Promise<any> {
-    if (!this.client) throw new Error('Database not connected')
-    const result = await this.client.query(sql, params)
+    if (!this.pool) throw new Error('Database not connected')
+    const result = await this.pool.query(sql, params)
     return result.rows[0] || null
   }
 
   async transaction<T>(callback: (adapter: DatabaseAdapter) => Promise<T>): Promise<T> {
-    if (!this.client) throw new Error('Database not connected')
+    if (!this.pool) throw new Error('Database not connected')
     
-    await this.client.query('BEGIN')
+    const client = await this.pool.connect()
     try {
+      await client.query('BEGIN')
       const result = await callback(this)
-      await this.client.query('COMMIT')
+      await client.query('COMMIT')
       return result
     } catch (error) {
-      await this.client.query('ROLLBACK')
+      await client.query('ROLLBACK')
       throw error
+    } finally {
+      client.release()
     }
   }
 
   async migrate(migrationsPath: string): Promise<void> {
+    if (!this.pool) throw new Error('Database not connected')
+    
+    // Use a single client for the entire migration to maintain search_path
+    const client = await this.pool.connect()
+    
     try {
       // Create schema if it doesn't exist
       if (this.config.schema) {
         try {
-          await this.client!.query(`CREATE SCHEMA IF NOT EXISTS ${this.config.schema}`)
-          await this.client!.query(`SET search_path TO ${this.config.schema}`)
+          await client.query(`CREATE SCHEMA IF NOT EXISTS ${this.config.schema}`)
+          await client.query(`SET search_path TO ${this.config.schema}`)
           console.log(`✅ Schema "${this.config.schema}" created/verified`)
-        } catch (schemaError) {
+        } catch (schemaError: any) {
           console.warn(`Warning creating schema:`, schemaError.message)
         }
       }
       
-      // Use drizzle migrations if available, fallback to SQL files
-      const drizzleMigrationPath = path.join(migrationsPath, 'postgres')
-      
-      try {
-        // Try to import and run drizzle migrations
-        const { migrate } = await import('drizzle-orm/postgres-js/migrator')
-        const { drizzle } = await import('drizzle-orm/postgres-js')
-        const postgres = await import('postgres')
-        
-        if (this.client) {
-          // Create postgres client for drizzle
-          const pgClient = postgres.default(this.config.connectionString || '')
-          const drizzleDb = drizzle(pgClient)
-          await migrate(drizzleDb, { migrationsFolder: drizzleMigrationPath })
-          await pgClient.end()
-          console.log('✅ PostgreSQL Drizzle migrations completed')
-          return
-        }
-      } catch (drizzleError) {
-        console.warn('Drizzle migration failed, falling back to SQL files:', drizzleError.message)
-      }
-      
-      // Fallback to SQL file execution - migrationsPath is already pointing to postgres folder
+      // Execute SQL migration files
       const files = await fs.readdir(migrationsPath)
       const sqlFiles = files.filter(file => file.endsWith('.sql')).sort()
       
@@ -119,13 +123,16 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
         const statements = sql.split(';').filter(stmt => stmt.trim())
         for (const statement of statements) {
           if (statement.trim()) {
-            await this.run(statement.trim())
+            await client.query(statement.trim())
           }
         }
       }
       console.log('✅ PostgreSQL SQL migrations completed')
-    } catch (error) {
-      console.warn('PostgreSQL migration error:', error)
+    } catch (error: any) {
+      console.error('PostgreSQL migration error:', error)
+      throw error
+    } finally {
+      client.release()
     }
   }
 }

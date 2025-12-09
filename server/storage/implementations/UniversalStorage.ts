@@ -207,12 +207,12 @@ export class UniversalStorage implements IStorageWithTransactions {
       // Convert camelCase to snake_case for database columns
       const dbKey = this.camelToSnakeCase(key)
       
-      // Handle undefined values - convert to null for SQLite
+      // Handle undefined values - convert to null
       if (val === undefined) {
         serialized[dbKey] = null
       } else if (typeof val === 'boolean') {
-        // Convert boolean to integer for SQLite (0 or 1)
-        serialized[dbKey] = val ? 1 : 0
+        // Store boolean values as-is (PostgreSQL native support)
+        serialized[dbKey] = val
       } else if (Array.isArray(val) || (typeof val === 'object' && val !== null && !(val instanceof Date))) {
         serialized[dbKey] = JSON.stringify(val)
       } else if (val instanceof Date) {
@@ -254,7 +254,7 @@ export class UniversalStorage implements IStorageWithTransactions {
           deserialized[jsKey] = value
         }
       } else if (key === 'hidden' && typeof value === 'number') {
-        // Convert SQLite integer back to boolean
+        // Legacy: convert integer to boolean for backward compatibility
         deserialized[jsKey] = value === 1
       } else {
         deserialized[jsKey] = value
