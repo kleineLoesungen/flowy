@@ -1,6 +1,7 @@
 import type { Flow, NewFlow, FlowElement, FlowRelation, ElementLayout } from '../../db/schema'
 import { useFlowRepository, useUserRepository } from "../../storage/StorageFactory"
 import { normalizeRelations } from "../../utils/relationNormalizer"
+import { notifyFlowCreated } from "../../utils/notifications"
 import jwt from 'jsonwebtoken'
 
 /**
@@ -120,6 +121,20 @@ export default defineEventHandler(async (event) => {
 
     // Create flow using repository
     const newFlow = await flowRepo.create(flowData)
+    
+    // Send notification asynchronously (don't await to avoid blocking the response)
+    setImmediate(async () => {
+      try {
+        await notifyFlowCreated(
+          newFlow.id,
+          newFlow.name,
+          newFlow.description,
+          currentUser.email
+        )
+      } catch (notificationError: any) {
+        console.error('Error sending flow creation notification:', notificationError.message)
+      }
+    })
     
     return {
       success: true,

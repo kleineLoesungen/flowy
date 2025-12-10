@@ -1,6 +1,8 @@
 import type { Flow, FlowElement, FlowRelation, ElementLayout } from '../../db/schema'
-import { useFlowRepository } from "../../storage/StorageFactory"
+import { useFlowRepository, useUserRepository } from "../../storage/StorageFactory"
 import { normalizeRelations } from "../../utils/relationNormalizer"
+import { notifyStatusChange, notifyCommentAdded } from "../../utils/notifications"
+import jwt from 'jsonwebtoken'
 
 /**
  * Request body for updating a flow
@@ -44,6 +46,20 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    // Get current user's email for notification exclusion
+    let currentUserEmail: string | undefined
+    try {
+      const token = getCookie(event, 'auth-token')
+      if (token) {
+        const runtimeConfig = useRuntimeConfig()
+        const secretKey = runtimeConfig.jwtSecret || 'default-secret-key'
+        const decoded = jwt.verify(token, secretKey) as { userId: string; email: string }
+        currentUserEmail = decoded.email
+      }
+    } catch {
+      // If we can't get the user, just don't exclude anyone
+    }
+
     // Get existing flow
     const existingFlow = await flowRepo.findById(flowId)
     
@@ -65,11 +81,35 @@ export default defineEventHandler(async (event) => {
     // Update flow
     const body = await readBody(event)
     
+    // Track changes for notifications
+    const statusChanges: Array<{ element: FlowElement; oldStatus: string; newStatus: string }> = []
+    const newComments: Array<{ element: FlowElement; comment: any }> = []
+    
     // Normalize elements according to their type requirements
     let normalizedElements = body.elements || existingFlow.elements
     if (body.elements) {
       normalizedElements = body.elements.map((element: any) => {
         const normalizedElement = { ...element }
+        
+        // Find existing element for comparison
+        const existingElement = existingFlow.elements.find((e: FlowElement) => e.id === element.id)
+        
+        // Detect status changes
+        if (existingElement && existingElement.status !== element.status) {
+          statusChanges.push({
+            element: normalizedElement,
+            oldStatus: existingElement.status,
+            newStatus: element.status
+          })
+        }
+        
+        // Detect new comments
+        if (existingElement && element.comments && element.comments.length > existingElement.comments.length) {
+          const newCommentsForElement = element.comments.slice(existingElement.comments.length)
+          newCommentsForElement.forEach((comment: any) => {
+            newComments.push({ element: normalizedElement, comment })
+          })
+        }
         
         // Ensure ownerTeamId is never undefined
         if (normalizedElement.ownerTeamId === undefined) {
@@ -109,6 +149,25 @@ export default defineEventHandler(async (event) => {
 
     // Update flow using repository
     const updatedFlow = await flowRepo.update(flowId, updateData)
+    
+    // Send notifications asynchronously (don't await to avoid blocking the response)
+    if (statusChanges.length > 0 || newComments.length > 0) {
+      setImmediate(async () => {
+        try {
+          // Notify status changes
+          for (const { element, oldStatus, newStatus } of statusChanges) {
+            await notifyStatusChange(flowId, updatedFlow.name, element, oldStatus, newStatus, currentUserEmail)
+          }
+          
+          // Notify new comments
+          for (const { element, comment } of newComments) {
+            await notifyCommentAdded(flowId, updatedFlow.name, element, comment, currentUserEmail)
+          }
+        } catch (notificationError: any) {
+          console.error('Error sending notifications:', notificationError.message)
+        }
+      })
+    }
     
     return { 
       success: true,

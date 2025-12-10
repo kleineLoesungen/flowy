@@ -249,19 +249,19 @@ const handleLogin = async () => {
     const result = await login(loginForm.email, loginForm.password)
 
     if (result && result.success) {
-      // Show success message briefly before closing
+      // Show success message briefly before redirecting
       loginSuccess.value = 'Login successful!'
       loginError.value = ''
       
-      // Close modal and refresh page immediately 
+      // Close modal and redirect to home page
       setTimeout(() => {
         showLoginModal.value = false
         loginForm.email = ''
         loginForm.password = ''
         loginSuccess.value = ''
         
-        // Simple page reload to ensure everything updates
-        window.location.reload()
+        // Redirect to start page
+        navigateTo('/')
       }, 800)
     } else {
       // Error: show error message but keep modal open
@@ -336,6 +336,8 @@ const handleChangePassword = async () => {
 const handleLogout = async () => {
   await logout()
   userDropdownOpen.value = false
+  // Redirect to start page after logout
+  navigateTo('/')
 }
 
 const closeModal = () => {

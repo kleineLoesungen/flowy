@@ -1,7 +1,7 @@
 <template>
   <div class="flows-overview">
     <!-- My Actions Section -->
-    <div class="section">
+    <div v-if="user" class="section">
       <div class="section-header">
         <div class="section-title">
           <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,6 +34,11 @@
                 <span class="action-role" :class="action.userRole">{{ action.userRole === 'owner' ? 'Owner' :
                   'Consulted' }}</span>
                 <span class="flow-name">from {{ action.flowName }}</span>
+                <span v-if="getDateBadge(action.element.expectedEndedAt)" 
+                      class="date-badge"
+                      :class="`badge-${getDateBadge(action.element.expectedEndedAt).color}`">
+                  {{ getDateBadge(action.element.expectedEndedAt).text }}
+                </span>
               </div>
             </div>
             <div class="action-links">
@@ -58,7 +63,7 @@
     </div>
 
     <!-- Next Actions Section -->
-    <div class="section">
+    <div v-if="user" class="section">
       <div class="section-header">
         <div class="section-title">
           <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,6 +97,11 @@
                 <span class="action-role" :class="action.userRole">{{ action.userRole === 'owner' ? 'Owner' :
                   'Consulted' }}</span>
                 <span class="flow-name">from {{ action.flowName }}</span>
+                <span v-if="getDateBadge(action.element.expectedEndedAt)" 
+                      class="date-badge"
+                      :class="`badge-${getDateBadge(action.element.expectedEndedAt).color}`">
+                  {{ getDateBadge(action.element.expectedEndedAt).text }}
+                </span>
               </div>
             </div>
             <div class="action-links">
@@ -360,7 +370,7 @@
     </div>
 
     <!-- Create New Flow Actions -->
-    <div class="flow-actions">
+    <div v-if="user" class="flow-actions">
       <NuxtLink to="/flows/add" class="btn btn-primary create-flow-btn">
         <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -697,6 +707,36 @@ const getTemplateName = (templateId: string): string => {
   return template?.name || 'Unknown Template'
 }
 
+// Helper function to calculate days until expected date and get badge color
+const getDateBadge = (expectedEndedAt: string | null) => {
+  if (!expectedEndedAt) return null
+  
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  const expectedDate = new Date(expectedEndedAt)
+  expectedDate.setHours(0, 0, 0, 0)
+  
+  const diffTime = expectedDate.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  let color = 'grey' // future dates
+  let text = ''
+  
+  if (diffDays < 0) {
+    color = 'red' // overdue
+    text = `${Math.abs(diffDays)}d overdue`
+  } else if (diffDays === 0) {
+    color = 'yellow' // today
+    text = 'Today'
+  } else {
+    color = 'grey' // future
+    text = `${diffDays}d left`
+  }
+  
+  return { color, text, days: diffDays }
+}
+
 const getFlowStatus = (flow: Flow): string => {
   if (flow.completedAt) return 'completed'
   if (!flow.startedAt) return 'not-started'
@@ -951,6 +991,34 @@ const canEditFlow = (flow: Flow): boolean => {
   font-size: 0.75rem;
   color: #64748b;
   font-style: italic;
+}
+
+.date-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid;
+}
+
+.date-badge.badge-grey {
+  color: #64748b;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.date-badge.badge-yellow {
+  color: #d97706;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.date-badge.badge-red {
+  color: #dc2626;
+  background: #fee2e2;
+  border-color: #fca5a5;
 }
 
 .action-links {

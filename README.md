@@ -23,12 +23,12 @@
     - delete flow
     - complete flow
 - TODO:
-  - FIXME: NEXT
-    - mail notification
+  - change log: flows, comments, templates, teams, users
+    - add to each element a slight log area
+  - admin
+    - logging of actions
   - templates
     - check tests
-  - flow
-    - in list of actions: badge with days until expected day. if <0 in red. same day in yellow, otherwise grey
     - e2e tests?
 
 - After all
