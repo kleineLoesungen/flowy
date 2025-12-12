@@ -23,7 +23,7 @@
     - delete flow
     - complete flow
 - TODO:
-  - change log: flows, comments, templates, teams, users
+  - changelog: flows, comments, templates, teams, users (CRUD with user + element ids + timestamp)
     - add to each element a slight log area
   - admin
     - logging of actions
@@ -43,11 +43,6 @@
 // Flow 
 - TODO: styling of Editor differs from Work/TemplateEditor
 
-// General
-- TODO: test cases for backend
-- TODO: created user in admin panel have no password? label them (and offer no password option for existing users ?)
-- TODO: Testing ENV.connetionString
-- TODO: check relations with multi-ends
 ------
 ## After PROD
 
