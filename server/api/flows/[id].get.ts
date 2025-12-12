@@ -1,5 +1,7 @@
 import type { Flow } from '../../db/schema'
 import { useFlowRepository } from "../../storage/StorageFactory"
+import { addLog } from '../../utils/auditLog'
+import jwt from 'jsonwebtoken'
 
 /**
  * Response for getting a single flow
@@ -34,6 +36,8 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Flow not found'
     })
   }
+
+  // (no activity log for simple view requests anymore)
 
   return { data: flow }
 })

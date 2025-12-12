@@ -33,39 +33,19 @@ export function normalizeRelations(
 ): Relation[] {
   if (!relations || relations.length === 0) return []
 
-  console.log('🔧 Normalizing relations:', {
-    relationCount: relations.length,
-    startingElement: startingElementId,
-    elementTypes: elements.map(e => ({ id: e.id, type: e.type, name: e.name }))
-  })
-
-  console.log('📥 Input relations:', relations.map(r => ({
-    id: r.id,
-    type: r.type,
-    connections: r.connections.map(c => `${c.fromElementId} → ${c.toElementId}`)
-  })))
+  
 
   // Step 1: Group relations first (before direction correction)
   const groupedRelations = groupRelations(relations)
-  console.log('📦 After grouping:', groupedRelations.length, 'relations')
-  console.log('📦 Grouped relations:', groupedRelations.map(r => ({
-    id: r.id,
-    type: r.type,
-    connections: r.connections.map(c => `${c.fromElementId} → ${c.toElementId}`)
-  })))
+  
 
   // Step 2: Correct flow direction with enhanced context
   const correctedRelations = correctFlowDirection(groupedRelations, startingElementId, elements)
-  console.log('🔄 After direction correction')
-  console.log('🔄 Corrected relations:', correctedRelations.map(r => ({
-    id: r.id,
-    type: r.type,
-    connections: r.connections.map(c => `${c.fromElementId} → ${c.toElementId}`)
-  })))
+  
 
   // Step 3: Sort relations by flow order
   const sortedRelations = sortRelationsByFlow(correctedRelations, startingElementId)
-  console.log('📊 After sorting:', sortedRelations.length, 'relations')
+  
 
   return sortedRelations
 }
@@ -79,7 +59,6 @@ function correctFlowDirection(
   elements: Array<{ id: string, type: string }>
 ): Relation[] {
   if (!startingElementId) {
-    console.log('⚠️ No starting element provided, skipping direction correction')
     return relations
   }
 
@@ -88,10 +67,10 @@ function correctFlowDirection(
 
   // Build simple distance map from starting element
   const distances = calculateDistancesFromStart(relations, startingElementId)
-  console.log('📏 Element distances from start:', Object.fromEntries(distances))
+  
 
   return relations.map(relation => {
-    console.log(`🔍 Processing relation ${relation.id} (${relation.type})`)
+    
     
     return {
       ...relation,
@@ -99,11 +78,10 @@ function correctFlowDirection(
         const fromDistance = distances.get(conn.fromElementId) ?? Infinity
         const toDistance = distances.get(conn.toElementId) ?? Infinity
 
-        console.log(`  🔗 ${conn.fromElementId}(dist:${fromDistance}) → ${conn.toElementId}(dist:${toDistance})`)
+        
 
         // If "to" element is closer to start than "from" element, swap direction
         if (toDistance < fromDistance && toDistance !== Infinity && fromDistance !== Infinity) {
-          console.log(`  🔄 SWAPPING: ${conn.toElementId} → ${conn.fromElementId}`)
           return {
             fromElementId: conn.toElementId,
             toElementId: conn.fromElementId,
@@ -111,8 +89,7 @@ function correctFlowDirection(
             targetHandle: conn.sourceHandle
           }
         }
-
-        console.log(`  ✅ KEEPING: ${conn.fromElementId} → ${conn.toElementId}`)
+        
         return conn
       })
     }
@@ -128,7 +105,7 @@ function calculateDistancesFromStart(relations: Relation[], startingElementId: s
   const visited = new Set<string>()
 
   distances.set(startingElementId, 0)
-  console.log(`📍 Starting BIDIRECTIONAL distance calculation from: ${startingElementId}`)
+  
 
   while (queue.length > 0) {
     const { elementId, distance } = queue.shift()!
@@ -136,7 +113,7 @@ function calculateDistancesFromStart(relations: Relation[], startingElementId: s
     if (visited.has(elementId)) continue
     visited.add(elementId)
 
-    console.log(`  � Element ${elementId} at distance ${distance}`)
+    
 
     // Find all relations where this element is connected (BOTH directions)
     relations.forEach(relation => {
@@ -156,13 +133,13 @@ function calculateDistancesFromStart(relations: Relation[], startingElementId: s
         if (nextElement) {
           distances.set(nextElement, distance + 1)
           queue.push({ elementId: nextElement, distance: distance + 1 })
-          console.log(`    🔗 Connected to ${nextElement} at distance ${distance + 1} (${direction})`)
+          
         }
       })
     })
   }
 
-  console.log(`📊 Final distances:`, Object.fromEntries(distances))
+  
   return distances
 }
 
@@ -178,7 +155,7 @@ function buildElementHierarchy(
   
   // Start with the starting element at level 0
   hierarchy.set(startingElementId, 0)
-  console.log('🚀 Starting hierarchy build from:', startingElementId)
+  
 
   // Use multiple passes to build hierarchy correctly
   let changed = true
@@ -188,7 +165,7 @@ function buildElementHierarchy(
   while (changed && iteration < maxIterations) {
     changed = false
     iteration++
-    console.log(`� Hierarchy iteration ${iteration}`)
+    
 
     relations.forEach(relation => {
       relation.connections.forEach(conn => {
@@ -198,7 +175,7 @@ function buildElementHierarchy(
         // If fromElement has a level but toElement doesn't, assign toElement level + 1
         if (fromLevel !== undefined && toLevel === undefined) {
           hierarchy.set(conn.toElementId, fromLevel + 1)
-          console.log(`➡️ Set ${conn.toElementId} to level ${fromLevel + 1} (from ${conn.fromElementId})`)
+          
           changed = true
         }
         // If toElement has a level but fromElement doesn't, this might indicate reversed flow
@@ -209,7 +186,7 @@ function buildElementHierarchy(
           
           if (!shouldElementComeAfter(fromElement, toElement)) {
             hierarchy.set(conn.fromElementId, toLevel - 1)
-            console.log(`⬅️ Set ${conn.fromElementId} to level ${toLevel - 1} (before ${conn.toElementId})`)
+            
             changed = true
           }
         }
@@ -217,14 +194,14 @@ function buildElementHierarchy(
         else if (fromLevel !== undefined && toLevel !== undefined) {
           if (fromLevel >= toLevel) {
             // This indicates the direction might be wrong, but let's be cautious
-            console.log(`⚠️ Potential direction issue: ${conn.fromElementId}(${fromLevel}) → ${conn.toElementId}(${toLevel})`)
+            
           }
         }
       })
     })
   }
 
-  console.log('🏗️ Final element hierarchy:', Object.fromEntries(hierarchy))
+  
   return hierarchy
 }
 

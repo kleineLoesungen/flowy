@@ -105,7 +105,6 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
         try {
           await client.query(`CREATE SCHEMA IF NOT EXISTS ${this.config.schema}`)
           await client.query(`SET search_path TO ${this.config.schema}`)
-          console.log(`✅ Schema "${this.config.schema}" created/verified`)
         } catch (schemaError: any) {
           console.warn(`Warning creating schema:`, schemaError.message)
         }
@@ -127,7 +126,6 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
           }
         }
       }
-      console.log('✅ PostgreSQL SQL migrations completed')
     } catch (error: any) {
       console.error('PostgreSQL migration error:', error)
       throw error

@@ -39,7 +39,6 @@ export function fixCorruptedRelations(template: FlowTemplate): FlowTemplate {
     }
 
     // If connections have different sources, split into separate relations
-    console.log(`Splitting corrupted relation ${relation.id} with ${connectionsBySource.size} different source elements`)
     
     connectionsBySource.forEach((connections, sourceId) => {
       const newRelation: Relation = {
@@ -48,8 +47,6 @@ export function fixCorruptedRelations(template: FlowTemplate): FlowTemplate {
         connections: connections
       }
       fixedRelations.push(newRelation)
-      
-      console.log(`Created new relation ${newRelation.id} for source ${sourceId} with ${connections.length} connections`)
     })
   })
 
@@ -57,7 +54,7 @@ export function fixCorruptedRelations(template: FlowTemplate): FlowTemplate {
   const fixedCount = fixedRelations.length
   
   if (fixedCount !== originalCount) {
-    console.log(`Fixed relations: ${originalCount} → ${fixedCount} relations`)
+    // relations were changed
   }
 
   return {

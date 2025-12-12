@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
 import type { FlowElement } from '../db/schema'
+import { addLog } from './auditLog'
 
 interface NotificationConfig {
   enabled: boolean
@@ -31,7 +32,6 @@ function initializeNotifications(): NotificationConfig | null {
   const from = process.env.SMTP_FROM
   
   if (!host || !port || !user || !pass || !from) {
-    console.log('ℹ️  Email notifications disabled (missing SMTP configuration)')
     return null
   }
   
@@ -69,10 +69,15 @@ function getTransporter(): Transporter | null {
 /**
  * Send email notification to a list of recipients
  */
-async function sendEmail(to: string[], subject: string, html: string, excludeEmail?: string): Promise<void> {
+async function sendEmail(
+  to: string[],
+  subject: string,
+  html: string,
+  excludeEmail?: string,
+  meta?: { flowId?: string; elementId?: string; commentId?: string }
+): Promise<void> {
   const transport = getTransporter()
   if (!transport || !config) {
-    console.log('ℹ️  Email notification skipped (notifications disabled)')
     return
   }
   
@@ -82,21 +87,32 @@ async function sendEmail(to: string[], subject: string, html: string, excludeEma
     : to
   
   if (recipients.length === 0) {
-    console.log('ℹ️  Email notification skipped (no recipients after filtering)')
     return
   }
   
   try {
-    console.log(`📧 Sending email to: ${recipients.join(', ')}`)
     const info = await transport.sendMail({
       from: config.from,
       to: recipients.join(', '),
       subject,
       html
     })
-    console.log(`✅ Email sent to ${recipients.length} recipient(s): ${subject}`)
-    console.log(`   Message ID: ${info.messageId}`)
-    console.log(`   Response: ${info.response}`)
+    
+    // Record outgoing mail in audit log (use mail_send with optional references)
+      try {
+      await addLog({
+        type: 'mail_sent',
+        flowId: meta?.flowId ?? null,
+        elementId: meta?.elementId ?? null,
+        commentId: meta?.commentId ?? null,
+        message: subject,
+        details: { recipients, messageId: info.messageId, response: info.response },
+        changedBy: null
+      })
+    } catch (e) {
+      // don't fail on logging
+      console.error('Failed to write mail log:', e)
+    }
   } catch (error: any) {
     console.error('❌ Failed to send email:', error.message)
     console.error('   Full error:', error)
@@ -170,7 +186,7 @@ export async function notifyStatusChange(
     </p>
   `
   
-  await sendEmail(emails, subject, html, excludeEmail)
+  await sendEmail(emails, subject, html, excludeEmail, { flowId, elementId: element.id })
 }
 
 /**
@@ -214,7 +230,7 @@ export async function notifyCommentAdded(
     </p>
   `
   
-  await sendEmail(emails, subject, html, excludeEmail)
+  await sendEmail(emails, subject, html, excludeEmail, { flowId, elementId: element.id, commentId: (comment as any).id })
 }
 
 /**
@@ -251,7 +267,7 @@ export async function notifyOverdueElement(
     </p>
   `
   
-  await sendEmail(emails, subject, html)
+  await sendEmail(emails, subject, html, undefined, { flowId, elementId: element.id })
 }
 
 /**
@@ -337,7 +353,7 @@ export async function notifyFlowCreated(
     </p>
   `
   
-  await sendEmail(userEmails, subject, html, creatorEmail)
+  await sendEmail(userEmails, subject, html, creatorEmail, { flowId })
 }
 
 /**

@@ -126,7 +126,7 @@ export function correctTemplateRelations(template: FlowTemplate): FlowTemplate {
   }, 0)
 
   if (correctedCount > 0) {
-    console.log(`Template "${template.name}": Corrected ${correctedCount} connections with wrong direction`)
+    // corrected connections present
   }
 
   return {

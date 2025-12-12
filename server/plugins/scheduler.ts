@@ -71,7 +71,7 @@ async function checkOverdueElements(): Promise<void> {
       await notifyOverdueElements(overdueItems, [email])
     }
     
-    console.log(`✅ Overdue element check completed (${userOverdueMap.size} user(s) notified)`)
+    
   } catch (error: any) {
     console.error('❌ Error checking overdue elements:', error.message)
   }
@@ -82,11 +82,8 @@ async function checkOverdueElements(): Promise<void> {
  */
 export default defineNitroPlugin((nitroApp) => {
   if (!areNotificationsEnabled()) {
-    console.log('ℹ️  Overdue scheduler disabled (notifications not configured)')
     return
   }
-  
-  console.log('📅 Starting daily overdue element scheduler')
   
   // Run check immediately on startup
   checkOverdueElements()
@@ -109,7 +106,7 @@ export default defineNitroPlugin((nitroApp) => {
       scheduleNextCheck() // Schedule the next check
     }, timeUntilNext)
     
-    console.log(`📅 Next overdue check scheduled for ${next.toLocaleString()}`)
+    
   }
   
   scheduleNextCheck()

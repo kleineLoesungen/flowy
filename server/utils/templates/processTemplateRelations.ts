@@ -15,7 +15,7 @@ export function processTemplateRelations(template: FlowTemplate): FlowTemplate {
     return template
   }
 
-  console.log(`Processing relations for template: ${template.name}`)
+  
   
   // Step 1: Correct direction based on starting element
   const directionCorrectedTemplate = correctRelationDirections(template)
@@ -36,7 +36,7 @@ export function processTemplateRelations(template: FlowTemplate): FlowTemplate {
   // Step 5: Final convergence node validation and correction
   const finalTemplate = enforceConvergenceNodeRules(groupedTemplate)
   
-  console.log(`Relation processing complete: ${template.relations.length} → ${finalTemplate.relations.length} relations`)
+  
   
   return finalTemplate
 }
@@ -48,7 +48,6 @@ export function processTemplateRelations(template: FlowTemplate): FlowTemplate {
 function correctRelationDirections(template: FlowTemplate): FlowTemplate {
   // Identify convergence nodes (nodes that multiple paths flow INTO)
   const convergenceNodes = identifyConvergenceNodes(template)
-  console.log('Convergence nodes (should always be targets):', Array.from(convergenceNodes))
   
   // Build element distance map from starting element
   const elementDistances = new Map<string, number>()
@@ -103,8 +102,7 @@ function correctRelationDirections(template: FlowTemplate): FlowTemplate {
       const toId = connection.toElementId
       
       // Rule 1: Convergence nodes must NEVER be sources
-      if (convergenceNodes.has(fromId)) {
-        console.log(`Correcting convergence node: ${fromId} cannot be source, reversing to ${toId} → ${fromId}`)
+          if (convergenceNodes.has(fromId)) {
         return {
           fromElementId: toId,
           toElementId: fromId,
@@ -120,7 +118,6 @@ function correctRelationDirections(template: FlowTemplate): FlowTemplate {
       if (fromDistance !== undefined && toDistance !== undefined) {
         if (fromDistance > toDistance) {
           // Wrong direction - swap
-          console.log(`Correcting direction: ${fromId}(${fromDistance}) → ${toId}(${toDistance}) should be ${toId} → ${fromId}`)
           return {
             fromElementId: toId,
             toElementId: fromId,
@@ -155,9 +152,8 @@ function identifyConvergenceNodes(template: FlowTemplate): Set<string> {
   // Known convergence patterns - join/merge nodes by name
   template.elements.forEach(element => {
     const name = element.name.toLowerCase()
-    if (name.includes('join') || name.includes('merge') || name.includes('converge')) {
+      if (name.includes('join') || name.includes('merge') || name.includes('converge')) {
       convergenceNodes.add(element.id)
-      console.log(`Identified convergence node by name: ${element.name} (${element.id})`)
     }
   })
   
@@ -182,10 +178,8 @@ function identifyConvergenceNodes(template: FlowTemplate): Set<string> {
   
   // Identify elements with multiple incoming sources
   incomingCounts.forEach((sources, elementId) => {
-    if (sources.size > 1) {
+      if (sources.size > 1) {
       convergenceNodes.add(elementId)
-      const element = template.elements.find(el => el.id === elementId)
-      console.log(`Identified convergence node by pattern: ${element?.name} (${elementId}) has ${sources.size} incoming sources`)
     }
   })
   
@@ -221,7 +215,6 @@ function splitCorruptedRelations(template: FlowTemplate): FlowTemplate {
     }
     
     // Split into separate relations by source
-    console.log(`Splitting corrupted relation ${relation.id} with ${connectionsBySource.size} different sources`)
     
     connectionsBySource.forEach((connections, sourceId) => {
       splitRelations.push({
@@ -303,7 +296,6 @@ function groupRelations(template: FlowTemplate): FlowTemplate {
       
       processedRelations.add(relation.id)
       
-      console.log(`Grouped ${relationsToGroup.length} relations of type "${relation.type}" into single relation`)
     }
   })
   
@@ -372,7 +364,7 @@ function detectCycles(template: FlowTemplate): string[][] {
  */
 function enforceConvergenceNodeRules(template: FlowTemplate): FlowTemplate {
   const convergenceNodes = identifyConvergenceNodes(template)
-  console.log('Final convergence node enforcement for:', Array.from(convergenceNodes))
+  
   
   const correctedRelations: Relation[] = template.relations.map(relation => {
     const correctedConnections = relation.connections.map(connection => {
@@ -381,7 +373,7 @@ function enforceConvergenceNodeRules(template: FlowTemplate): FlowTemplate {
       
       // If a convergence node is being used as source, reverse the connection
       if (convergenceNodes.has(fromId)) {
-        console.log(`🔧 Final fix: Reversing ${fromId} → ${toId} to ${toId} → ${fromId} (convergence node protection)`)
+        
         return {
           fromElementId: toId,
           toElementId: fromId,

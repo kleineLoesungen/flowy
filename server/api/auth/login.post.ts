@@ -74,7 +74,6 @@ export default defineEventHandler(async (event) => {
         })
         
         isFirstUser = true
-        console.log(`✅ First user created as admin: ${email}`)
       } else {
         throw createError({
           statusCode: 401,

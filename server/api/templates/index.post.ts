@@ -112,8 +112,14 @@ export default defineEventHandler(async (event) => {
       layout: body.layout || null
     }
 
-    // Create template using repository (handles validation)
     const template = await templateRepo.create(templateData)
+        
+    // Log template creation
+    try {
+      await (await import('../../utils/auditLog')).addLog({ type: 'template_created', templateId: template.id, changedBy: currentUser.email ?? null, message: `Template created: ${template.id}` })
+    } catch (e) {
+      // ignore
+    }
     
     return {
       success: true,

@@ -2,6 +2,7 @@ import type { FlowTemplate, FlowElement, FlowRelation, ElementLayout } from '../
 import { useTemplateRepository, useUserRepository } from "../../storage/StorageFactory"
 import { normalizeRelations } from "../../utils/relationNormalizer"
 import jwt from 'jsonwebtoken'
+import { addLog } from '../../utils/auditLog'
 
 /**
  * Request body for updating a template
@@ -124,7 +125,57 @@ export default defineEventHandler(async (event) => {
     
     // Update template using repository
     const updatedTemplate = await templateRepo.update(templateId, body)
-    
+    // Determine if metadata (non-element) changed and detect element diffs
+    const bodyAny = body as any
+    const metaKeys = ['name', 'description', 'startingElementId', 'layout']
+    let metaChanged = false
+    for (const k of metaKeys) {
+      if (bodyAny[k] !== undefined && JSON.stringify(bodyAny[k]) !== JSON.stringify((existingTemplate as any)[k])) {
+        metaChanged = true
+        break
+      }
+    }
+
+    // Element diffs
+    const existingElements = existingTemplate.elements || []
+    const newElements = (body.elements && body.elements.length > 0) ? body.elements : existingElements
+    const existingMap = new Map(existingElements.map((e: any) => [e.id, e]))
+    const newMap = new Map((newElements || []).map((e: any) => [e.id, e]))
+    const createdElements: any[] = []
+    const deletedElements: any[] = []
+    const updatedElements: any[] = []
+    for (const ne of (newElements || [])) {
+      if (!existingMap.has(ne.id)) createdElements.push(ne)
+    }
+    for (const ee of existingElements) {
+      if (!newMap.has(ee.id)) deletedElements.push(ee)
+    }
+    for (const ne of (newElements || [])) {
+      const ee = existingMap.get(ne.id)
+      if (!ee) continue
+      const copyNew = { ...ne, comments: undefined }
+      const copyOld = { ...ee, comments: undefined }
+      if (JSON.stringify(copyNew) !== JSON.stringify(copyOld)) updatedElements.push({ old: ee, new: ne })
+    }
+
+    try {
+      const userEmail = currentUser?.email
+      if (metaChanged) {
+        await addLog({ type: 'template_updated', templateId, changedBy: userEmail ?? null, message: `Template ${templateId} updated by ${userEmail || 'unknown'}` })
+      }
+      for (const ce of createdElements) {
+        try { await addLog({ type: 'element_created', templateId, elementId: ce.id ?? null, changedBy: userEmail ?? null, message: `Template element created: ${ce.name || ce.id}`, details: { element: ce } }) } catch (e) {}
+      }
+      for (const de of deletedElements) {
+        try { await addLog({ type: 'element_deleted', templateId, elementId: de.id ?? null, changedBy: userEmail ?? null, message: `Template element deleted: ${de.name || de.id}`, details: { element: de } }) } catch (e) {}
+      }
+      for (const pair of updatedElements) {
+        try { await addLog({ type: 'element_updated', templateId, elementId: pair.new.id ?? null, changedBy: userEmail ?? null, message: `Template element updated: ${pair.new.name || pair.new.id}`, details: { old: pair.old, new: pair.new } }) } catch (e) {}
+      }
+    } catch (e) {
+      // ignore logging errors
+    }
+
     return {
       success: true,
       data: updatedTemplate

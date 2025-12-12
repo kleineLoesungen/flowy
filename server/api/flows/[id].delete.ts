@@ -46,7 +46,25 @@ export default defineEventHandler(async (event) => {
 
     // Delete the flow
     await flowRepo.delete(flowId)
-    
+    // Log deletion (if possible include user email)
+    try {
+      let changedBy: string | null = null
+      try {
+        const token = getCookie(event, 'auth-token')
+        if (token) {
+          const runtimeConfig = useRuntimeConfig()
+          const secretKey = runtimeConfig.jwtSecret || 'default-secret-key'
+          const decoded = (await import('jsonwebtoken')).verify(token, secretKey) as any
+          changedBy = decoded?.email ?? null
+        }
+      } catch (e) {
+        changedBy = null
+      }
+      await (await import('../../utils/auditLog')).addLog({ type: 'flow_deleted', flowId, changedBy, message: `Flow deleted: ${flowId}` })
+    } catch (e) {
+      // ignore logging errors
+    }
+
     return { 
       success: true, 
       flow: existingFlow 

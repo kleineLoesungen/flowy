@@ -74,7 +74,13 @@ export default defineEventHandler(async (event) => {
     
     // Delete template using repository
     await templateRepo.delete(templateId)
-    
+    // Log template deletion
+    try {
+      await (await import('../../utils/auditLog')).addLog({ type: 'template_deleted', templateId, changedBy: currentUser?.email ?? null, message: `Template deleted: ${templateId}` })
+    } catch (e) {
+      // ignore
+    }
+
     return {
       success: true,
       message: 'Template deleted successfully'

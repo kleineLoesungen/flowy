@@ -135,6 +135,12 @@ export default defineEventHandler(async (event) => {
         console.error('Error sending flow creation notification:', notificationError.message)
       }
     })
+    // Log flow creation
+    try {
+      await (await import('../../utils/auditLog')).addLog({ type: 'flow_created', flowId: newFlow.id, changedBy: currentUser.email ?? null, message: `Flow created: ${newFlow.id}` })
+    } catch (e) {
+      // ignore
+    }
     
     return {
       success: true,

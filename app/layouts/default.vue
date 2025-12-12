@@ -21,6 +21,11 @@
         <NuxtLink v-if="isAuthenticated && user && user.role === 'admin'" to="/teams" class="nav-link">
           Teams
         </NuxtLink>
+        <NuxtLink to="/logs" class="nav-link compact" title="Logs" aria-label="Logs">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" width="18" height="18" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+</svg>
+        </NuxtLink>
 
         <!-- Authentication -->
         <div class="user-selector" @click.stop>
@@ -432,6 +437,30 @@ onUnmounted(() => {
   color: #667eea;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+/* Compact variant for small nav icons (logs) */
+.nav-link.compact {
+  padding: 0.15rem 0.35rem;
+  opacity: 0.75;
+  border-radius: 8px;
+  background: transparent;
+}
+.nav-link.compact svg {
+  width: 18px;
+  height: 18px;
+}
+.nav-link.compact:hover {
+  background: transparent;
+  transform: none;
+  opacity: 0.95;
+}
+
+/* Remove any shadow for compact nav links (including active/hover states) */
+.nav-link.compact,
+.nav-link.compact:hover,
+.nav-link.compact.router-link-active {
+  box-shadow: none !important;
 }
 
 .nav-icon {
