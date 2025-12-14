@@ -22,9 +22,11 @@
           Teams
         </NuxtLink>
         <NuxtLink v-if="isAuthenticated" to="/logs" class="nav-link compact" title="Logs" aria-label="Logs">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" width="18" height="18" aria-hidden="true">
-  <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-</svg>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+            stroke="currentColor" class="size-5" width="18" height="18" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+          </svg>
         </NuxtLink>
 
         <!-- Authentication -->
@@ -84,24 +86,24 @@
     <!-- Footer -->
     <footer class="footer">
       <p class="footer-text">
-        Made with 
+        Made with
         <span class="tech-item">
           <svg class="tech-icon claude-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
           </svg>
           Claude Sonnet/Copilot
         </span>
-        • Thanks to 
+        • Thanks to
         <span class="tech-item">
           <svg class="tech-icon nuxt-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 22h20L12 2z"/>
+            <path d="M12 2L2 22h20L12 2z" />
           </svg>
           Nuxt
         </span>
-        • 
+        •
         <span class="tech-item">
           <svg class="tech-icon vueflow-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 4l4 8 4-8h6L12 20 2 4h6z"/>
+            <path d="M8 4l4 8 4-8h6L12 20 2 4h6z" />
           </svg>
           Vue Flow
         </span>
@@ -257,14 +259,14 @@ const handleLogin = async () => {
       // Show success message briefly before redirecting
       loginSuccess.value = 'Login successful!'
       loginError.value = ''
-      
+
       // Close modal and redirect to home page
       setTimeout(() => {
         showLoginModal.value = false
         loginForm.email = ''
         loginForm.password = ''
         loginSuccess.value = ''
-        
+
         // Redirect to start page
         navigateTo('/')
       }, 800)
@@ -446,10 +448,12 @@ onUnmounted(() => {
   border-radius: 8px;
   background: transparent;
 }
+
 .nav-link.compact svg {
   width: 18px;
   height: 18px;
 }
+
 .nav-link.compact:hover {
   background: transparent;
   transform: none;

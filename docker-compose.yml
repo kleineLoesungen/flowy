@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${NUXT_DB_NAME}
+      POSTGRES_USER: ${NUXT_DB_USER}
+      POSTGRES_PASSWORD: ${NUXT_DB_PASS}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "${NUXT_DB_PORT:-5432}:5432"
+
+  app:
+    build: .
+    image: flowy:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      # Pass standardized NUXT_ runtime vars through (read from .env)
+      NUXT_DB_HOST: ${NUXT_DB_HOST}
+      NUXT_DB_PORT: ${NUXT_DB_PORT}
+      NUXT_DB_NAME: ${NUXT_DB_NAME}
+      NUXT_DB_USER: ${NUXT_DB_USER}
+      NUXT_DB_PASS: ${NUXT_DB_PASS}
+      NUXT_DB_SCHEMA: ${NUXT_DB_SCHEMA}
+
+      # SMTP runtime vars
+      NUXT_SMTP_HOST: ${NUXT_SMTP_HOST}
+      NUXT_SMTP_PORT: ${NUXT_SMTP_PORT}
+      NUXT_SMTP_USER: ${NUXT_SMTP_USER}
+      NUXT_SMTP_PASS: ${NUXT_SMTP_PASS}
+      NUXT_SMTP_FROM: ${NUXT_SMTP_FROM}
+
+      # Public site URL
+      NUXT_PUBLIC_SITE_URL: ${NUXT_PUBLIC_SITE_URL}
+
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:

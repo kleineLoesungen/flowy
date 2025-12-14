@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
 import type { FlowElement } from '../db/schema'
 import { addLog } from './auditLog'
+import { useRuntimeConfig } from '#imports'
 
 interface NotificationConfig {
   enabled: boolean
@@ -25,22 +26,26 @@ let config: NotificationConfig | null = null
  * Only enabled if all required environment variables are set
  */
 function initializeNotifications(): NotificationConfig | null {
-  const host = process.env.SMTP_HOST
-  const port = process.env.SMTP_PORT
-  const user = process.env.SMTP_USER
-  const pass = process.env.SMTP_PASS
-  const from = process.env.SMTP_FROM
-  
+  // Read runtime config via Nuxt's `useRuntimeConfig`.
+  const rc = useRuntimeConfig()
+
+  // Accept camelCase runtime config keys and standardized NUXT_ envs
+  const host = rc.smtpHost || rc.NUXT_SMTP_HOST || process.env.NUXT_SMTP_HOST || ''
+  const port = rc.smtpPort || rc.NUXT_SMTP_PORT || process.env.NUXT_SMTP_PORT || ''
+  const user = rc.smtpUser || rc.NUXT_SMTP_USER || process.env.NUXT_SMTP_USER || ''
+  const pass = rc.smtpPass || rc.NUXT_SMTP_PASS || process.env.NUXT_SMTP_PASS || ''
+  const from = rc.smtpFrom || rc.NUXT_SMTP_FROM || process.env.NUXT_SMTP_FROM || ''
+
   if (!host || !port || !user || !pass || !from) {
     return null
   }
-  
+
   return {
     enabled: true,
     smtp: {
       host,
-      port: parseInt(port),
-      secure: parseInt(port) === 465, // true for 465, false for other ports
+      port: parseInt(String(port)),
+      secure: parseInt(String(port)) === 465,
       auth: {
         user,
         pass
@@ -150,7 +155,8 @@ async function getUserEmailsFromTeams(teamIds: string[]): Promise<string[]> {
  * Get base URL from environment or default
  */
 function getBaseUrl(): string {
-  return process.env.BASE_URL || process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const rc = useRuntimeConfig()
+  return rc.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 }
 
 /**

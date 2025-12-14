@@ -40,23 +40,36 @@ export class DatabaseFactory {
   }
 
   static createFromEnv(): DatabaseConfig {
-    // Check for specific database connection strings
-    const pgConnectionString = process.env.PG_ConnectionString || process.env.PG_CONNECTION_STRING
+    // Prefer Nuxt runtimeConfig when available, fall back to process.env
+    let runtime: any = {}
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { useRuntimeConfig } = require('#imports') as any
+      runtime = useRuntimeConfig() || {}
+    } catch (e) {
+      runtime = {}
+    }
+
+    // Check for specific database connection strings (prefer NUXT_ variant)
+    const pgConnectionString = runtime.PG_ConnectionString || runtime.PG_CONNECTION_STRING || runtime.NUXT_DATABASE_URL || runtime.NUXT_DATABASEURL || process.env.NUXT_DATABASE_URL || process.env.PG_ConnectionString || process.env.PG_CONNECTION_STRING
     if (pgConnectionString) {
       return this.parseConnectionString(pgConnectionString)
     }
-    
-    if (process.env.DATABASE_URL) {
-      return this.parseConnectionString(process.env.DATABASE_URL)
+
+    // Accept multiple possible runtime keys for DATABASE_URL (NUXT_ preferred)
+    const runtimeDatabaseUrl = runtime.NUXT_DATABASE_URL || runtime.NUXT_DATABASEURL || runtime.DATABASE_URL || runtime.databaseUrl
+    const envDatabaseUrl = process.env.NUXT_DATABASE_URL || process.env.DATABASE_URL
+    if (runtimeDatabaseUrl || envDatabaseUrl) {
+      return this.parseConnectionString(runtimeDatabaseUrl || envDatabaseUrl)
     }
-    
-    // Check for individual PostgreSQL environment variables
-    const dbHost = process.env.DB_HOST
-    const dbPort = process.env.DB_PORT
-    const dbName = process.env.DB_NAME
-    const dbUser = process.env.DB_USER
-    const dbPass = process.env.DB_PASS
-    const dbSchema = process.env.DB_SCHEMA
+
+    // Check for individual PostgreSQL environment variables (prefer NUXT_ variants)
+    const dbHost = runtime.dbHost || runtime.NUXT_DB_HOST || process.env.NUXT_DB_HOST
+    const dbPort = runtime.dbPort || runtime.NUXT_DB_PORT || process.env.NUXT_DB_PORT
+    const dbName = runtime.dbName || runtime.NUXT_DB_NAME || process.env.NUXT_DB_NAME
+    const dbUser = runtime.dbUser || runtime.NUXT_DB_USER || process.env.NUXT_DB_USER
+    const dbPass = runtime.dbPass || runtime.NUXT_DB_PASS || process.env.NUXT_DB_PASS
+    const dbSchema = runtime.dbSchema || runtime.NUXT_DB_SCHEMA || process.env.NUXT_DB_SCHEMA
     
     if (dbHost && dbName && dbUser) {
       return {

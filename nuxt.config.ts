@@ -14,10 +14,28 @@ export default defineNuxtConfig({
       title: 'flowy'
     }
   },
+  // Runtime configuration. Values should be provided at container/runtime start
   runtimeConfig: {
-    jwtSecret: process.env.JWT_SECRET || 'development-secret-key-change-in-production',
+    // Server-only
+    jwtSecret: '',
+    // Database (server-only)
+    databaseUrl: '',
+    dbHost: '',
+    dbPort: '',
+    dbName: '',
+    dbUser: '',
+    dbPass: '',
+    dbSchema: '',
+    // SMTP (server-only)
+    smtpHost: '',
+    smtpPort: '',
+    smtpUser: '',
+    smtpPass: '',
+    smtpFrom: '',
+    // Public (exposed to client)
     public: {
-      nodeEnv: process.env.NODE_ENV || 'development'
+      nodeEnv: process.env.NODE_ENV || 'development',
+      siteUrl: ''
     }
   },
   vite: {
