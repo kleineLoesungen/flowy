@@ -140,6 +140,7 @@ npm test
 - `tests/` - Unit and integration tests
 - `utils/` - Shared utility functions
 - `public/` - Static assets
+- `data/logs.json` - Changelog of user changes
 
 ## Tech Stack
 
