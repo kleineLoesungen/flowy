@@ -110,24 +110,74 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
         }
       }
       
-      // Execute SQL migration files
+      // Create migrations tracking table if it doesn't exist
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS drizzle_migrations (
+          id SERIAL PRIMARY KEY,
+          migration_name TEXT NOT NULL UNIQUE,
+          executed_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `)
+      
+      console.log('🔍 Checking for pending database migrations...')
+      
+      // Get list of executed migrations
+      const executedResult = await client.query(
+        'SELECT migration_name FROM drizzle_migrations ORDER BY id'
+      )
+      const executedMigrations = new Set(executedResult.rows.map((row: any) => row.migration_name))
+      
+      // Get list of migration files
       const files = await fs.readdir(migrationsPath)
       const sqlFiles = files.filter(file => file.endsWith('.sql')).sort()
       
-      for (const file of sqlFiles) {
+      // Find pending migrations
+      const pendingMigrations = sqlFiles.filter(file => !executedMigrations.has(file))
+      
+      if (pendingMigrations.length === 0) {
+        console.log('✅ Database schema is up to date (no pending migrations)')
+        return
+      }
+      
+      console.log(`📦 Found ${pendingMigrations.length} pending migration(s):`)
+      pendingMigrations.forEach(file => console.log(`   - ${file}`))
+      
+      // Execute pending migrations
+      for (const file of pendingMigrations) {
+        console.log(`🔄 Running migration: ${file}`)
         const filePath = path.join(migrationsPath, file)
         const sql = await fs.readFile(filePath, 'utf-8')
         
-        // Split by semicolon and execute each statement
-        const statements = sql.split(';').filter(stmt => stmt.trim())
-        for (const statement of statements) {
-          if (statement.trim()) {
-            await client.query(statement.trim())
+        try {
+          // Begin transaction for this migration
+          await client.query('BEGIN')
+          
+          // Split by semicolon and execute each statement
+          const statements = sql.split(';').filter(stmt => stmt.trim())
+          for (const statement of statements) {
+            if (statement.trim()) {
+              await client.query(statement.trim())
+            }
           }
+          
+          // Record migration as executed
+          await client.query(
+            'INSERT INTO drizzle_migrations (migration_name) VALUES ($1)',
+            [file]
+          )
+          
+          await client.query('COMMIT')
+          console.log(`   ✅ Migration ${file} completed successfully`)
+        } catch (error: any) {
+          await client.query('ROLLBACK')
+          console.error(`   ❌ Migration ${file} failed:`, error.message)
+          throw new Error(`Migration ${file} failed: ${error.message}`)
         }
       }
+      
+      console.log('✅ All migrations completed successfully')
     } catch (error: any) {
-      console.error('PostgreSQL migration error:', error)
+      console.error('❌ PostgreSQL migration error:', error.message)
       throw error
     } finally {
       client.release()

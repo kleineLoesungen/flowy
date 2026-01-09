@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS teams (
 CREATE TABLE IF NOT EXISTS flow_templates (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  description TEXT NOT NULL,
+  description TEXT,
   elements JSONB NOT NULL DEFAULT '[]',
   relations JSONB NOT NULL DEFAULT '[]',
   starting_element_id TEXT,
