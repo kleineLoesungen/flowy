@@ -2,6 +2,7 @@ import { Pool, PoolClient } from 'pg'
 import { DatabaseAdapter, DatabaseConfig } from '../core/DatabaseAdapter'
 import { promises as fs } from 'fs'
 import path from 'path'
+import { postgresMigrations } from '../migrations/embeddedMigrations'
 
 export class PostgreSQLAdapter implements DatabaseAdapter {
   type = 'postgres'
@@ -127,12 +128,31 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
       )
       const executedMigrations = new Set(executedResult.rows.map((row: any) => row.migration_name))
       
-      // Get list of migration files
-      const files = await fs.readdir(migrationsPath)
-      const sqlFiles = files.filter(file => file.endsWith('.sql')).sort()
+      // Try to load migrations from filesystem first, fall back to embedded migrations
+      let migrations: Array<{name: string; sql: string}> = []
+      
+      try {
+        const files = await fs.readdir(migrationsPath)
+        const sqlFiles = files.filter(file => file.endsWith('.sql')).sort()
+        
+        // Load migrations from files
+        for (const file of sqlFiles) {
+          const filePath = path.join(migrationsPath, file)
+          const sql = await fs.readFile(filePath, 'utf-8')
+          migrations.push({ name: file, sql })
+        }
+        console.log('📁 Loaded migrations from filesystem')
+      } catch (error: any) {
+        if (error.code === 'ENOENT') {
+          console.log('💡 Migration directory not found, using embedded migrations')
+          migrations = postgresMigrations
+        } else {
+          throw error
+        }
+      }
       
       // Find pending migrations
-      const pendingMigrations = sqlFiles.filter(file => !executedMigrations.has(file))
+      const pendingMigrations = migrations.filter(m => !executedMigrations.has(m.name))
       
       if (pendingMigrations.length === 0) {
         console.log('✅ Database schema is up to date (no pending migrations)')
@@ -140,20 +160,18 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
       }
       
       console.log(`📦 Found ${pendingMigrations.length} pending migration(s):`)
-      pendingMigrations.forEach(file => console.log(`   - ${file}`))
+      pendingMigrations.forEach(m => console.log(`   - ${m.name}`))
       
       // Execute pending migrations
-      for (const file of pendingMigrations) {
-        console.log(`🔄 Running migration: ${file}`)
-        const filePath = path.join(migrationsPath, file)
-        const sql = await fs.readFile(filePath, 'utf-8')
+      for (const migration of pendingMigrations) {
+        console.log(`🔄 Running migration: ${migration.name}`)
         
         try {
           // Begin transaction for this migration
           await client.query('BEGIN')
           
           // Split by semicolon and execute each statement
-          const statements = sql.split(';').filter(stmt => stmt.trim())
+          const statements = migration.sql.split(';').filter(stmt => stmt.trim())
           for (const statement of statements) {
             if (statement.trim()) {
               await client.query(statement.trim())
@@ -163,15 +181,15 @@ export class PostgreSQLAdapter implements DatabaseAdapter {
           // Record migration as executed
           await client.query(
             'INSERT INTO drizzle_migrations (migration_name) VALUES ($1)',
-            [file]
+            [migration.name]
           )
           
           await client.query('COMMIT')
-          console.log(`   ✅ Migration ${file} completed successfully`)
+          console.log(`   ✅ Migration ${migration.name} completed successfully`)
         } catch (error: any) {
           await client.query('ROLLBACK')
-          console.error(`   ❌ Migration ${file} failed:`, error.message)
-          throw new Error(`Migration ${file} failed: ${error.message}`)
+          console.error(`   ❌ Migration ${migration.name} failed:`, error.message)
+          throw new Error(`Migration ${migration.name} failed: ${error.message}`)
         }
       }
       

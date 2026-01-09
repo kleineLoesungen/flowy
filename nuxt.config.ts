@@ -49,6 +49,10 @@ export default defineNuxtConfig({
         driver: 'fs',
         base: './.data/db'
       }
+    },
+    // Copy migration files to server output during build
+    externals: {
+      inline: ['server/db/migrations']
     }
   },
   ssr: false

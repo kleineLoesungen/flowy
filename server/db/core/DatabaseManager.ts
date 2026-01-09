@@ -58,7 +58,24 @@ export class DatabaseManager {
     // Run migrations
     try {
       console.log('🔄 Running database migrations...')
-      const migrationsPath = path.join(process.cwd(), 'server/db/migrations', config.type)
+      // Use different path resolution based on environment
+      let migrationsPath: string
+      
+      if (process.env.NODE_ENV === 'production') {
+        // In production, look for migrations in the server assets
+        try {
+          const { getAssetsDirname } = await import('#nitro')
+          migrationsPath = path.join(getAssetsDirname(), 'migrations', config.type)
+        } catch {
+          // Fallback for older Nitro versions
+          migrationsPath = path.join(process.cwd(), 'server/db/migrations', config.type)
+        }
+      } else {
+        // In development, use source directory
+        migrationsPath = path.join(process.cwd(), 'server/db/migrations', config.type)
+      }
+      
+      console.log(`📂 Using migrations path: ${migrationsPath}`)
       await this.adapter.migrate(migrationsPath)
     } catch (error: any) {
       console.error('❌ Migration failed:', error.message)

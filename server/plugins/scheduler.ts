@@ -80,34 +80,41 @@ async function checkOverdueElements(): Promise<void> {
 /**
  * Nitro plugin to schedule daily overdue checks
  */
-export default defineNitroPlugin((nitroApp) => {
+export default defineNitroPlugin(async (nitroApp) => {
   if (!areNotificationsEnabled()) {
     return
   }
   
-  // Run check immediately on startup
-  checkOverdueElements()
-  
-  // Schedule to run daily at 9:00 AM
-  const scheduleNextCheck = () => {
-    const now = new Date()
-    const next = new Date()
-    next.setHours(9, 0, 0, 0) // 9:00 AM
+  // Wait for database initialization before starting scheduler
+  nitroApp.hooks.hook('request', async () => {
+    // Only run once after first request (ensures DB is initialized)
+    nitroApp.hooks.removeAllHooks('request')
     
-    // If it's already past 9 AM today, schedule for tomorrow
-    if (now >= next) {
-      next.setDate(next.getDate() + 1)
+    // Small delay to ensure database plugin has finished
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Run check immediately after startup
+    await checkOverdueElements()
+    
+    // Schedule to run daily at 9:00 AM
+    const scheduleNextCheck = () => {
+      const now = new Date()
+      const next = new Date()
+      next.setHours(9, 0, 0, 0) // 9:00 AM
+      
+      // If it's already past 9 AM today, schedule for tomorrow
+      if (now >= next) {
+        next.setDate(next.getDate() + 1)
+      }
+      
+      const timeUntilNext = next.getTime() - now.getTime()
+      
+      setTimeout(() => {
+        checkOverdueElements()
+        scheduleNextCheck() // Schedule the next check
+      }, timeUntilNext)
     }
     
-    const timeUntilNext = next.getTime() - now.getTime()
-    
-    setTimeout(() => {
-      checkOverdueElements()
-      scheduleNextCheck() // Schedule the next check
-    }, timeUntilNext)
-    
-    
-  }
-  
-  scheduleNextCheck()
+    scheduleNextCheck()
+  })
 })
