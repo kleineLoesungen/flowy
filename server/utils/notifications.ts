@@ -176,8 +176,8 @@ export async function notifyStatusChange(
   if (!emails.length) return
   
   const baseUrl = getBaseUrl()
-  const flowUrl = `${baseUrl}/flows/${flowId}/work`
-  const elementUrl = `${baseUrl}/flows/${flowId}/work/elements/${element.id}`
+  const flowUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work`
+  const elementUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work/elements/${encodeURIComponent(element.id)}`
   
   const subject = `Status Changed: ${element.name} in ${flowName}`
   const html = `
@@ -217,8 +217,8 @@ export async function notifyCommentAdded(
   if (!emails.length) return
   
   const baseUrl = getBaseUrl()
-  const flowUrl = `${baseUrl}/flows/${flowId}/work`
-  const elementUrl = `${baseUrl}/flows/${flowId}/work/elements/${element.id}`
+  const flowUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work`
+  const elementUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work/elements/${encodeURIComponent(element.id)}`
   
   const subject = `New Comment: ${element.name} in ${flowName}`
   const html = `
@@ -255,8 +255,8 @@ export async function notifyOverdueElement(
   if (!emails.length) return
   
   const baseUrl = getBaseUrl()
-  const flowUrl = `${baseUrl}/flows/${flowId}/work`
-  const elementUrl = `${baseUrl}/flows/${flowId}/work/elements/${element.id}`
+  const flowUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work`
+  const elementUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work/elements/${encodeURIComponent(element.id)}`
   
   const subject = `⚠️ Overdue: ${element.name} in ${flowName}`
   const html = `
@@ -296,7 +296,7 @@ export async function notifyOverdueElements(
   
   // Build list of overdue elements
   const elementsList = overdueItems.map(({ flowId, flowName, element }) => {
-    const elementUrl = `${baseUrl}/flows/${flowId}/work/elements/${element.id}`
+    const elementUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work/elements/${encodeURIComponent(element.id)}`
     const expectedDate = element.expectedEndedAt ? new Date(element.expectedEndedAt).toLocaleDateString() : 'Not set'
     
     return `
@@ -344,7 +344,7 @@ export async function notifyFlowCreated(
   if (!userEmails.length) return
   
   const baseUrl = getBaseUrl()
-  const flowUrl = `${baseUrl}/flows/${flowId}/work`
+  const flowUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work`
   
   const subject = `📢 New Flow Created: ${flowName}`
   const html = `
