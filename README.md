@@ -21,7 +21,7 @@ Users receive email notifications in the following cases:
 - **Status Changes**: When an element's status changes (sent to owner and consulted teams, excluding the user who made the change)
 - **New Comments**: When a comment is added to an element
   - For **artefacts**: All flow participants are notified (everyone assigned to any element in the flow)
-  - For **actions/states**: Only owner team members are notified
+  - For **actions/states**: Owner and consulted team members are notified
   - Excludes the commenter
 - **Overdue Elements**: When an element passes its expected end date without being completed or aborted (sent to owner team)
 - **Daily Overdue Summary**: Consolidated report of all overdue elements sent at 9:00 AM daily (sent to team members with overdue items)
