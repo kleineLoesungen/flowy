@@ -14,6 +14,26 @@ A workflow management system for creating, managing, and tracking flow instances
 - **PostgreSQL Database**: Robust data persistence with Drizzle ORM
 - **Responsive UI**: Modern Vue 3 interface with Tailwind CSS
 
+## Team Roles
+
+Elements can be assigned to teams with two different roles:
+
+- **Owner Team**: Responsible team that executes the work
+  - Can modify element status (pending → in-progress → completed/aborted)
+  - Can complete/abort elements via chat commands
+  - Can delete comments
+  - Required for action elements (optional for states/artefacts)
+  - If no owner team is set, all users can modify the element
+  - Receives overdue notifications for their elements
+
+- **Consulted Teams**: Teams that need to be informed and provide input
+  - Cannot modify element status (view-only for status)
+  - Can add comments and view element details
+  - Receive notifications for status changes and comments
+  - Optional for all element types
+
+*Note: Admins can always modify any element regardless of team assignments.*
+
 ## Email Notifications
 
 Users receive email notifications in the following cases:
@@ -21,7 +41,7 @@ Users receive email notifications in the following cases:
 - **Status Changes**: When an element's status changes (sent to owner and consulted teams, excluding the user who made the change)
 - **New Comments**: When a comment is added to an element
   - For **artefacts**: All flow participants are notified (everyone assigned to any element in the flow)
-  - For **actions/states**: Only owner team members are notified
+  - For **actions/states**: Owner and consulted team members are notified
   - Excludes the commenter
 - **Overdue Elements**: When an element passes its expected end date without being completed or aborted (sent to owner team)
 - **Daily Overdue Summary**: Consolidated report of all overdue elements sent at 9:00 AM daily (sent to team members with overdue items)

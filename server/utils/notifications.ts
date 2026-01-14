@@ -242,9 +242,8 @@ export async function notifyCommentAdded(
   if (element.type === 'artefact') {
     teamIds = await getAllFlowParticipantTeams(flowId)
   } else {
-    // For actions and states, notify only owner team
-    if (!element.ownerTeamId) return
-    teamIds = [element.ownerTeamId]
+    // For actions and states, notify owner and consulted teams
+    teamIds = [element.ownerTeamId, ...element.consultedTeamIds].filter(Boolean) as string[]
   }
   
   const emails = await getUserEmailsFromTeams(teamIds)
