@@ -152,6 +152,30 @@ async function getUserEmailsFromTeams(teamIds: string[]): Promise<string[]> {
 }
 
 /**
+ * Get all participant team IDs from a flow (all teams assigned to any element)
+ */
+async function getAllFlowParticipantTeams(flowId: string): Promise<string[]> {
+  const { useFlowRepository } = await import('../storage/StorageFactory')
+  const flowRepo = useFlowRepository()
+  
+  const flow = await flowRepo.findById(flowId)
+  if (!flow || !flow.elements) return []
+  
+  const teamIds = new Set<string>()
+  
+  for (const element of flow.elements) {
+    if (element.ownerTeamId) {
+      teamIds.add(element.ownerTeamId)
+    }
+    for (const consultedTeamId of element.consultedTeamIds) {
+      teamIds.add(consultedTeamId)
+    }
+  }
+  
+  return Array.from(teamIds)
+}
+
+/**
  * Get base URL from environment or default
  */
 function getBaseUrl(): string {
@@ -176,8 +200,8 @@ export async function notifyStatusChange(
   if (!emails.length) return
   
   const baseUrl = getBaseUrl()
-  const flowUrl = `${baseUrl}/flows/${flowId}/work`
-  const elementUrl = `${baseUrl}/flows/${flowId}/work/elements/${element.id}`
+  const flowUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work`
+  const elementUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work/elements/${encodeURIComponent(element.id)}`
   
   const subject = `Status Changed: ${element.name} in ${flowName}`
   const html = `
@@ -197,6 +221,8 @@ export async function notifyStatusChange(
 
 /**
  * Notify when comment is added to element
+ * For artefacts: notifies all flow participants
+ * For actions/states: notifies only owner team
  */
 export async function notifyCommentAdded(
   flowId: string,
@@ -210,29 +236,40 @@ export async function notifyCommentAdded(
   },
   excludeEmail?: string
 ): Promise<void> {
-  if (!element.ownerTeamId) return
+  let teamIds: string[]
   
-  const emails = await getUserEmailsFromTeams([element.ownerTeamId])
+  // For artefacts, notify all flow participants
+  if (element.type === 'artefact') {
+    teamIds = await getAllFlowParticipantTeams(flowId)
+  } else {
+    // For actions and states, notify only owner team
+    if (!element.ownerTeamId) return
+    teamIds = [element.ownerTeamId]
+  }
+  
+  const emails = await getUserEmailsFromTeams(teamIds)
   
   if (!emails.length) return
   
   const baseUrl = getBaseUrl()
-  const flowUrl = `${baseUrl}/flows/${flowId}/work`
-  const elementUrl = `${baseUrl}/flows/${flowId}/work/elements/${element.id}`
+  const flowUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work`
+  const elementUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work/elements/${encodeURIComponent(element.id)}`
   
   const subject = `New Comment: ${element.name} in ${flowName}`
   const html = `
     <h2>New Comment Added</h2>
     <p><strong>Flow:</strong> <a href="${flowUrl}">${flowName}</a></p>
-    <p><strong>Element:</strong> <a href="${elementUrl}">${element.name}</a></p>
+    <p><strong>${element.type === 'artefact' ? 'Artefact' : 'Element'}:</strong> <a href="${elementUrl}">${element.name}</a></p>
+    <p><strong>Type:</strong> ${element.type}</p>
     <p><strong>Commented by:</strong> ${comment.userName || comment.userEmail || 'Unknown'}</p>
     <p><strong>Time:</strong> ${new Date(comment.timestamp).toLocaleString()}</p>
     <p><strong>Comment:</strong></p>
     <blockquote style="border-left: 3px solid #ccc; padding-left: 10px; margin: 10px 0;">
       ${comment.comment}
     </blockquote>
+    ${element.type === 'artefact' ? '<p style="color: #2196F3; font-style: italic;">ℹ️ All flow participants are notified when a comment is added to an artefact.</p>' : ''}
     <p style="margin-top: 20px;">
-      <a href="${elementUrl}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">View Element</a>
+      <a href="${elementUrl}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">${element.type === 'artefact' ? 'View Artefact' : 'View Element'}</a>
     </p>
   `
   
@@ -255,8 +292,8 @@ export async function notifyOverdueElement(
   if (!emails.length) return
   
   const baseUrl = getBaseUrl()
-  const flowUrl = `${baseUrl}/flows/${flowId}/work`
-  const elementUrl = `${baseUrl}/flows/${flowId}/work/elements/${element.id}`
+  const flowUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work`
+  const elementUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work/elements/${encodeURIComponent(element.id)}`
   
   const subject = `⚠️ Overdue: ${element.name} in ${flowName}`
   const html = `
@@ -296,7 +333,7 @@ export async function notifyOverdueElements(
   
   // Build list of overdue elements
   const elementsList = overdueItems.map(({ flowId, flowName, element }) => {
-    const elementUrl = `${baseUrl}/flows/${flowId}/work/elements/${element.id}`
+    const elementUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work/elements/${encodeURIComponent(element.id)}`
     const expectedDate = element.expectedEndedAt ? new Date(element.expectedEndedAt).toLocaleDateString() : 'Not set'
     
     return `
@@ -344,7 +381,7 @@ export async function notifyFlowCreated(
   if (!userEmails.length) return
   
   const baseUrl = getBaseUrl()
-  const flowUrl = `${baseUrl}/flows/${flowId}/work`
+  const flowUrl = `${baseUrl}/flows/${encodeURIComponent(flowId)}/work`
   
   const subject = `📢 New Flow Created: ${flowName}`
   const html = `
