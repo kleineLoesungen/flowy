@@ -142,6 +142,7 @@ import {
     getDurationLabel,
     type DurationRange
 } from '../../../../utils/flowDurationCalculator'
+import { calculateElementDates } from '../../../../utils/elementDateCalculator'
 import { addWorkdays } from '../../../../utils/workdayCalculator'
 
 // Template overview interface for the list
@@ -400,17 +401,19 @@ const createFlow = async () => {
             }
             
             // Create flow from template
-            // Calculate flow duration using the utility function
-            const durationRange = calculateFlowDuration(selectedTemplate.value)
-            const flowDurationDays = durationRange.max
-
-            // Calculate overall flow end date using the flow duration
+            // Calculate expected end dates for each element based on predecessors
             const startDate = new Date(flowData.value.startDate)
-            const overallEndDate = addWorkdays(startDate, flowDurationDays)
+            const elementDates = calculateElementDates(selectedTemplate.value, startDate)
+
+            // Calculate overall flow end date as the maximum of all element end dates
+            let overallEndDate = startDate
+            if (elementDates.size > 0) {
+                const allEndDates = Array.from(elementDates.values())
+                overallEndDate = new Date(Math.max(...allEndDates.map(d => d.getTime())))
+            }
 
             // Determine which elements should start immediately
             const startingElementIds = determineStartingElements(selectedTemplate.value)
-            console.log('Starting elements for flow:', startingElementIds)
 
             // Create flow instance from template with calculated dates
             newFlow = {
@@ -419,9 +422,8 @@ const createFlow = async () => {
                 description: flowData.value.description.trim() || null,
                 templateId: selectedTemplate.value.id, // Link to template
                 elements: (selectedTemplate.value.elements || []).map((element: any) => {
-                    // Calculate expected end date for each element
-                    const elementStartDate = new Date(startDate)
-                    const elementEndDate = addWorkdays(elementStartDate, element.durationDays || 0)
+                    // Get calculated expected end date for this element
+                    const elementEndDate = elementDates.get(element.id)
 
                     // Check if this element should start immediately
                     const shouldStartImmediately = startingElementIds.includes(element.id)
@@ -448,7 +450,7 @@ const createFlow = async () => {
                         ownerTeamId: element.ownerTeamId || null,
                         consultedTeamIds: element.consultedTeamIds || [],
                         completedAt: elementStatus === 'completed' ? new Date().toISOString() : null,
-                        expectedEndedAt: elementEndDate.toISOString().split('T')[0] || null,
+                        expectedEndedAt: elementEndDate ? elementEndDate.toISOString().split('T')[0] : null,
                         type: element.type,
                         status: elementStatus,
                         comments: []
