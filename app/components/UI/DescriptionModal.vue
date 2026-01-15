@@ -4,9 +4,19 @@
       <div class="description-modal" @click.stop>
         <div class="modal-header">
           <h3>{{ title || 'Description' }}</h3>
-          <button @click="handleClose" class="close-button">
-            <span class="close-icon">×</span>
-          </button>
+          <div class="header-actions">
+            <button type="button" @click="copyContent" class="copy-button" :class="{ 'copied': isCopied }">
+              <svg v-if="!isCopied" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+              <svg v-else width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </button>
+            <button @click="handleClose" class="close-button">
+              <span class="close-icon">×</span>
+            </button>
+          </div>
         </div>
         <div class="modal-body">
           <div class="markdown-content" v-html="renderedMarkdown"></div>
@@ -30,6 +40,8 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const isCopied = ref(false)
+
 // Configure marked
 marked.setOptions({
   breaks: true,
@@ -42,6 +54,20 @@ const renderedMarkdown = computed(() => {
   }
   return marked.parse(props.content)
 })
+
+const copyContent = async (event: MouseEvent) => {
+  event.preventDefault()
+  event.stopPropagation()
+  try {
+    await navigator.clipboard.writeText(props.content)
+    isCopied.value = true
+    setTimeout(() => {
+      isCopied.value = false
+    }, 2000)
+  } catch (err) {
+    console.error('Failed to copy:', err)
+  }
+}
 
 const handleClose = () => {
   emit('close')
@@ -109,6 +135,42 @@ onUnmounted(() => {
   font-size: 1.5rem;
   font-weight: 700;
   color: #1e293b;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copy-button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(226, 232, 240, 0.5);
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.copy-button:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  transform: scale(1.05);
+}
+
+.copy-button.copied {
+  background: #22c55e;
+  color: white;
+}
+
+.copy-button svg {
+  width: 18px;
+  height: 18px;
 }
 
 .close-button {

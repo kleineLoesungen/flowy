@@ -43,11 +43,20 @@
       ></textarea>
 
       <!-- Preview Mode -->
-      <div
-        v-else
-        class="markdown-preview"
-        v-html="renderedMarkdown"
-      ></div>
+      <div v-else class="markdown-preview-wrapper">
+        <button type="button" @click="copyContent" class="copy-btn" :class="{ 'copied': isCopied }">
+          <svg v-if="!isCopied" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
+          <svg v-else width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+        </button>
+        <div
+          class="markdown-preview"
+          v-html="renderedMarkdown"
+        ></div>
+      </div>
     </div>
   </div>
 </template>
@@ -73,6 +82,7 @@ defineEmits<{
 }>()
 
 const mode = ref<'edit' | 'preview'>('preview')
+const isCopied = ref(false)
 
 // Configure marked for security
 marked.setOptions({
@@ -86,6 +96,20 @@ const renderedMarkdown = computed(() => {
   }
   return marked.parse(props.modelValue)
 })
+
+const copyContent = async (event: MouseEvent) => {
+  event.preventDefault()
+  event.stopPropagation()
+  try {
+    await navigator.clipboard.writeText(props.modelValue)
+    isCopied.value = true
+    setTimeout(() => {
+      isCopied.value = false
+    }, 2000)
+  } catch (err) {
+    console.error('Failed to copy:', err)
+  }
+}
 </script>
 
 <style scoped>
@@ -149,6 +173,11 @@ const renderedMarkdown = computed(() => {
   position: relative;
 }
 
+.markdown-preview-wrapper {
+  position: relative;
+  min-height: 200px;
+}
+
 .markdown-textarea {
   width: 100%;
   min-height: 200px;
@@ -173,6 +202,48 @@ const renderedMarkdown = computed(() => {
   background: #f8fafc;
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.markdown-preview-wrapper .copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.markdown-preview-wrapper:hover .copy-btn {
+  opacity: 1;
+}
+
+.markdown-preview-wrapper .copy-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: #667eea;
+}
+
+.markdown-preview-wrapper .copy-btn.copied {
+  background: #22c55e;
+  border-color: #22c55e;
+  opacity: 1;
+}
+
+.markdown-preview-wrapper .copy-btn.copied svg {
+  stroke: white;
+}
+
+.markdown-preview-wrapper .copy-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: #64748b;
 }
 
 .markdown-preview {

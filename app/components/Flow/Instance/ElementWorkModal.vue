@@ -63,7 +63,17 @@
                   </svg>
                 </button>
               </div>
-              <div v-show="isDescriptionExpanded" class="description-content markdown-description" v-html="renderMarkdown(originalElementData.description)"></div>
+              <div v-show="isDescriptionExpanded" class="description-preview-wrapper">
+                <button @click.stop="copyDescription" class="copy-btn" :class="{ 'copied': isDescriptionCopied }">
+                  <svg v-if="!isDescriptionCopied" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                  </svg>
+                  <svg v-else width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                </button>
+                <div class="description-content markdown-description" v-html="renderMarkdown(originalElementData.description)"></div>
+              </div>
             </div>
 
             <!-- Artefact Content Section (for artefact type only) -->
@@ -499,6 +509,7 @@ const statusSearchQuery = ref('')
 
 // Description section collapse state (default closed)
 const isDescriptionExpanded = ref(false)
+const isDescriptionCopied = ref(false)
 
 // Element type options
 const elementTypes = ref([
@@ -627,6 +638,19 @@ const renderMarkdown = (content: string): string => {
     return ''
   }
   return marked.parse(content)
+}
+
+// Copy description content
+const copyDescription = async () => {
+  try {
+    await navigator.clipboard.writeText(originalElementData.value.description)
+    isDescriptionCopied.value = true
+    setTimeout(() => {
+      isDescriptionCopied.value = false
+    }, 2000)
+  } catch (err) {
+    console.error('Failed to copy:', err)
+  }
 }
 
 // Check if current user can use complete/abort actions in chat
@@ -1554,6 +1578,10 @@ onUnmounted(() => {
   margin-bottom: 0.5rem;
 }
 
+.description-preview-wrapper {
+  position: relative;
+}
+
 .section-header-collapsible {
   display: flex;
   align-items: center;
@@ -1702,6 +1730,49 @@ onUnmounted(() => {
 
 .markdown-description :deep(li) {
   margin: 0.25em 0;
+}
+
+/* Copy button for description preview */
+.description-preview-wrapper .copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.description-preview-wrapper:hover .copy-btn {
+  opacity: 1;
+}
+
+.description-preview-wrapper .copy-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: #667eea;
+}
+
+.description-preview-wrapper .copy-btn.copied {
+  background: #22c55e;
+  border-color: #22c55e;
+  opacity: 1;
+}
+
+.description-preview-wrapper .copy-btn.copied svg {
+  stroke: white;
+}
+
+.description-preview-wrapper .copy-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: #64748b;
 }
 
 .markdown-description :deep(a) {
