@@ -26,7 +26,7 @@
       </div>
 
       <div v-else class="actions-list">
-        <div v-for="action in myActions" :key="`${action.flowId}-${action.element.id}`" class="action-row">
+        <div v-for="action in paginatedMyActions" :key="`${action.flowId}-${action.element.id}`" class="action-row">
           <div class="action-content">
             <div class="action-main">
               <h4>{{ action.element.name }}</h4>
@@ -59,6 +59,29 @@
             </div>
           </div>
         </div>
+
+        <!-- Pagination Controls for My Actions -->
+        <div v-if="myActionsTotalPages > 1" class="pagination">
+          <button 
+            @click="myActionsPage = Math.max(1, myActionsPage - 1)"
+            :disabled="myActionsPage === 1"
+            class="pagination-btn"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <span class="pagination-info">Page {{ myActionsPage }} of {{ myActionsTotalPages }}</span>
+          <button 
+            @click="myActionsPage = Math.min(myActionsTotalPages, myActionsPage + 1)"
+            :disabled="myActionsPage === myActionsTotalPages"
+            class="pagination-btn"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -89,7 +112,7 @@
       </div>
 
       <div v-else class="actions-list">
-        <div v-for="action in nextActions" :key="`${action.flowId}-${action.element.id}`" class="action-row">
+        <div v-for="action in paginatedNextActions" :key="`${action.flowId}-${action.element.id}`" class="action-row">
           <div class="action-content">
             <div class="action-main">
               <h4>{{ action.element.name }}</h4>
@@ -121,6 +144,29 @@
               </NuxtLink>
             </div>
           </div>
+        </div>
+
+        <!-- Pagination Controls for Next Actions -->
+        <div v-if="nextActionsTotalPages > 1" class="pagination">
+          <button 
+            @click="nextActionsPage = Math.max(1, nextActionsPage - 1)"
+            :disabled="nextActionsPage === 1"
+            class="pagination-btn"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <span class="pagination-info">Page {{ nextActionsPage }} of {{ nextActionsTotalPages }}</span>
+          <button 
+            @click="nextActionsPage = Math.min(nextActionsTotalPages, nextActionsPage + 1)"
+            :disabled="nextActionsPage === nextActionsTotalPages"
+            class="pagination-btn"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -186,7 +232,7 @@
           <div class="col-header col-actions">Actions</div>
         </div>
 
-        <div v-for="flow in displayedFlows" :key="flow.id" class="flow-row">
+        <div v-for="flow in paginatedActiveFlows" :key="flow.id" class="flow-row">
           <div class="col-title">
             <h3>
               {{ flow.name }}
@@ -242,6 +288,29 @@
               </svg>
             </button>
           </div>
+        </div>
+
+        <!-- Pagination Controls for Active Flows -->
+        <div v-if="activeFlowsTotalPages > 1" class="pagination">
+          <button 
+            @click="activeFlowsPage = Math.max(1, activeFlowsPage - 1)"
+            :disabled="activeFlowsPage === 1"
+            class="pagination-btn"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <span class="pagination-info">Page {{ activeFlowsPage }} of {{ activeFlowsTotalPages }}</span>
+          <button 
+            @click="activeFlowsPage = Math.min(activeFlowsTotalPages, activeFlowsPage + 1)"
+            :disabled="activeFlowsPage === activeFlowsTotalPages"
+            class="pagination-btn"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -331,7 +400,7 @@
           <div class="col-header col-actions">Actions</div>
         </div>
 
-        <div v-for="flow in displayedCompletedFlows" :key="flow.id" class="flow-row">
+        <div v-for="flow in paginatedCompletedFlows" :key="flow.id" class="flow-row">
           <div class="col-title">
             <h3>
               {{ flow.name }}
@@ -365,6 +434,29 @@
               </svg>
             </button>
           </div>
+        </div>
+
+        <!-- Pagination Controls for Completed Flows -->
+        <div v-if="completedFlowsTotalPages > 1" class="pagination">
+          <button 
+            @click="completedFlowsPage = Math.max(1, completedFlowsPage - 1)"
+            :disabled="completedFlowsPage === 1"
+            class="pagination-btn"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+          </button>
+          <span class="pagination-info">Page {{ completedFlowsPage }} of {{ completedFlowsTotalPages }}</span>
+          <button 
+            @click="completedFlowsPage = Math.min(completedFlowsTotalPages, completedFlowsPage + 1)"
+            :disabled="completedFlowsPage === completedFlowsTotalPages"
+            class="pagination-btn"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -465,6 +557,14 @@ const currentCompletedFlows = computed(() => {
 // Personal dashboard state
 const showOnlyMyFlows = ref(true)
 const showOnlyMyCompletedFlows = ref(true)
+
+// Pagination state
+const myActionsPage = ref(1)
+const nextActionsPage = ref(1)
+const activeFlowsPage = ref(1)
+const completedFlowsPage = ref(1)
+const actionsPerPage = 5
+const flowsPerPage = 5
 
 // Watch for toggle changes to load data as needed
 watch(showOnlyMyFlows, async (newValue) => {
@@ -573,7 +673,12 @@ const myActions = computed(() => {
       })
   })
 
-  return actions
+  // Sort by expectedEndedAt (oldest first)
+  return actions.sort((a, b) => {
+    const dateA = a.element.expectedEndedAt ? new Date(a.element.expectedEndedAt).getTime() : Infinity
+    const dateB = b.element.expectedEndedAt ? new Date(b.element.expectedEndedAt).getTime() : Infinity
+    return dateA - dateB
+  })
 })
 
 const nextActions = computed(() => {
@@ -613,7 +718,41 @@ const nextActions = computed(() => {
       })
   })
 
-  return actions
+  // Sort by expectedEndedAt (oldest first)
+  return actions.sort((a, b) => {
+    const dateA = a.element.expectedEndedAt ? new Date(a.element.expectedEndedAt).getTime() : Infinity
+    const dateB = b.element.expectedEndedAt ? new Date(b.element.expectedEndedAt).getTime() : Infinity
+    return dateA - dateB
+  })
+})
+
+// Pagination computed properties
+const myActionsTotalPages = computed(() => Math.ceil(myActions.value.length / actionsPerPage))
+const nextActionsTotalPages = computed(() => Math.ceil(nextActions.value.length / actionsPerPage))
+
+const paginatedMyActions = computed(() => {
+  const start = (myActionsPage.value - 1) * actionsPerPage
+  const end = start + actionsPerPage
+  return myActions.value.slice(start, end)
+})
+
+const paginatedNextActions = computed(() => {
+  const start = (nextActionsPage.value - 1) * actionsPerPage
+  const end = start + actionsPerPage
+  return nextActions.value.slice(start, end)
+})
+
+// Reset pagination when actions change
+watch(myActions, () => {
+  if (myActionsPage.value > myActionsTotalPages.value && myActionsTotalPages.value > 0) {
+    myActionsPage.value = 1
+  }
+})
+
+watch(nextActions, () => {
+  if (nextActionsPage.value > nextActionsTotalPages.value && nextActionsTotalPages.value > 0) {
+    nextActionsPage.value = 1
+  }
 })
 
 // Helper function to check if user is involved in a flow (owns or consulted on elements)
@@ -634,11 +773,21 @@ const isUserInvolvedInFlow = (flow: Flow): boolean => {
 }
 
 const displayedFlows = computed(() => {
+  let flows: Flow[] = []
+  
   // If "My Flows" is selected, filter to only flows where user is involved
   if (showOnlyMyFlows.value && user.value) {
-    return currentFlows.value.filter(isUserInvolvedInFlow)
+    flows = currentFlows.value.filter(isUserInvolvedInFlow)
+  } else {
+    flows = currentFlows.value
   }
-  return currentFlows.value
+  
+  // Sort by expected end date (oldest first)
+  return flows.slice().sort((a, b) => {
+    const dateA = a.expectedEndDate ? new Date(a.expectedEndDate).getTime() : Infinity
+    const dateB = b.expectedEndDate ? new Date(b.expectedEndDate).getTime() : Infinity
+    return dateA - dateB
+  })
 })
 
 const displayedCompletedFlows = computed(() => {
@@ -647,11 +796,50 @@ const displayedCompletedFlows = computed(() => {
     return []
   }
 
+  let flows: Flow[] = []
+  
   // If "My Completed" is selected, filter to only flows where user is involved
   if (showOnlyMyCompletedFlows.value && user.value) {
-    return currentCompletedFlows.value.filter(isUserInvolvedInFlow)
+    flows = currentCompletedFlows.value.filter(isUserInvolvedInFlow)
+  } else {
+    flows = currentCompletedFlows.value
   }
-  return currentCompletedFlows.value
+  
+  // Sort by completed date (newest first)
+  return flows.slice().sort((a, b) => {
+    const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0
+    const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0
+    return dateB - dateA
+  })
+})
+
+// Flows pagination computed properties
+const activeFlowsTotalPages = computed(() => Math.ceil(displayedFlows.value.length / flowsPerPage))
+const completedFlowsTotalPages = computed(() => Math.ceil(displayedCompletedFlows.value.length / flowsPerPage))
+
+const paginatedActiveFlows = computed(() => {
+  const start = (activeFlowsPage.value - 1) * flowsPerPage
+  const end = start + flowsPerPage
+  return displayedFlows.value.slice(start, end)
+})
+
+const paginatedCompletedFlows = computed(() => {
+  const start = (completedFlowsPage.value - 1) * flowsPerPage
+  const end = start + flowsPerPage
+  return displayedCompletedFlows.value.slice(start, end)
+})
+
+// Reset pagination when flows change
+watch(displayedFlows, () => {
+  if (activeFlowsPage.value > activeFlowsTotalPages.value && activeFlowsTotalPages.value > 0) {
+    activeFlowsPage.value = 1
+  }
+})
+
+watch(displayedCompletedFlows, () => {
+  if (completedFlowsPage.value > completedFlowsTotalPages.value && completedFlowsTotalPages.value > 0) {
+    completedFlowsPage.value = 1
+  }
 })
 
 // Methods
@@ -1492,6 +1680,58 @@ const canEditFlow = (flow: Flow): boolean => {
   white-space: nowrap;
 }
 
+/* Pagination styles */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #475569;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+  min-width: 120px;
+  text-align: center;
+}
+
 /* Responsive adjustments for personal dashboard */
 @media (max-width: 768px) {
   .section-header {
@@ -1600,6 +1840,15 @@ const canEditFlow = (flow: Flow): boolean => {
   .col-actions .btn:not(.btn-icon) {
     flex: 1;
     text-align: center;
+  }
+
+  .pagination {
+    gap: 0.5rem;
+  }
+
+  .pagination-info {
+    font-size: 0.75rem;
+    min-width: 100px;
   }
 }
 </style>
