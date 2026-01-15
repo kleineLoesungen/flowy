@@ -113,8 +113,20 @@
                 </div>
               </div>
               <div class="element-info">
-                <h4>{{ data.name || 'Unnamed Element' }}</h4>
-                <p v-if="data.description && data.description.trim()" class="description">{{ data.description }}</p>
+                <div class="element-header">
+                  <h4>{{ data.name || 'Unnamed Element' }}</h4>
+                  <button 
+                    v-if="data.description && data.description.trim()" 
+                    @click="openDescriptionModal(data.id, data.name, data.description)"
+                    class="description-button"
+                    title="View description"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z"/>
+                      <path d="M3 5.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5M3 8a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9A.5.5 0 0 1 3 8m0 2.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5"/>
+                    </svg>
+                  </button>
+                </div>
                 <div class="element-meta">
                   <!-- Comment count -->
                   <span v-if="data.comments && data.comments.length > 0" class="meta-item comment-count">
@@ -244,6 +256,14 @@
   </div>
 </template>
 
+<!-- Description Modal -->
+<UIDescriptionModal 
+  :is-open="descriptionModalOpen"
+  :title="descriptionModalTitle"
+  :content="descriptionModalContent"
+  @close="closeDescriptionModal"
+/>
+
 <script setup lang="ts">
 import { VueFlow, Handle, Position, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
@@ -295,6 +315,23 @@ const flowData = ref<{
 const nodes = ref<Node[]>([])
 const edges = ref<Edge[]>([])
 const nodeCounter = ref(0)
+
+// Description modal state
+const descriptionModalOpen = ref(false)
+const descriptionModalTitle = ref('')
+const descriptionModalContent = ref('')
+
+const openDescriptionModal = (elementId: string, elementName: string, description: string) => {
+  descriptionModalTitle.value = elementName
+  descriptionModalContent.value = description
+  descriptionModalOpen.value = true
+}
+
+const closeDescriptionModal = () => {
+  descriptionModalOpen.value = false
+  descriptionModalTitle.value = ''
+  descriptionModalContent.value = ''
+}
 
 // Initialize relations composable
 const { getFromElementIds, getToElementIds } = useRelations()
@@ -2279,13 +2316,49 @@ const saveFlow = () => {
   min-width: 0;
 }
 
+.element-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
 .element-info h4 {
-  margin: 0 0 0.25rem 0;
+  margin: 0;
   font-size: 1rem;
   font-weight: 600;
   color: #2d3748;
   line-height: 1.2;
   word-wrap: break-word;
+  flex: 1;
+}
+
+.description-button {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.description-button:hover {
+  background: #667eea;
+  color: white;
+  transform: scale(1.1);
+}
+
+.description-button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .element-info .description {

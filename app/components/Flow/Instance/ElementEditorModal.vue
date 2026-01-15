@@ -29,14 +29,12 @@
 
             <!-- Description -->
             <div class="form-group">
-              <label for="element-description">Description</label>
-              <textarea 
-                id="element-description"
+              <label for="element-description">{{ elementData.type === 'artefact' ? 'Content' : 'Description' }}</label>
+              <UIMarkdownEditor 
                 v-model="elementData.description"
-                rows="3"
-                placeholder="Enter element description"
-                class="form-control"
-              ></textarea>
+                :rows="elementData.type === 'artefact' ? 15 : 5"
+                :placeholder="elementData.type === 'artefact' ? 'Enter artefact content using markdown...' : 'Enter element description using markdown...'"
+              />
             </div>
 
             <!-- Element Type -->

@@ -295,7 +295,6 @@
       <div v-for="template in filteredTemplates" :key="template.id" class="template-row">
         <div class="col-title">
           <h3>{{ template.name }}</h3>
-          <p class="description">{{ template.description || 'No description provided' }}</p>
         </div>
 
         <div class="col-elements">

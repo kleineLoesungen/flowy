@@ -20,6 +20,7 @@
     <FlowInstanceElementWorkModal
       v-else
       :element="element"
+      :flow="flow"
       :is-new-element="isNewElement"
       :is-flow-completed="!!flow?.completedAt"
       @save="handleSave"
