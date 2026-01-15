@@ -20,10 +20,6 @@
                 <span class="readonly-label">Name:</span>
                 <span class="readonly-value">{{ originalElementData.name || 'Unnamed Element' }}</span>
               </div>
-              <div class="readonly-item" v-if="originalElementData.description">
-                <span class="readonly-label">Description:</span>
-                <span class="readonly-value">{{ originalElementData.description }}</span>
-              </div>
               <div class="readonly-item">
                 <span class="readonly-label">Type:</span>
                 <span class="readonly-value">{{ getOriginalElementTypeLabel() || 'No type' }}</span>
@@ -55,6 +51,38 @@
                 <span class="readonly-label">Completed:</span>
                 <span class="readonly-value">{{ formatCompletedDate(elementData.completedAt) }}</span>
               </div>
+            </div>
+
+            <!-- Description Section (for action and state types only) -->
+            <div v-if="originalElementData.type !== 'artefact' && originalElementData.description" class="description-section" @click.stop>
+              <div class="section-header-collapsible" @click="isDescriptionExpanded = !isDescriptionExpanded">
+                <h3 class="section-title">Description</h3>
+                <button class="collapse-toggle" :class="{ 'expanded': isDescriptionExpanded }">
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
+                  </svg>
+                </button>
+              </div>
+              <div v-show="isDescriptionExpanded" class="description-content markdown-description" v-html="renderMarkdown(originalElementData.description)"></div>
+            </div>
+
+            <!-- Artefact Content Section (for artefact type only) -->
+            <div v-if="elementData.type === 'artefact'" class="artefact-content-section" @click.stop>
+              <div class="section-header">
+                <h3>Content</h3>
+                <div v-if="!canEditArtefactDescription" class="permission-notice">
+                  <svg class="lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                  </svg>
+                  <span>Read-only (requires flow team assignment)</span>
+                </div>
+              </div>
+              <UIMarkdownEditor 
+                v-model="elementData.description" 
+                :disabled="!canEditArtefactDescription"
+                :rows="15"
+                placeholder="Enter artefact content using markdown..."
+              />
             </div>
 
             <!-- Action Controls Row -->
@@ -392,10 +420,20 @@
 
 <script setup lang="ts">
 import type { ElementComment } from '../../../../types/Element'
+import { generateTextDiff, formatDiffForComment } from '../../../../utils/diffGenerator'
+import { marked } from 'marked'
+
+// Configure marked
+marked.setOptions({
+  breaks: true,
+  gfm: true
+})
+
 // Types will be inferred from the API responses
 
 interface Props {
   element?: any | null
+  flow?: any | null
   isNewElement?: boolean
   isFlowCompleted?: boolean
 }
@@ -407,6 +445,7 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   element: null,
+  flow: null,
   isNewElement: false,
   isFlowCompleted: false
 })
@@ -457,6 +496,9 @@ const ownerSearchQuery = ref('')
 const consultedSearchQuery = ref('')
 const typeSearchQuery = ref('')
 const statusSearchQuery = ref('')
+
+// Description section collapse state (default closed)
+const isDescriptionExpanded = ref(false)
 
 // Element type options
 const elementTypes = ref([
@@ -545,6 +587,47 @@ const canModifyStatus = computed(() => {
   
   return currentUserInOwnerTeam || false
 })
+
+// Check if current user can edit artefact description (flow-assigned teams: admin or any team member assigned to any element in the flow)
+const canEditArtefactDescription = computed(() => {
+  if (!currentUser.value) return false
+  if (props.isFlowCompleted) return false
+  if (elementData.value.type !== 'artefact') return false
+  
+  // Admins can always edit
+  if (currentUser.value.role === 'admin') return true
+  
+  // Check if user is assigned to ANY element in the flow (owner or consulted)
+  if (!props.flow || !props.flow.elements) return false
+  
+  return props.flow.elements.some((el: any) => {
+    // Check if user's team is the owner
+    if (el.ownerTeamId) {
+      const ownerTeam = teams.value.find(t => t.id === el.ownerTeamId)
+      if (ownerTeam && ownerTeam.users?.some(u => u.id === currentUser.value?.id)) {
+        return true
+      }
+    }
+    
+    // Check if user's team is in consulted teams
+    if (el.consultedTeamIds && el.consultedTeamIds.length > 0) {
+      return el.consultedTeamIds.some((teamId: string) => {
+        const consultedTeam = teams.value.find(t => t.id === teamId)
+        return consultedTeam && consultedTeam.users?.some(u => u.id === currentUser.value?.id)
+      })
+    }
+    
+    return false
+  })
+})
+
+// Render markdown for descriptions
+const renderMarkdown = (content: string): string => {
+  if (!content || !content.trim()) {
+    return ''
+  }
+  return marked.parse(content)
+}
 
 // Check if current user can use complete/abort actions in chat
 const canCompleteOrAbort = computed(() => {
@@ -855,6 +938,7 @@ const hasPendingChanges = computed(() => {
   const statusChanged = elementData.value.status !== originalElementData.value.status
   const ownerChanged = elementData.value.ownerTeamId !== originalElementData.value.ownerTeamId
   const consultedChanged = JSON.stringify(elementData.value.consultedTeamIds?.sort()) !== JSON.stringify(originalElementData.value.consultedTeamIds?.sort())
+  const descriptionChanged = elementData.value.description !== originalElementData.value.description
   
   // Check if comments have changed (length or content)
   const commentsChanged = elementData.value.comments.length !== originalElementData.value.comments.length ||
@@ -866,7 +950,7 @@ const hasPendingChanges = computed(() => {
              comment.timestamp !== originalComment.timestamp
     })
 
-  return statusChanged || ownerChanged || consultedChanged || commentsChanged
+  return statusChanged || ownerChanged || consultedChanged || descriptionChanged || commentsChanged
 })
 
 const removeConsultedTeam = (teamId: string) => {
@@ -891,6 +975,48 @@ const handleSave = () => {
   if (!elementData.value.name.trim()) {
     alert('Please enter an element name')
     return
+  }
+
+  // Check if artefact description changed
+  if (elementData.value.type === 'artefact' && 
+      elementData.value.description !== originalElementData.value.description &&
+      !props.isNewElement &&
+      currentUser.value) {
+    
+    const diff = generateTextDiff(originalElementData.value.description || '', elementData.value.description || '')
+    const diffFormatted = formatDiffForComment(diff)
+    
+    // Find new comments (comments that weren't in the original)
+    const newComments = elementData.value.comments.filter((comment, index) => {
+      return index >= originalElementData.value.comments.length
+    })
+    
+    if (newComments.length > 0) {
+      // Combine diff with new comments
+      let combinedComment = diffFormatted
+      
+      // Add each new comment after the diff
+      newComments.forEach(comment => {
+        combinedComment += '\n\n' + comment.comment
+      })
+      
+      // Remove the new comments from the array
+      elementData.value.comments = elementData.value.comments.slice(0, originalElementData.value.comments.length)
+      
+      // Add the combined comment
+      elementData.value.comments.push({
+        timestamp: new Date().toISOString(),
+        comment: combinedComment,
+        userId: currentUser.value.id
+      })
+    } else {
+      // No new comments, just add the diff
+      elementData.value.comments.push({
+        timestamp: new Date().toISOString(),
+        comment: diffFormatted,
+        userId: currentUser.value.id
+      })
+    }
   }
 
   // Emit the save event with current element data
@@ -1046,9 +1172,41 @@ const formatExpectedEndDate = (timestamp: string | null): string => {
 const renderCommentWithHashtags = (commentText: string) => {
   if (!commentText) return commentText
   
-  return commentText.replace(/#[a-zA-Z0-9_-]+/g, (match) => {
+  // First, render markdown (including code blocks with diffs)
+  let rendered = marked.parse(commentText)
+  
+  // Process diff code blocks to add CSS classes for styling
+  rendered = rendered.replace(/<pre><code class="language-diff">([\s\S]*?)<\/code><\/pre>/g, (match, codeContent) => {
+    // Decode HTML entities and split into lines
+    const decodedContent = codeContent
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+    
+    const lines = decodedContent.split('\n')
+    const styledLines = lines.map((line: string) => {
+      // Check if line starts with + or - (with possible whitespace before)
+      const trimmed = line.trim()
+      const escapedLine = line.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      
+      if (trimmed.startsWith('+')) {
+        return `<span class="diff-add">${escapedLine}</span>`
+      } else if (trimmed.startsWith('-')) {
+        return `<span class="diff-remove">${escapedLine}</span>`
+      }
+      return escapedLine
+    }).join('\n')
+    
+    return `<pre><code class="language-diff">${styledLines}</code></pre>`
+  })
+  
+  // Then add hashtag highlighting
+  rendered = rendered.replace(/#[a-zA-Z0-9_-]+/g, (match) => {
     return `<span class="hashtag" data-tag="${match.toLowerCase()}">${match}</span>`
   })
+  
+  return rendered
 }
 
 const addComment = () => {
@@ -1387,6 +1545,69 @@ onUnmounted(() => {
   margin-bottom: 0;
 }
 
+/* Description Section */
+.description-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.section-header-collapsible {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 0;
+  transition: all 0.2s ease;
+  padding: 0.25rem 0;
+}
+
+.section-header-collapsible:hover {
+  opacity: 0.7;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.collapse-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: transform 0.2s ease;
+}
+
+.collapse-toggle svg {
+  transform: rotate(-90deg);
+  transition: transform 0.2s ease;
+}
+
+.collapse-toggle.expanded svg {
+  transform: rotate(0deg);
+}
+
+.description-content {
+  color: #334155;
+  line-height: 1.6;
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+
 .readonly-label {
   font-weight: 600;
   color: #64748b;
@@ -1398,6 +1619,123 @@ onUnmounted(() => {
   color: #475569;
   font-size: 0.85rem;
   flex: 1;
+}
+
+.markdown-description {
+  line-height: 1.6;
+}
+
+.description-content.markdown-description {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.markdown-description :deep(h1),
+.markdown-description :deep(h2),
+.markdown-description :deep(h3),
+.markdown-description :deep(h4),
+.markdown-description :deep(h5),
+.markdown-description :deep(h6) {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.markdown-description :deep(h1) { font-size: 1.5em; }
+.markdown-description :deep(h2) { font-size: 1.3em; }
+.markdown-description :deep(h3) { font-size: 1.1em; }
+.markdown-description :deep(h4) { font-size: 1em; }
+
+.markdown-description :deep(p) {
+  margin: 0.5em 0;
+}
+
+.markdown-description :deep(strong),
+.markdown-description :deep(b) {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.markdown-description :deep(em),
+.markdown-description :deep(i) {
+  font-style: italic;
+}
+
+.markdown-description :deep(code) {
+  background: #f1f5f9;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  color: #e11d48;
+}
+
+.markdown-description :deep(pre) {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.markdown-description :deep(pre code) {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.markdown-description :deep(blockquote) {
+  border-left: 4px solid #667eea;
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: #475569;
+  font-style: italic;
+}
+
+.markdown-description :deep(ul),
+.markdown-description :deep(ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.markdown-description :deep(li) {
+  margin: 0.25em 0;
+}
+
+.markdown-description :deep(a) {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.markdown-description :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-description :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+  font-size: 0.85em;
+}
+
+.markdown-description :deep(th),
+.markdown-description :deep(td) {
+  border: 1px solid #e2e8f0;
+  padding: 0.5em;
+  text-align: left;
+}
+
+.markdown-description :deep(th) {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.markdown-description :deep(hr) {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 1em 0;
 }
 
 .inline-user {
@@ -1424,6 +1762,47 @@ onUnmounted(() => {
 .no-value {
   color: #9ca3af;
   font-style: italic;
+}
+
+/* Artefact content section */
+.artefact-content-section {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 250, 252, 0.8) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+}
+
+.artefact-content-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.artefact-content-section .section-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.artefact-content-section .permission-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #d97706;
+}
+
+.artefact-content-section .permission-notice .lock-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 /* Controls row layout */
@@ -2286,6 +2665,60 @@ onUnmounted(() => {
   line-height: 1.5;
   word-wrap: break-word;
   white-space: pre-wrap;
+}
+
+/* Markdown and diff styling in comments */
+.message-text :deep(pre) {
+  background: #1e293b;
+  color: #f8fafc;
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.message-text :deep(pre code) {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.message-text :deep(code) {
+  background: #f1f5f9;
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.85em;
+  color: #e74c3c;
+}
+
+/* Diff syntax highlighting */
+.message-text :deep(pre) {
+  counter-reset: line;
+  line-height: 1.6;
+}
+
+.message-text :deep(pre code) {
+  white-space: pre;
+  display: block;
+}
+
+.message-text :deep(pre code .diff-add) {
+  color: #22c55e;
+  display: block;
+}
+
+.message-text :deep(pre code .diff-remove) {
+  color: #ef4444;
+  display: block;
+}
+
+.message-text :deep(strong) {
+  color: #667eea;
+  font-weight: 600;
 }
 
 .chat-input-section {

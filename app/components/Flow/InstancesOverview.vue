@@ -238,7 +238,6 @@
               {{ flow.name }}
               <span v-if="flow.hidden" class="badge badge-private">private</span>
             </h3>
-            <p class="description">{{ flow.description || 'No description provided' }}</p>
           </div>
 
           <div class="col-dates">
@@ -406,7 +405,6 @@
               {{ flow.name }}
               <span v-if="flow.hidden" class="badge badge-private">private</span>
             </h3>
-            <p class="description">{{ flow.description || 'No description provided' }}</p>
           </div>
 
           <div class="col-dates">
