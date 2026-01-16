@@ -303,10 +303,22 @@ onUnmounted(() => {
 .markdown-content :deep(ol) {
   margin: 1em 0;
   padding-left: 2em;
+  list-style-position: outside;
+}
+
+.markdown-content :deep(ul) {
+  list-style-type: disc;
+  display: block;
+}
+
+.markdown-content :deep(ol) {
+  list-style-type: decimal;
+  display: block;
 }
 
 .markdown-content :deep(li) {
   margin: 0.5em 0;
+  display: list-item;
 }
 
 .markdown-content :deep(a) {

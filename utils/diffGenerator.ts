@@ -68,7 +68,7 @@ export function formatDiffForComment(diff: string): string {
     return diff
   }
   
-  return '```diff\n' + diff + '\n```'
+  return '#change\n```diff\n' + diff + '\n```'
 }
 
 /**

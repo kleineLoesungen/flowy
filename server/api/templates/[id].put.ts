@@ -116,11 +116,38 @@ export default defineEventHandler(async (event) => {
     // Normalize relations if provided - group and correct direction
     if (body.relations && body.relations.length > 0) {
       const elements = body.elements || existingTemplate.elements || []
+      
+      console.log('\n=== NORMALIZING TEMPLATE RELATIONS ===')
+      console.log('Template ID:', templateId)
+      console.log('Starting Element:', body.startingElementId || existingTemplate.startingElementId)
+      console.log('Relations count before:', body.relations.length)
+      
+      // Find Action P relations before normalization
+      const actionPBefore = body.relations.filter((r: any) => 
+        r.connections?.some((c: any) => c.fromElementId === 'mkefq2w7iujb538kw4' || c.toElementId === 'mkefq2w7iujb538kw4')
+      )
+      console.log('Action P relations BEFORE:', actionPBefore.length)
+      actionPBefore.forEach((r: any) => {
+        console.log(`  ${r.type}: ${r.connections.map((c: any) => `${c.fromElementId.slice(0,8)}→${c.toElementId.slice(0,8)}`).join(', ')}`)
+      })
+      
       body.relations = normalizeRelations(
         body.relations as any[], 
         body.startingElementId || existingTemplate.startingElementId,
         elements.map((el: any) => ({ id: el.id, type: el.type, name: el.name }))
       ) as FlowRelation[]
+      
+      console.log('Relations count after:', body.relations.length)
+      
+      // Find Action P relations after normalization
+      const actionPAfter = body.relations.filter((r: any) => 
+        r.connections?.some((c: any) => c.fromElementId === 'mkefq2w7iujb538kw4' || c.toElementId === 'mkefq2w7iujb538kw4')
+      )
+      console.log('Action P relations AFTER:', actionPAfter.length)
+      actionPAfter.forEach((r: any) => {
+        console.log(`  ${r.type}: ${r.connections.map((c: any) => `${c.fromElementId.slice(0,8)}→${c.toElementId.slice(0,8)}`).join(', ')}`)
+      })
+      console.log('=== NORMALIZATION COMPLETE ===\n')
     }
     
     // Update template using repository

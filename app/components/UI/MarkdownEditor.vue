@@ -301,10 +301,22 @@ const copyContent = async (event: MouseEvent) => {
   margin-top: 0;
   margin-bottom: 1em;
   padding-left: 2em;
+  list-style-position: outside;
+}
+
+.markdown-preview :deep(ul) {
+  list-style-type: disc;
+  display: block;
+}
+
+.markdown-preview :deep(ol) {
+  list-style-type: decimal;
+  display: block;
 }
 
 .markdown-preview :deep(li) {
   margin-bottom: 0.25em;
+  display: list-item;
 }
 
 .markdown-preview :deep(code) {

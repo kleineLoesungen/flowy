@@ -178,10 +178,25 @@
     <!-- Edge Type Modal -->
     <div v-if="showEdgeModal" class="modal-overlay" @click="closeEdgeModal">
       <div ref="edgeModal" class="edge-modal" @click.stop @keydown.enter="saveEdgeType" @keydown.esc="closeEdgeModal" tabindex="0">
-        <h3>Configure Connection</h3>
+        <h3>Edit Connection</h3>
+        
+        <!-- Connection Direction Info -->
+        <div v-if="pendingConnection" class="connection-direction">
+          <div class="direction-info">
+            <span class="node-label">{{ getNodeName(pendingConnection.source) }}</span>
+            <svg class="arrow-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
+            </svg>
+            <span class="node-label">{{ getNodeName(pendingConnection.target) }}</span>
+          </div>
+          <button @click="reverseEdgeDirection" class="btn btn-secondary btn-sm reverse-btn" title="Reverse the direction of this connection">
+            ⇄ Reverse Direction
+          </button>
+        </div>
+        
         <div class="edge-form">
           <div class="form-group">
-            <label>Connection Type</label>
+            <label>Relation Type</label>
             <select v-model="currentEdgeType" class="form-control" @keydown.enter="saveEdgeType">
               <template v-if="isArtefactConnection">
                 <option value="in">In (Data flows into Artefact)</option>
@@ -433,6 +448,7 @@ const isArtefactConnection = computed(() => {
 // Edge configuration state
 const showEdgeModal = ref(false)
 const currentEdgeType = ref<'flow' | 'or' | 'and' | 'in' | 'out'>('flow')
+const originalEdgeBeingEdited = ref<Edge | null>(null)
 const pendingConnection = ref<Connection | null>(null)
 const edgeModal = ref<HTMLElement | null>(null)
 
@@ -924,385 +940,277 @@ const addElement = async () => {
 const reorganizeLayout = () => {
   if (nodes.value.length === 0) return
 
-  // Convert current nodes to a pseudo-template format for layout algorithm
-  const elements = nodes.value.map(node => ({
-    id: node.id,
-    ...node.data
-  }))
+  // Find starting element
+  const startElement = templateData.value.startingElementId
+  if (!startElement) {
+    alert('Please select a starting element first')
+    return
+  }
 
-  // Use current edges to determine relations and flow direction
-  const relations: any[] = []
-  const connectionInfo = new Map<string, { sourceHandle: string, targetHandle: string }>()
-
-  // Group edges by relation type and analyze connection points
-  const edgeGroups: Record<string, { from: string[], to: string[], connections: any[] }> = {}
-
+  const nodeMap = new Map(nodes.value.map(node => [node.id, node]))
+  
+  // Build relation maps
+  const outgoing = new Map<string, Array<{ target: string, type: string }>>()
+  const incoming = new Map<string, Array<{ source: string, type: string }>>()
+  
   edges.value.forEach(edge => {
     const relationType = edge.data?.relationType || 'flow'
-    const connectionKey = `${edge.source}-${edge.target}`
+    const source = edge.source
+    const target = edge.target
+    
+    if (!outgoing.has(source)) outgoing.set(source, [])
+    if (!incoming.has(target)) incoming.set(target, [])
+    
+    outgoing.get(source)!.push({ target, type: relationType })
+    incoming.get(target)!.push({ source, type: relationType })
+  })
 
-    // Store connection handle information
-    connectionInfo.set(connectionKey, {
-      sourceHandle: edge.sourceHandle || 'bottom-source',
-      targetHandle: edge.targetHandle || 'top-target'
+  // Layout algorithm: calculate row and column for each element
+  const elementRow = new Map<string, number>()
+  const elementColumn = new Map<string, number>()
+  const rowOccupancy = new Map<number, Set<number>>() // row -> set of occupied columns
+  
+  // Build connection map: element -> outgoing elements (directed)
+  const connections = new Map<string, Array<{ elementId: string, relationType: string }>>()
+  
+  edges.value.forEach(edge => {
+    const relationType = edge.data?.relationType || 'flow'
+    
+    // Skip artefact relations
+    if (relationType === 'in' || relationType === 'out') return
+    
+    const sourceId = edge.source
+    const targetId = edge.target
+    
+    // Add directed connections (source -> target only)
+    if (!connections.has(sourceId)) connections.set(sourceId, [])
+    
+    connections.get(sourceId)!.push({ elementId: targetId, relationType })
+  })
+  
+  const elementLevel = new Map<string, number>()
+  elementLevel.set(startElement, 0)
+  
+  // Calculate in-degrees (number of incoming edges) for each node
+  const inDegree = new Map<string, number>()
+  nodeMap.forEach((_, nodeId) => {
+    inDegree.set(nodeId, 0)
+  })
+  
+  connections.forEach((targets, sourceId) => {
+    targets.forEach(({ elementId: targetId }) => {
+      inDegree.set(targetId, (inDegree.get(targetId) || 0) + 1)
     })
-
-    // Group edges by relation type
-    const groupKey = relationType
-    if (!edgeGroups[groupKey]) {
-      edgeGroups[groupKey] = { from: [], to: [], connections: [] }
-    }
-
-    // For OR/AND relations, group all edges of the same type together
-    if (relationType === 'or' || relationType === 'and') {
-      if (!edgeGroups[groupKey].from.includes(edge.source)) {
-        edgeGroups[groupKey].from.push(edge.source)
-      }
-      if (!edgeGroups[groupKey].to.includes(edge.target)) {
-        edgeGroups[groupKey].to.push(edge.target)
-      }
-    } else {
-      // For flow relations, create individual relations
-      const flowKey = `${relationType}-${Date.now()}-${Math.random()}`
-      edgeGroups[flowKey] = {
-        from: [edge.source],
-        to: [edge.target],
-        connections: [{
-          fromElementId: edge.source,
-          toElementId: edge.target,
-          sourceHandle: edge.sourceHandle,
-          targetHandle: edge.targetHandle
-        }]
-      }
-    }
   })
-
-  // Convert edge groups to relations
-  Object.entries(edgeGroups).forEach(([key, group]) => {
-    const relationType = key.startsWith('flow-') ? 'flow' : key
-    relations.push({
-      fromElementIds: group.from,
-      toElementIds: group.to,
-      type: relationType,
-      connections: group.connections
+  
+  // Topological sort with level calculation
+  // Start with nodes that have no incoming edges (or just the start element)
+  const queue: string[] = [startElement]
+  
+  while (queue.length > 0) {
+    const currentId = queue.shift()!
+    const currentLevel = elementLevel.get(currentId) || 0
+    
+    const connectedElements = connections.get(currentId) || []
+    
+    connectedElements.forEach(({ elementId: connectedId }) => {
+      // Child must be at least one level below parent
+      const requiredLevel = currentLevel + 1
+      const existingLevel = elementLevel.get(connectedId)
+      
+      // Set to maximum level (ensures node is after ALL its parents)
+      if (existingLevel === undefined || requiredLevel > existingLevel) {
+        elementLevel.set(connectedId, requiredLevel)
+      }
+      
+      // Decrease in-degree
+      const degree = inDegree.get(connectedId)! - 1
+      inDegree.set(connectedId, degree)
+      
+      // If all parents processed, add to queue
+      if (degree === 0 && !queue.includes(connectedId)) {
+        queue.push(connectedId)
+      }
     })
+  }
+  
+  // Assign rows based on calculated levels
+  elementLevel.forEach((level, nodeId) => {
+    elementRow.set(nodeId, level)
   })
-
-  // Apply improved layout algorithm that respects starting elements and connection points
-  const nodeMap = new Map(elements.map(el => [el.id, el]))
-  const levels: Array<{ nodes: string[], isHorizontalGroup: boolean, relationType?: string }> = []
-
-  // Build flow direction maps based on connection handles
-  const verticalFlow = new Map<string, string[]>() // top-bottom connections (flow direction)
-  const horizontalGroups = new Map<string, { nodes: string[], type: string }>() // OR/AND groups
-
-  elements.forEach(el => {
-    verticalFlow.set(el.id, [])
-  })
-
-  relations.forEach(rel => {
-    if (rel.type === 'or' || rel.type === 'and') {
-      // OR/AND relations create horizontal groups
-      const fromIds = [...new Set(rel.connections.map((c: any) => c.fromElementId as string))]
-      const toIds = [...new Set(rel.connections.map((c: any) => c.toElementId as string))]
-      const groupKey = `${rel.type}-${fromIds.join('-')}-${toIds.join('-')}`
-      horizontalGroups.set(groupKey, {
-        nodes: [...fromIds, ...toIds] as string[],
-        type: rel.type
-      })
-    } else {
-      // Flow relations create vertical connections (top to bottom)
-      rel.connections.forEach((connection: any) => {
-        const fromId = connection.fromElementId
-        const toId = connection.toElementId
-        if (nodeMap.has(fromId) && nodeMap.has(toId)) {
-          // Check connection handles to determine direction
-          const connectionKey = `${fromId}-${toId}`
-          const connectionData = connectionInfo.get(connectionKey)
-
-          // If source uses bottom handle or target uses top handle, it's vertical flow
-          if (connectionData &&
-              (connectionData.sourceHandle.includes('bottom') ||
-                connectionData.targetHandle.includes('top'))) {
-              const outgoing = verticalFlow.get(fromId) || []
-              outgoing.push(toId)
-              verticalFlow.set(fromId, outgoing)
+  
+  // Step 2: Calculate column for each element, processing row by row
+  // Start element at column 0
+  elementColumn.set(startElement, 0)
+  rowOccupancy.set(0, new Set([0]))
+  
+  const maxRow = Math.max(...Array.from(elementRow.values()))
+  
+  for (let row = 0; row <= maxRow; row++) {
+    // Get all elements in this row
+    const elementsInRow = Array.from(elementRow.entries())
+      .filter(([id, r]) => r === row && id !== startElement)
+      .map(([id]) => id)
+    
+    if (row === 0 && elementsInRow.length === 0) continue
+    
+    if (!rowOccupancy.has(row)) {
+      rowOccupancy.set(row, new Set())
+    }
+    
+    elementsInRow.forEach(elementId => {
+      // Get predecessors
+      const predecessors = incoming.get(elementId) || []
+      const flowPredecessors = predecessors.filter(pred => pred.type !== 'in' && pred.type !== 'out')
+      
+      if (flowPredecessors.length === 0) {
+        // No predecessors - try to find an available column starting from 0
+        let col = 0
+        while (rowOccupancy.get(row)!.has(col)) {
+          col++
+        }
+        elementColumn.set(elementId, col)
+        rowOccupancy.get(row)!.add(col)
+      } else if (flowPredecessors.length === 1) {
+        // Single predecessor - prefer same column, but check if available
+        const predColumn = elementColumn.get(flowPredecessors[0].source)
+        if (predColumn !== undefined) {
+          if (!rowOccupancy.get(row)!.has(predColumn)) {
+            // Preferred column is available
+            elementColumn.set(elementId, predColumn)
+            rowOccupancy.get(row)!.add(predColumn)
+          } else {
+            // Preferred column occupied, find nearest available
+            let col = predColumn
+            let offset = 1
+            while (true) {
+              // Try left first, then right
+              const leftCol = predColumn - offset
+              const rightCol = predColumn + offset
+              
+              if (leftCol >= 0 && !rowOccupancy.get(row)!.has(leftCol)) {
+                col = leftCol
+                break
+              }
+              if (!rowOccupancy.get(row)!.has(rightCol)) {
+                col = rightCol
+                break
+              }
+              offset++
             }
+            elementColumn.set(elementId, col)
+            rowOccupancy.get(row)!.add(col)
           }
-        })
-    }
-  })
-
-  // Simple sequential flow algorithm - create straight top-to-bottom flow
-  const createSequentialFlow = (): Map<string, number> => {
-    const levels = new Map<string, number>()
-    const processed = new Set<string>()
-
-    // Start with designated starting elements
-    const queue: Array<{ nodeId: string, level: number }> = []
-
-    // Add starting element at level 0
-    if (templateData.value.startingElementId && nodeMap.has(templateData.value.startingElementId)) {
-      levels.set(templateData.value.startingElementId, 0)
-      processed.add(templateData.value.startingElementId)
-      queue.push({ nodeId: templateData.value.startingElementId, level: 0 })
-    }
-
-    // If no starting elements defined, find elements with no incoming flow relations
-    if (queue.length === 0) {
-      const noIncoming = elements.filter(el => {
-        return !relations.some(rel =>
-          rel.type === 'flow' && rel.toElementIds.includes(el.id)
-        )
-      })
-
-      noIncoming.forEach(el => {
-        levels.set(el.id, 0)
-        processed.add(el.id)
-        queue.push({ nodeId: el.id, level: 0 })
-      })
-    }
-
-    // Process queue to build sequential levels
-    while (queue.length > 0) {
-      const { nodeId, level } = queue.shift()!
-
-      // Find all direct flow targets from this node, considering connection handles
-      relations.forEach(rel => {
-        if (rel.type === 'flow' && rel.fromElementIds.includes(nodeId)) {
-          rel.toElementIds.forEach((targetId: string) => {
-            if (nodeMap.has(targetId) && !processed.has(targetId)) {
-              // Check connection handles to determine actual flow direction
-              const connection = rel.connections?.find((conn: any) =>
-                conn.fromElementId === nodeId && conn.toElementId === targetId
-              )
-
-              // Only follow forward flow connections (bottom->top, left->right)
-              // Skip reverse connections (top->bottom, right->left)
-              if (connection) {
-                const isForwardFlow =
-                  (connection.sourceHandle?.includes('bottom') && connection.targetHandle?.includes('top')) ||
-                  (connection.sourceHandle?.includes('right') && connection.targetHandle?.includes('left')) ||
-                  (!connection.sourceHandle || !connection.targetHandle) // Default case
-
-                if (isForwardFlow) {
-                  const nextLevel = level + 1
-                  levels.set(targetId, nextLevel)
-                  processed.add(targetId)
-                  queue.push({ nodeId: targetId, level: nextLevel })
-                }
-              } else {
-                // No connection handle info - assume forward flow
-                const nextLevel = level + 1
-                levels.set(targetId, nextLevel)
-                processed.add(targetId)
-                queue.push({ nodeId: targetId, level: nextLevel })
+        }
+      } else {
+        // Multiple predecessors - try middle column first
+        const predColumns = flowPredecessors
+          .map(pred => elementColumn.get(pred.source))
+          .filter(col => col !== undefined) as number[]
+        
+        if (predColumns.length > 0) {
+          const minCol = Math.min(...predColumns)
+          const maxCol = Math.max(...predColumns)
+          let targetCol = Math.round((minCol + maxCol) / 2)
+          
+          // Try to use target column if available
+          if (!rowOccupancy.get(row)!.has(targetCol)) {
+            elementColumn.set(elementId, targetCol)
+            rowOccupancy.get(row)!.add(targetCol)
+          } else {
+            // Find nearest available column to target
+            let col = targetCol
+            let offset = 1
+            while (true) {
+              const leftCol = targetCol - offset
+              const rightCol = targetCol + offset
+              
+              if (leftCol >= minCol && !rowOccupancy.get(row)!.has(leftCol)) {
+                col = leftCol
+                break
               }
-            }
-          })
-        }
-      })
-
-      // Also check for reverse flow connections where this node is the target
-      relations.forEach(rel => {
-        if (rel.type === 'flow' && rel.toElementIds.includes(nodeId)) {
-          rel.fromElementIds.forEach((sourceId: string) => {
-            if (nodeMap.has(sourceId) && !processed.has(sourceId)) {
-              const connection = rel.connections?.find((conn: any) =>
-                conn.fromElementId === sourceId && conn.toElementId === nodeId
-              )
-
-              // Check for reverse flow connections (top->bottom means source comes after target)
-              if (connection) {
-                const isReverseFlow =
-                  (connection.sourceHandle?.includes('top') && connection.targetHandle?.includes('bottom'))
-
-                if (isReverseFlow) {
-                  const nextLevel = level + 1
-                  levels.set(sourceId, nextLevel)
-                  processed.add(sourceId)
-                  queue.push({ nodeId: sourceId, level: nextLevel })
-                }
+              if (rightCol <= maxCol && !rowOccupancy.get(row)!.has(rightCol)) {
+                col = rightCol
+                break
               }
+              // Expand search beyond predecessor range if needed
+              if (leftCol >= 0 && !rowOccupancy.get(row)!.has(leftCol)) {
+                col = leftCol
+                break
+              }
+              if (!rowOccupancy.get(row)!.has(rightCol)) {
+                col = rightCol
+                break
+              }
+              offset++
             }
-          })
-        }
-      })
-    }
-
-    // Handle any remaining unprocessed nodes (orphans)
-    elements.forEach(el => {
-      if (!processed.has(el.id) && el.type !== 'artefact') {
-        levels.set(el.id, 0)
-      }
-    })
-
-    return levels
-  }
-
-  // Calculate levels for all nodes using sequential flow algorithm
-  const nodeLevels = createSequentialFlow()
-
-  // Detect OR/AND groups and create proper branching layout
-  const maxLevel = Math.max(...Array.from(nodeLevels.values()), 0)
-
-  // Identify OR/AND groups - elements that should be arranged horizontally
-  const orAndGroups = new Map<string, { nodes: Set<string>, type: string, level: number }>()
-
-  relations.forEach(rel => {
-    if (rel.type === 'or' || rel.type === 'and') {
-      // Group all elements involved in OR/AND relations by their level
-      const allElements = [...rel.fromElementIds, ...rel.toElementIds]
-
-      allElements.forEach(elementId => {
-        const elementLevel = nodeLevels.get(elementId) || 0
-        const groupKey = `${rel.type}-level-${elementLevel}`
-
-        if (!orAndGroups.has(groupKey)) {
-          orAndGroups.set(groupKey, {
-            nodes: new Set([elementId]),
-            type: rel.type,
-            level: elementLevel
-          })
-        } else {
-          orAndGroups.get(groupKey)!.nodes.add(elementId)
-        }
-      })
-    }
-  })
-
-  // Build levels considering OR/AND groups
-  for (let level = 0; level <= maxLevel; level++) {
-    const levelNodes = Array.from(nodeLevels.entries())
-      .filter(([nodeId, nodeLevel]) => nodeLevel === level)
-      .map(([nodeId]) => nodeId)
-
-    if (levelNodes.length === 0) continue
-
-    // Check if any of these nodes are part of an OR/AND group
-    let processedNodes = new Set<string>()
-
-    // Process OR/AND groups first
-    orAndGroups.forEach((group, groupKey) => {
-      if (group.level === level) {
-        const groupNodes = Array.from(group.nodes).filter(nodeId =>
-          levelNodes.includes(nodeId) && !processedNodes.has(nodeId)
-        )
-
-        if (groupNodes.length >= 1) {
-          levels.push({
-            nodes: groupNodes,
-            isHorizontalGroup: true,
-            relationType: group.type
-          })
-
-          groupNodes.forEach(nodeId => processedNodes.add(nodeId))
+            elementColumn.set(elementId, col)
+            rowOccupancy.get(row)!.add(col)
+          }
         }
       }
     })
-
-    // Add remaining individual nodes
-    const remainingNodes = levelNodes.filter(nodeId => !processedNodes.has(nodeId))
-    if (remainingNodes.length > 0) {
-      levels.push({
-        nodes: remainingNodes,
-        isHorizontalGroup: false
-      })
-    }
   }
-
-  // Handle artefacts and side elements (IN/OUT relations)
-  const sideElements: string[] = []
-  relations.forEach(rel => {
-    if (rel.type === 'in' || rel.type === 'out') {
-      rel.fromElementIds.forEach((fromId: string) => {
-        const element = nodeMap.get(fromId)
-        if (element && element.type === 'artefact' && !sideElements.includes(fromId)) {
-          sideElements.push(fromId)
-        }
-      })
-    }
-  })
-
-  // Position main flow elements in vertical sequence
-  const mainFlowX = 400 // Center X position for main flow
-  let currentY = 120 // Start Y position
+  
+  // Step 3: Position nodes based on calculated rows and columns
+  const mainFlowX = 400
+  const startY = 120
   const verticalSpacing = 220
-
-  levels.forEach((levelGroup, levelIndex) => {
-    if (levelGroup.isHorizontalGroup) {
-      // Horizontal arrangement for OR/AND groups
-      const nonArtefactNodes = levelGroup.nodes.filter(nodeId => {
-        const element = nodeMap.get(nodeId)
-        return element && element.type !== 'artefact'
-      })
-
-      if (nonArtefactNodes.length > 0) {
-        const groupWidth = nonArtefactNodes.length * 300
-        const startX = mainFlowX - (groupWidth / 2) + 150
-
-        nonArtefactNodes.forEach((nodeId, nodeIndex) => {
-          const node = nodes.value.find(n => n.id === nodeId)
-          if (node) {
-            node.position = {
-              x: startX + nodeIndex * 300,
-              y: currentY
-            }
-          }
-        })
+  const horizontalSpacing = 300
+  
+  // Find min and max columns used
+  const allColumns = Array.from(elementColumn.values())
+  const minCol = allColumns.length > 0 ? Math.min(...allColumns) : 0
+  const maxCol = allColumns.length > 0 ? Math.max(...allColumns) : 0
+  
+  elementRow.forEach((row, elementId) => {
+    const col = elementColumn.get(elementId)
+    if (col === undefined) return
+    
+    const node = nodeMap.get(elementId)
+    if (node) {
+      const y = startY + (row * verticalSpacing)
+      const colOffset = col - minCol
+      const x = mainFlowX - ((maxCol - minCol) * horizontalSpacing / 2) + (colOffset * horizontalSpacing)
+      
+      node.position = { x, y }
+    }
+  })
+  
+  // Position artefacts (IN/OUT relations) to the rightmost column
+  const artefacts = Array.from(nodeMap.values()).filter(node => {
+    const data = node.data
+    return data.type === 'artefact'
+  })
+  
+  // Position artefacts to the right of the main flow
+  const artefactX = mainFlowX + ((maxCol - minCol) * horizontalSpacing / 2) + horizontalSpacing
+  
+  artefacts.forEach((artefactNode) => {
+    const artefactId = artefactNode.id
+    
+    // Find which element(s) this artefact is connected to
+    const inRels = incoming.get(artefactId) || []
+    const outRels = outgoing.get(artefactId) || []
+    const allRels = [...inRels.map(r => r.source), ...outRels.map(r => r.target)]
+    
+    if (allRels.length > 0) {
+      // Use the row of the first connected element
+      const connectedElement = nodeMap.get(allRels[0])
+      if (connectedElement && elementRow.has(allRels[0])) {
+        const row = elementRow.get(allRels[0])!
+        const y = startY + (row * verticalSpacing)
+        artefactNode.position = { x: artefactX, y }
+      } else {
+        // Fallback position
+        artefactNode.position = { x: artefactX, y: startY }
       }
     } else {
-      // Handle single or multiple nodes at the same level
-      const nonArtefactNodes = levelGroup.nodes.filter(nodeId => {
-        const element = nodeMap.get(nodeId)
-        return element && element.type !== 'artefact'
-      })
-
-      // For sequential flow, arrange all nodes in a single vertical column
-      nonArtefactNodes.forEach((nodeId, nodeIndex) => {
-        const node = nodes.value.find(n => n.id === nodeId)
-        if (node) {
-          node.position = {
-            x: mainFlowX, // All nodes in same X column
-            y: currentY + (nodeIndex * verticalSpacing) // Separate Y levels for multiple nodes at same level
-          }
-        }
-      })
-
-      // If there are multiple nodes at this level, adjust the next Y position
-      if (nonArtefactNodes.length > 1) {
-        currentY += (nonArtefactNodes.length - 1) * verticalSpacing
-      }
-    }
-
-    currentY += verticalSpacing
-  })
-
-  // Position side elements (artefacts) to the right of main flow
-  sideElements.forEach((elementId, index) => {
-    const node = nodes.value.find(n => n.id === elementId)
-    if (node) {
-      // Find connected element to position artefact next to it
-      let connectedY = currentY / 2 // Default middle position
-
-      relations.forEach(rel => {
-        if ((rel.type === 'in' || rel.type === 'out') && rel.fromElementIds.includes(elementId)) {
-          rel.toElementIds.forEach((targetId: string) => {
-            const targetNode = nodes.value.find(n => n.id === targetId)
-            if (targetNode) {
-              connectedY = targetNode.position.y
-            }
-          })
-        }
-      })
-
-      node.position = {
-        x: mainFlowX + 400, // Position to the right of main flow
-        y: connectedY + (index * 30) // Small offset for multiple artefacts
-      }
+      // No connections - place at top
+      artefactNode.position = { x: artefactX, y: startY }
     }
   })
-
+  
   // Auto-fit view after reorganizing
   setTimeout(() => {
     fitView({
@@ -1565,13 +1473,42 @@ const saveEdgeType = () => {
     }
     edges.value.push(newEdge)
   }
+  originalEdgeBeingEdited.value = null
   closeEdgeModal()
 }
 
 const closeEdgeModal = () => {
+  // If user is canceling an edit (not a new connection), restore the original edge
+  if (originalEdgeBeingEdited.value) {
+    edges.value.push(originalEdgeBeingEdited.value)
+    originalEdgeBeingEdited.value = null
+  }
+  
   showEdgeModal.value = false
   pendingConnection.value = null
   currentEdgeType.value = 'flow'
+}
+
+// Get node name by ID for display
+const getNodeName = (nodeId: string): string => {
+  const node = nodes.value.find(n => n.id === nodeId)
+  return node?.data.name || 'Unnamed'
+}
+
+// Reverse edge direction (swap handles so they stay visually in place)
+const reverseEdgeDirection = () => {
+  if (pendingConnection.value) {
+    // Swap source and target nodes
+    const tempNode = pendingConnection.value.source
+    pendingConnection.value.source = pendingConnection.value.target
+    pendingConnection.value.target = tempNode
+    
+    // Swap handles so they follow their nodes
+    // This keeps the visual anchor points in the same position
+    const tempHandle = pendingConnection.value.sourceHandle
+    pendingConnection.value.sourceHandle = pendingConnection.value.targetHandle
+    pendingConnection.value.targetHandle = tempHandle
+  }
 }
 
 // Double click handlers
@@ -1582,7 +1519,15 @@ const onNodeDoubleClick = (event: any) => {
 const onEdgeDoubleClick = (event: any) => {
   const edge = event.edge
   currentEdgeType.value = edge.data?.relationType || 'flow'
-  pendingConnection.value = { source: edge.source, target: edge.target }
+  pendingConnection.value = { 
+    source: edge.source, 
+    target: edge.target,
+    sourceHandle: edge.sourceHandle,
+    targetHandle: edge.targetHandle
+  }
+
+  // Store the original edge so we can restore it if user cancels
+  originalEdgeBeingEdited.value = { ...edge }
 
   // Remove existing edge and show modal for re-configuration
   edges.value = edges.value.filter(e => e.id !== edge.id)
@@ -2790,6 +2735,39 @@ const handleClose = () => {
   margin: 0 0 1.5rem 0;
   color: #2d3748;
   font-size: 1.25rem;
+}
+
+.connection-direction {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.direction-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.node-label {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.arrow-icon {
+  color: #667eea;
+  flex-shrink: 0;
+}
+
+.reverse-btn {
+  width: 100%;
+  justify-content: center;
+  font-size: 0.875rem;
 }
 
 .edge-type-info {

@@ -1,13 +1,10 @@
 /**
- * Normalize relations by grouping connections and correcting flow direction
+ * Normalize relations by grouping connections
+ * Direction correction is now handled manually by users in the UI
  * 
  * Grouping Logic:
  * - Relations with same toElementId, targetHandle, and type should be grouped
  * - Relations with same fromElementId, sourceHandle, and type should be grouped
- * 
- * Direction Logic:
- * - Flow should follow from starting element towards end elements
- * - "from" should be closer to start, "to" should be further from start
  */
 
 interface Connection {
@@ -24,7 +21,7 @@ interface Relation {
 }
 
 /**
- * Main function to normalize relations
+ * Main function to normalize relations - only groups, no direction correction
  */
 export function normalizeRelations(
   relations: Relation[], 
@@ -33,242 +30,12 @@ export function normalizeRelations(
 ): Relation[] {
   if (!relations || relations.length === 0) return []
 
-  
-
-  // Step 1: Group relations first (before direction correction)
-  const groupedRelations = groupRelations(relations)
-  
-
-  // Step 2: Correct flow direction with enhanced context
-  const correctedRelations = correctFlowDirection(groupedRelations, startingElementId, elements)
-  
-
-  // Step 3: Sort relations by flow order
-  const sortedRelations = sortRelationsByFlow(correctedRelations, startingElementId)
-  
-
-  return sortedRelations
+  // Only group relations, no direction correction
+  return groupRelations(relations)
 }
 
 /**
- * Correct the direction of relations to follow logical flow
- */
-function correctFlowDirection(
-  relations: Relation[],
-  startingElementId: string | null,
-  elements: Array<{ id: string, type: string }>
-): Relation[] {
-  if (!startingElementId) {
-    return relations
-  }
-
-  // Create element lookup map
-  const elementMap = new Map(elements.map(el => [el.id, el]))
-
-  // Build simple distance map from starting element
-  const distances = calculateDistancesFromStart(relations, startingElementId)
-  
-
-  return relations.map(relation => {
-    
-    
-    return {
-      ...relation,
-      connections: relation.connections.map((conn: Connection) => {
-        const fromDistance = distances.get(conn.fromElementId) ?? Infinity
-        const toDistance = distances.get(conn.toElementId) ?? Infinity
-
-        
-
-        // If "to" element is closer to start than "from" element, swap direction
-        if (toDistance < fromDistance && toDistance !== Infinity && fromDistance !== Infinity) {
-          return {
-            fromElementId: conn.toElementId,
-            toElementId: conn.fromElementId,
-            sourceHandle: conn.targetHandle,
-            targetHandle: conn.sourceHandle
-          }
-        }
-        
-        return conn
-      })
-    }
-  })
-}
-
-/**
- * Calculate distances from starting element using BFS
- */
-function calculateDistancesFromStart(relations: Relation[], startingElementId: string): Map<string, number> {
-  const distances = new Map<string, number>()
-  const queue: Array<{ elementId: string, distance: number }> = [{ elementId: startingElementId, distance: 0 }]
-  const visited = new Set<string>()
-
-  distances.set(startingElementId, 0)
-  
-
-  while (queue.length > 0) {
-    const { elementId, distance } = queue.shift()!
-    
-    if (visited.has(elementId)) continue
-    visited.add(elementId)
-
-    
-
-    // Find all relations where this element is connected (BOTH directions)
-    relations.forEach(relation => {
-      relation.connections.forEach(conn => {
-        // Check BOTH directions to build complete connectivity
-        let nextElement: string | null = null
-        let direction = ''
-        
-        if (conn.fromElementId === elementId && !distances.has(conn.toElementId)) {
-          nextElement = conn.toElementId
-          direction = 'forward'
-        } else if (conn.toElementId === elementId && !distances.has(conn.fromElementId)) {
-          nextElement = conn.fromElementId
-          direction = 'backward'
-        }
-        
-        if (nextElement) {
-          distances.set(nextElement, distance + 1)
-          queue.push({ elementId: nextElement, distance: distance + 1 })
-          
-        }
-      })
-    })
-  }
-
-  
-  return distances
-}
-
-/**
- * Build element hierarchy with enhanced logic using element types and names
- */
-function buildElementHierarchy(
-  relations: Relation[], 
-  startingElementId: string, 
-  elementMap: Map<string, { id: string, type: string }>
-): Map<string, number> {
-  const hierarchy = new Map<string, number>()
-  
-  // Start with the starting element at level 0
-  hierarchy.set(startingElementId, 0)
-  
-
-  // Use multiple passes to build hierarchy correctly
-  let changed = true
-  let maxIterations = 10
-  let iteration = 0
-
-  while (changed && iteration < maxIterations) {
-    changed = false
-    iteration++
-    
-
-    relations.forEach(relation => {
-      relation.connections.forEach(conn => {
-        const fromLevel = hierarchy.get(conn.fromElementId)
-        const toLevel = hierarchy.get(conn.toElementId)
-
-        // If fromElement has a level but toElement doesn't, assign toElement level + 1
-        if (fromLevel !== undefined && toLevel === undefined) {
-          hierarchy.set(conn.toElementId, fromLevel + 1)
-          
-          changed = true
-        }
-        // If toElement has a level but fromElement doesn't, this might indicate reversed flow
-        else if (toLevel !== undefined && fromLevel === undefined) {
-          // Only assign if this makes semantic sense
-          const fromElement = elementMap.get(conn.fromElementId)
-          const toElement = elementMap.get(conn.toElementId)
-          
-          if (!shouldElementComeAfter(fromElement, toElement)) {
-            hierarchy.set(conn.fromElementId, toLevel - 1)
-            
-            changed = true
-          }
-        }
-        // If both have levels, check if they need adjustment
-        else if (fromLevel !== undefined && toLevel !== undefined) {
-          if (fromLevel >= toLevel) {
-            // This indicates the direction might be wrong, but let's be cautious
-            
-          }
-        }
-      })
-    })
-  }
-
-  
-  return hierarchy
-}
-
-/**
- * Determine if an element should come after another in the flow sequence
- */
-function shouldElementComeAfter(
-  element1: { id: string, type: string } | undefined,
-  element2: { id: string, type: string } | undefined
-): boolean {
-  if (!element1 || !element2) return false
-
-  // States typically come at the beginning or end of flows
-  if (element1.type === 'state' && element2.type === 'action') return false  // state comes before action
-  if (element1.type === 'action' && element2.type === 'state') return true   // action comes before state (end state)
-
-  // Artefacts are typically outputs/results - come after actions
-  if (element1.type === 'action' && element2.type === 'artefact') return false  // action comes before artefact
-  if (element1.type === 'artefact' && element2.type === 'action') return true   // artefact comes before action (rare, but possible as input)
-
-  // For actions, use name-based hierarchy analysis
-  if (element1.type === 'action' && element2.type === 'action') {
-    return analyzeActionHierarchy(element1, element2)
-  }
-
-  return false
-}
-
-/**
- * Analyze action hierarchy based on naming patterns and structure
- */
-function analyzeActionHierarchy(
-  element1: { id: string, type: string },
-  element2: { id: string, type: string }
-): boolean {
-  // Extract element names/IDs for comparison
-  const id1 = element1.id
-  const id2 = element2.id
-
-  // Simple heuristic: if one element ID contains the other as a prefix, 
-  // the longer ID (more specific) typically comes after
-  if (id2.startsWith(id1)) return false  // element1 (parent) comes before element2 (child)
-  if (id1.startsWith(id2)) return true   // element2 (parent) comes before element1 (child)
-
-  // Look for numerical patterns (Act 1 vs Act 2, Act 1.1 vs Act 1.2, etc.)
-  const num1 = extractNumber(id1)
-  const num2 = extractNumber(id2)
-  
-  if (num1 !== null && num2 !== null) {
-    return num1 > num2  // higher numbers typically come after lower numbers
-  }
-
-  // Default: maintain current order
-  return false
-}
-
-/**
- * Extract numerical suffix or embedded numbers for comparison
- */
-function extractNumber(elementId: string): number | null {
-  // Look for patterns like "Act 1", "Act 2.1", etc.
-  const matches = elementId.match(/(\d+(?:\.\d+)?)/)
-  return matches ? parseFloat(matches[1]) : null
-}
-
-/**
- * Group relations that should be combined
+ * Group relations that share same source or target
  */
 function groupRelations(relations: Relation[]): Relation[] {
   const groupedRelations: Relation[] = []
@@ -349,47 +116,4 @@ function findGroupableRelations(
   })
 
   return groupable
-}
-
-/**
- * Sort relations to follow flow order from starting element
- */
-function sortRelationsByFlow(relations: Relation[], startingElementId: string | null): Relation[] {
-  if (!startingElementId) return relations
-
-  const sorted: Relation[] = []
-  const processedElements = new Set<string>([startingElementId])
-  const remaining = [...relations]
-
-  // Process relations level by level
-  while (remaining.length > 0) {
-    const currentLevel: Relation[] = []
-
-    // Find relations where source elements are already processed
-    for (let i = remaining.length - 1; i >= 0; i--) {
-      const relation = remaining[i]
-      const hasProcessedSource = relation.connections.some((conn: Connection) =>
-        processedElements.has(conn.fromElementId)
-      )
-
-      if (hasProcessedSource) {
-        currentLevel.push(relation)
-        remaining.splice(i, 1)
-
-        // Add target elements to processed set
-        relation.connections.forEach((conn: Connection) => {
-          processedElements.add(conn.toElementId)
-        })
-      }
-    }
-
-    if (currentLevel.length === 0 && remaining.length > 0) {
-      // Handle orphaned relations
-      currentLevel.push(remaining.shift()!)
-    }
-
-    sorted.push(...currentLevel)
-  }
-
-  return sorted
 }

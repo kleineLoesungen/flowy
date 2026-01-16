@@ -1220,7 +1220,7 @@ const renderCommentWithHashtags = (commentText: string) => {
         return `<span class="diff-remove">${escapedLine}</span>`
       }
       return escapedLine
-    }).join('\n')
+    }).join('')
     
     return `<pre><code class="language-diff">${styledLines}</code></pre>`
   })
@@ -2742,13 +2742,13 @@ onUnmounted(() => {
 .message-text :deep(pre) {
   background: #1e293b;
   color: #f8fafc;
-  padding: 0.75rem;
+  padding: 0.5rem;
   border-radius: 6px;
   overflow-x: auto;
-  margin: 0.5rem 0;
+  margin: 0.25rem 0;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 0.75rem;
-  line-height: 1.5;
+  line-height: 1.3;
 }
 
 .message-text :deep(pre code) {
@@ -2769,7 +2769,7 @@ onUnmounted(() => {
 /* Diff syntax highlighting */
 .message-text :deep(pre) {
   counter-reset: line;
-  line-height: 1.6;
+  line-height: 1.3;
 }
 
 .message-text :deep(pre code) {
@@ -2780,11 +2780,35 @@ onUnmounted(() => {
 .message-text :deep(pre code .diff-add) {
   color: #22c55e;
   display: block;
+  line-height: 1.3;
 }
 
 .message-text :deep(pre code .diff-remove) {
   color: #ef4444;
   display: block;
+  line-height: 1.3;
+}
+
+.message-text :deep(ul),
+.message-text :deep(ol) {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+  list-style-position: outside;
+}
+
+.message-text :deep(ul) {
+  list-style-type: disc;
+  display: block;
+}
+
+.message-text :deep(ol) {
+  list-style-type: decimal;
+  display: block;
+}
+
+.message-text :deep(li) {
+  margin: 0.25rem 0;
+  display: list-item;
 }
 
 .message-text :deep(strong) {
