@@ -16,7 +16,6 @@ export default defineEventHandler(async (event) => {
     // Clear the authentication cookie
     setCookie(event, 'auth-token', '', {
       httpOnly: true,
-      secure: useRuntimeConfig().public.nodeEnv === 'production',
       sameSite: 'strict',
       expires: new Date(0) // Expire immediately
     })
